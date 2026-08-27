@@ -1,0 +1,6 @@
+{
+  "name": "Fotus Hub CX & Visitas",
+  "description": "Painel de controle integrado de Casos CX, Reclame Aqui, Visitas de Integradores e Assistente Virtual ISA para a Fotus.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
