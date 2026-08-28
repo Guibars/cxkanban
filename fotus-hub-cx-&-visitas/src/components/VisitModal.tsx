@@ -268,7 +268,7 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
                 <input
                   type="text"
                   required
-                  placeholder="Ex: Patricia Rocha"
+                  placeholder="Nome real do anfitrião"
                   value={hostName}
                   onChange={(e) => setHostName(e.target.value)}
                   className="w-full bg-gray-50/70 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:bg-white focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 outline-none transition-all"

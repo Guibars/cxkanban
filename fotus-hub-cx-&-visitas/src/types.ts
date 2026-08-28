@@ -1,12 +1,6 @@
 export type CaseStatus = 'Aberto' | 'Em Andamento' | 'Resolvido' | 'Cancelado';
 
-export type Department = 
-  | 'Logística' 
-  | 'Financeiro' 
-  | 'Suporte Técnico' 
-  | 'Diretoria' 
-  | 'Coordenação' 
-  | 'Liderança';
+export type Department = string;
 
 export interface ExtraCostItem {
   id: string;
@@ -23,9 +17,14 @@ export interface CXCase {
   status: CaseStatus;
   assigneeEmail: string | null;
   assigneeName: string | null;
-  targetDepartment?: Department | null;
+  organizationUnitId?: string | null;
+  targetDepartment?: string | null;
+  targetTeam?: string | null;
+  targetRegional?: string | null;
   departmentAssigneeName?: string | null;
   departmentAssigneeEmail?: string | null;
+  escalationLeaderName?: string | null;
+  escalationLeaderEmail?: string | null;
   extraCosts?: ExtraCostItem[];
   totalExtraCost?: number;
   extraCostReason?: string;
@@ -63,8 +62,8 @@ export interface IntegratorVisit {
   contactPhone?: string;
   contactEmail?: string;
   cityState?: string;
-  visitDate: string; // YYYY-MM-DD
-  visitTime?: string; // HH:mm
+  visitDate: string;
+  visitTime?: string;
   hostName: string;
   hostEmail?: string;
   objective: string;
@@ -72,6 +71,51 @@ export interface IntegratorVisit {
   status: VisitStatus;
   notes?: string;
   feedback?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface OrganizationUnit {
+  id: string;
+  department: string;
+  teamName: string;
+  regional: string;
+  managerName: string;
+  managerEmail: string;
+  leaderName: string;
+  leaderEmail: string;
+  active: boolean;
+  createdByEmail: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type OccurrenceStage = 'Recebida' | 'Em Análise' | 'Aguardando Retorno' | 'Finalizada';
+export type OccurrenceApproval = 'Pendente' | 'Aprovado' | 'Reprovado';
+
+export interface Occurrence {
+  id: string;
+  date: string;
+  agentName: string;
+  companyName: string;
+  state: string;
+  region: string;
+  orderNumber: string;
+  uniqueNumber: string;
+  sacCode: string;
+  occurrenceType: string;
+  product: string;
+  quantity: number;
+  stage: OccurrenceStage;
+  approvalStatus: OccurrenceApproval;
+  carrier: string;
+  comments: string;
+  consultant: string;
+  organizationUnitId?: string | null;
+  routedToName?: string | null;
+  routedToEmail?: string | null;
+  createdByEmail: string;
+  createdByName: string;
   createdAt: number;
   updatedAt: number;
 }

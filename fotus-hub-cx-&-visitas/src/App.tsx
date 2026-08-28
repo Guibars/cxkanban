@@ -1,63 +1,86 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { 
-  LogOut, 
-  Plus, 
-  Search, 
-  RefreshCw, 
-  ArchiveRestore, 
-  Filter, 
-  ChevronDown, 
-  ChevronUp, 
-  Headset, 
-  Building2, 
+import { useEffect, useState } from 'react';
+import { User } from 'firebase/auth';
+import {
+  ArchiveRestore,
+  Building2,
+  ClipboardList,
+  Headset,
+  LogOut,
+  Network,
+  Plus,
+  RefreshCw,
   Sparkles,
-  CalendarCheck,
-  Sparkle
 } from 'lucide-react';
-import { auth, db, signOut, collection, onSnapshot, query, orderBy } from './lib/firebase';
-import { User, onAuthStateChanged } from 'firebase/auth';
-import { CXCase, RACase, IntegratorVisit } from './types';
-import { cn, formatDate } from './lib/utils';
+import {
+  auth,
+  collection,
+  db,
+  onAuthStateChanged,
+  onSnapshot,
+  orderBy,
+  query,
+  signOut,
+} from './lib/firebase';
+import { isAuthorizedEmail } from './lib/auth';
+import { cn } from './lib/utils';
+import {
+  CXCase,
+  IntegratorVisit,
+  Occurrence,
+  OrganizationUnit,
+  RACase,
+} from './types';
 import Auth from './components/Auth';
 import CaseModal from './components/CaseModal';
+import CxKanbanView from './components/CxKanbanView';
+import IsaChatModal from './components/IsaChatModal';
+import OccurrencesView from './components/OccurrencesView';
+import OrganizationView from './components/OrganizationView';
 import RaModal from './components/RaModal';
 import VisitModal from './components/VisitModal';
-import IsaChatModal from './components/IsaChatModal';
-import CxKanbanView from './components/CxKanbanView';
 import VisitsView from './components/VisitsView';
-import { seedDemoData } from './lib/seedData';
 
-type MainTab = 'cx' | 'ra' | 'visitas';
+type MainTab = 'cx' | 'ocorrencias' | 'ra' | 'visitas' | 'estrutura';
 
-const ISA_LOGO = "https://res.cloudinary.com/dsctpzqvy/image/upload/v1776894141/I_matvg6.png";
-const FOTUS_LOGO = "https://res.cloudinary.com/dsctpzqvy/image/upload/v1787848825/ChatGPT_Image_27_de_ago._de_2026_13_40_18_tzgwxs.png";
-const RA_LOGO = "https://res.cloudinary.com/dsctpzqvy/image/upload/v1787843527/25-reclame_mnxv8n.png";
+const ISA_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1776894141/I_matvg6.png';
+const FOTUS_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1787848825/ChatGPT_Image_27_de_ago._de_2026_13_40_18_tzgwxs.png';
+const RA_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1787843527/25-reclame_mnxv8n.png';
+
+const TAB_COPY: Record<MainTab, { title: string; subtitle: string }> = {
+  cx: { title: 'Central de Casos CX', subtitle: 'Casos direcionados pela estrutura real de times, regionais e lideranças' },
+  ocorrencias: { title: 'Controle de Ocorrências', subtitle: 'Acompanhamento interativo das ocorrências antes controladas por planilha' },
+  ra: { title: 'Painel Reclame Aqui', subtitle: 'Monitoramento das reclamações, indicadores e resolução' },
+  visitas: { title: 'Visitas de Integradores', subtitle: 'Agenda, recepção e acompanhamento dos parceiros' },
+  estrutura: { title: 'Estrutura Organizacional', subtitle: 'Cadastro dos times, regionais, gerentes e lideranças responsáveis' },
+};
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  
   const [activeTab, setActiveTab] = useState<MainTab>('cx');
-  
   const [cases, setCases] = useState<CXCase[]>([]);
   const [raCases, setRaCases] = useState<RACase[]>([]);
   const [visits, setVisits] = useState<IntegratorVisit[]>([]);
-  
-  // Modals state
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
+  const [organizationUnits, setOrganizationUnits] = useState<OrganizationUnit[]>([]);
+  const [dataError, setDataError] = useState('');
+
+  const [isCaseModalOpen, setIsCaseModalOpen] = useState(false);
   const [caseToEdit, setCaseToEdit] = useState<CXCase | null>(null);
-  
   const [isRaModalOpen, setIsRaModalOpen] = useState(false);
   const [raCaseToEdit, setRaCaseToEdit] = useState<RACase | null>(null);
-
   const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
   const [visitToEdit, setVisitToEdit] = useState<IntegratorVisit | null>(null);
-
   const [isIsaChatOpen, setIsIsaChatOpen] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser && !isAuthorizedEmail(currentUser.email)) {
+        await signOut(auth);
+        setUser(null);
+      } else {
+        setUser(currentUser);
+      }
       setAuthLoading(false);
     });
     return () => unsubscribe();
@@ -65,415 +88,113 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
-    
-    // Subscribe to CX Cases
-    const qCX = query(collection(db, 'cx_cases'), orderBy('createdAt', 'desc'));
-    const unsubCX = onSnapshot(qCX, (snapshot) => {
-      const casesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as CXCase[];
-      setCases(casesData);
+    setDataError('');
+    const handleSnapshotError = (error: unknown) => {
+      console.error('Erro ao ler dados do Firestore:', error);
+      setDataError('Não foi possível ler todos os dados. Publique as regras atualizadas do Firestore e recarregue a página.');
+    };
 
-      // Auto seed initial demo cases if empty
-      if (snapshot.empty) {
-        seedDemoData();
-      }
-    });
+    const unsubCases = onSnapshot(query(collection(db, 'cx_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
+      setCases(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as CXCase[]);
+    }, handleSnapshotError);
 
-    // Subscribe to RA Cases
-    const qRA = query(collection(db, 'ra_cases'), orderBy('createdAt', 'desc'));
-    const unsubRA = onSnapshot(qRA, (snapshot) => {
-      const raData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as RACase[];
-      setRaCases(raData);
-    });
+    const unsubRa = onSnapshot(query(collection(db, 'ra_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
+      setRaCases(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as RACase[]);
+    }, handleSnapshotError);
 
-    // Subscribe to Integrator Visits
-    const qVisits = query(collection(db, 'integrator_visits'), orderBy('createdAt', 'desc'));
-    const unsubVisits = onSnapshot(qVisits, (snapshot) => {
-      const visitsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as IntegratorVisit[];
-      setVisits(visitsData);
-    });
+    const unsubVisits = onSnapshot(query(collection(db, 'integrator_visits'), orderBy('createdAt', 'desc')), (snapshot) => {
+      setVisits(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as IntegratorVisit[]);
+    }, handleSnapshotError);
+
+    const unsubOccurrences = onSnapshot(query(collection(db, 'occurrences'), orderBy('createdAt', 'desc')), (snapshot) => {
+      setOccurrences(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as Occurrence[]);
+    }, handleSnapshotError);
+
+    const unsubOrganization = onSnapshot(query(collection(db, 'organization_units'), orderBy('createdAt', 'desc')), (snapshot) => {
+      setOrganizationUnits(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationUnit[]);
+    }, handleSnapshotError);
 
     return () => {
-      unsubCX();
-      unsubRA();
+      unsubCases();
+      unsubRa();
       unsubVisits();
+      unsubOccurrences();
+      unsubOrganization();
     };
   }, [user]);
 
-  const handleLogout = () => signOut(auth);
-
-  const handleSeedData = async () => {
-    await seedDemoData();
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Aberto': return 'bg-yellow-50 text-yellow-700 border-yellow-200/60 shadow-sm';
-      case 'Em Andamento': return 'bg-blue-50 text-blue-700 border-blue-200/60 shadow-sm';
-      case 'Resolvido': return 'bg-emerald-50 text-emerald-700 border-emerald-200/60 shadow-sm';
-      case 'Cancelado': return 'bg-gray-50 text-gray-600 border-gray-200/60 shadow-sm';
-      default: return 'bg-gray-50 text-gray-700 border-gray-200/60 shadow-sm';
-    }
-  };
-
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f4f7f6]">
-        <RefreshCw className="w-8 h-8 text-[#385041] animate-spin" />
-      </div>
-    );
+    return <div className="flex min-h-screen items-center justify-center bg-[#f4f7f6]"><RefreshCw className="h-8 w-8 animate-spin text-[#385041]" /></div>;
   }
 
-  if (!user) {
-    return <Auth />;
-  }
+  if (!user) return <Auth />;
+
+  const tabs: Array<{ id: MainTab; label: string; icon: typeof Headset; alert?: boolean }> = [
+    { id: 'cx', label: 'Casos CX', icon: Headset, alert: cases.some((item) => item.status === 'Aberto') },
+    { id: 'ocorrencias', label: 'Ocorrências', icon: ClipboardList, alert: occurrences.some((item) => item.stage !== 'Finalizada') },
+    { id: 'ra', label: 'Reclame Aqui', icon: ArchiveRestore, alert: raCases.some((item) => item.status === 'Aberto') },
+    { id: 'visitas', label: 'Visitas', icon: Building2, alert: visits.some((item) => item.status === 'Agendada') },
+    { id: 'estrutura', label: 'Estrutura', icon: Network, alert: organizationUnits.length === 0 },
+  ];
+
+  const scoreCases = raCases.filter((item) => typeof item.finalScore === 'number');
+  const averageRaScore = scoreCases.length ? (scoreCases.reduce((sum, item) => sum + (item.finalScore || 0), 0) / scoreCases.length).toFixed(1) : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f8fbf8] via-[#f2f6f3] to-[#e8efe9] flex font-sans antialiased text-gray-900">
-      
-      {/* Lateral Toolbar */}
-      <aside className="w-20 bg-white/80 backdrop-blur-xl border-r border-gray-200/80 flex flex-col items-center py-6 gap-6 z-40 hidden sm:flex shrink-0 shadow-xs">
-        <div className="mb-2">
-          <img 
-            src={FOTUS_LOGO} 
-            alt="Fotus Logo" 
-            className="w-12 h-auto object-contain"
-          />
-        </div>
-
-        {/* Tab 1: Casos CX */}
-        <button 
-          onClick={() => setActiveTab('cx')} 
-          title="Casos CX" 
-          className={cn(
-            "p-3 rounded-2xl transition-all relative",
-            activeTab === 'cx' 
-              ? 'bg-[#e8efe0] text-[#385041] shadow-xs' 
-              : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700'
-          )}
-        >
-          <Headset className="w-6 h-6" />
-          {cases.some(c => c.status === 'Aberto') && (
-            <span className="absolute top-2 right-2 w-2 h-2 bg-amber-500 rounded-full" />
-          )}
-        </button>
-
-        {/* Tab 2: Reclame Aqui */}
-        <button 
-          onClick={() => setActiveTab('ra')} 
-          title="Reclame Aqui" 
-          className={cn(
-            "p-3 rounded-2xl transition-all",
-            activeTab === 'ra' 
-              ? 'bg-[#e8efe0] shadow-xs ring-1 ring-[#385041]/20' 
-              : 'hover:bg-gray-50 opacity-60 hover:opacity-100'
-          )}
-        >
-          <img src={RA_LOGO} className="w-7 h-7 object-contain" alt="RA" />
-        </button>
-
-        {/* Tab 3: Visitas de Integradores */}
-        <button 
-          onClick={() => setActiveTab('visitas')} 
-          title="Visitas de Integradores" 
-          className={cn(
-            "p-3 rounded-2xl transition-all relative",
-            activeTab === 'visitas' 
-              ? 'bg-[#e8efe0] text-[#385041] shadow-xs ring-1 ring-[#385041]/20' 
-              : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700'
-          )}
-        >
-          <Building2 className="w-6 h-6" />
-          {visits.some(v => v.status === 'Agendada') && (
-            <span className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full" />
-          )}
-        </button>
-
-        {/* Bottom Quick ISA AI Trigger in sidebar */}
-        <div className="mt-auto pt-4 border-t border-gray-100 flex flex-col items-center">
-          <button
-            onClick={() => setIsIsaChatOpen(true)}
-            title="Abrir Assistente ISA"
-            className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#385041] to-[#4e6d5b] p-1 text-white shadow-md hover:scale-105 transition-all flex items-center justify-center group"
-          >
-            <img src={ISA_LOGO} alt="ISA" className="w-full h-full object-contain filter drop-shadow-xs" />
+    <div className="flex min-h-screen bg-gradient-to-br from-[#f8fbf8] via-[#f2f6f3] to-[#e8efe9] font-sans text-gray-900">
+      <aside className="hidden w-20 shrink-0 flex-col items-center gap-5 border-r border-gray-200/80 bg-white/80 py-6 shadow-sm backdrop-blur-xl sm:flex">
+        <img src={FOTUS_LOGO} alt="Fotus" className="mb-2 h-auto w-12 object-contain" />
+        {tabs.map(({ id, label, icon: Icon, alert }) => (
+          <button key={id} onClick={() => setActiveTab(id)} title={label} className={cn('relative rounded-2xl p-3 transition-all', activeTab === id ? 'bg-[#e8efe0] text-[#385041] shadow-sm ring-1 ring-[#385041]/10' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700')}>
+            <Icon className="h-6 w-6" />
+            {alert && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-500" />}
           </button>
-        </div>
+        ))}
+        <button onClick={() => setIsIsaChatOpen(true)} title="Abrir ISA" className="mt-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#385041] to-[#4e6d5b] p-1 text-white shadow-md transition-transform hover:scale-105"><img src={ISA_LOGO} alt="ISA" className="h-full w-full object-contain" /></button>
       </aside>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* Topbar */}
-        <header className="bg-white/70 backdrop-blur-xl border-b border-white/80 shadow-[0_4px_30px_rgba(0,0,0,0.02)] px-5 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30">
-          
-          {/* Brand & Mobile Icon */}
-          <div className="flex items-center gap-3">
-            <img 
-              src={FOTUS_LOGO} 
-              alt="Fotus" 
-              className="h-9 w-auto object-contain sm:hidden"
-            />
-            <div>
-              <h1 className="text-lg font-bold text-gray-900 tracking-tight flex items-center gap-2">
-                {activeTab === 'cx' && 'Central de Casos CX'}
-                {activeTab === 'ra' && 'Painel Reclame Aqui'}
-                {activeTab === 'visitas' && 'Visitas de Integradores à Empresa'}
-              </h1>
-              <p className="text-xs text-gray-500 hidden md:block">
-                {activeTab === 'cx' && 'Fluxo Kanban com direcionamento de setores e custos extras'}
-                {activeTab === 'ra' && 'Monitoramento de reputação, índices IR, IS, MA, IN e resolução'}
-                {activeTab === 'visitas' && 'Recepção, pautas técnicas e acompanhamento de parceiros'}
-              </p>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 border-b border-white/80 bg-white/75 px-4 py-3.5 shadow-sm backdrop-blur-xl sm:px-8">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3"><img src={FOTUS_LOGO} alt="Fotus" className="h-9 w-auto object-contain sm:hidden" /><div className="min-w-0"><h1 className="truncate text-base font-extrabold tracking-tight text-gray-950 sm:text-lg">{TAB_COPY[activeTab].title}</h1><p className="hidden truncate text-xs text-gray-500 md:block">{TAB_COPY[activeTab].subtitle}</p></div></div>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button onClick={() => setIsIsaChatOpen(true)} className="flex items-center gap-2 rounded-2xl border border-[#385041]/20 bg-gradient-to-r from-[#eef6ec] to-[#e6f3eb] px-3 py-2 shadow-sm transition-all hover:shadow-md"><img src={ISA_LOGO} alt="ISA" className="h-6 w-6 object-contain" /><span className="hidden text-left sm:block"><strong className="block text-xs text-[#385041]">Falar com ISA</strong><small className="block text-[9px] text-gray-500">Relatórios do Hub</small></span><Sparkles className="hidden h-3.5 w-3.5 text-amber-500 sm:block" /></button>
+              <div className="flex items-center gap-2 border-l border-gray-200 pl-2 sm:pl-3"><div className="hidden text-right lg:block"><p className="text-xs font-bold text-gray-800">{user.displayName || user.email}</p><p className="text-[10px] text-gray-500">{user.email}</p></div>{user.photoURL ? <img src={user.photoURL} alt="Avatar" className="h-8 w-8 rounded-full border border-gray-200" /> : <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#e8efe0] text-xs font-bold text-[#385041]">{user.email?.[0]?.toUpperCase()}</span>}<button onClick={() => signOut(auth)} title="Sair" className="rounded-xl p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"><LogOut className="h-4 w-4" /></button></div>
             </div>
           </div>
 
-          {/* Mobile Navigation Tabs (visible on small screens) */}
-          <div className="flex sm:hidden items-center gap-1 bg-gray-100 p-1 rounded-xl">
-            <button
-              onClick={() => setActiveTab('cx')}
-              className={cn("px-2.5 py-1 rounded-lg text-xs font-bold", activeTab === 'cx' ? "bg-white text-[#385041] shadow-xs" : "text-gray-500")}
-            >
-              CX
-            </button>
-            <button
-              onClick={() => setActiveTab('ra')}
-              className={cn("px-2.5 py-1 rounded-lg text-xs font-bold", activeTab === 'ra' ? "bg-white text-[#385041] shadow-xs" : "text-gray-500")}
-            >
-              RA
-            </button>
-            <button
-              onClick={() => setActiveTab('visitas')}
-              className={cn("px-2.5 py-1 rounded-lg text-xs font-bold", activeTab === 'visitas' ? "bg-white text-[#385041] shadow-xs" : "text-gray-500")}
-            >
-              Visitas
-            </button>
-          </div>
-          
-          {/* Right Actions: ISA Button + User Profile */}
-          <div className="flex items-center gap-3">
-            
-            {/* Top Button to Talk with ISA AI */}
-            <button
-              onClick={() => setIsIsaChatOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-[#eef6ec] via-[#f7faf5] to-[#e6f3eb] hover:from-[#e4f1e1] hover:to-[#dbede2] border border-[#385041]/20 shadow-xs hover:shadow-sm transition-all group active:scale-95"
-            >
-              <div className="w-6 h-6 rounded-xl bg-white p-0.5 shadow-2xs border border-white flex items-center justify-center overflow-hidden shrink-0">
-                <img src={ISA_LOGO} alt="ISA" className="w-full h-full object-contain" />
-              </div>
-              <div className="text-left hidden sm:block">
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-extrabold text-[#385041]">Falar com ISA</span>
-                  <Sparkles className="w-3 h-3 text-amber-500 animate-pulse" />
-                </div>
-                <span className="text-[10px] text-gray-500 font-medium leading-none block">IA de CX & Visitas</span>
-              </div>
-            </button>
-
-            {/* User Profile */}
-            <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
-              <div className="flex flex-col items-end hidden lg:flex">
-                <span className="text-xs font-bold text-gray-800">{user.displayName || 'Guilherme Barbosa'}</span>
-                <span className="text-[10px] text-gray-500">{user.email}</span>
-              </div>
-
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="Avatar" className="w-8 h-8 rounded-full border border-gray-200 shadow-xs" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-[#e8efe0] text-[#385041] flex items-center justify-center font-bold text-xs shadow-xs border border-white">
-                  {user.email?.[0]?.toUpperCase() || 'U'}
-                </div>
-              )}
-
-              <button 
-                onClick={handleLogout} 
-                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors" 
-                title="Sair"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-
-          </div>
+          <nav className="mt-3 flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 sm:hidden">
+            {tabs.map(({ id, label }) => <button key={id} onClick={() => setActiveTab(id)} className={cn('shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-bold', activeTab === id ? 'bg-white text-[#385041] shadow-sm' : 'text-gray-500')}>{label}</button>)}
+          </nav>
         </header>
 
-        {/* Main Content Body */}
-        <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-8 py-6">
-          
-          {/* TAB 1: CASOS CX (Kanban + Minimalist Cards + Sector Forwarding + Extra Costs) */}
-          {activeTab === 'cx' && (
-            <CxKanbanView
-              cases={cases}
-              onNewCase={() => {
-                setCaseToEdit(null);
-                setIsModalOpen(true);
-              }}
-              onEditCase={(c) => {
-                setCaseToEdit(c);
-                setIsModalOpen(true);
-              }}
-              onSeedDemoData={handleSeedData}
-            />
-          )}
+        <main className="mx-auto w-full max-w-[1560px] flex-1 px-4 py-5 sm:px-8 sm:py-6">
+          {dataError && <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800">{dataError}</div>}
 
-          {/* TAB 2: RECLAME AQUI */}
+          {activeTab === 'cx' && <CxKanbanView cases={cases} organizationUnits={organizationUnits} onNewCase={() => { setCaseToEdit(null); setIsCaseModalOpen(true); }} onEditCase={(caseItem) => { setCaseToEdit(caseItem); setIsCaseModalOpen(true); }} />}
+
+          {activeTab === 'ocorrencias' && <OccurrencesView occurrences={occurrences} organizationUnits={organizationUnits} currentUser={user} />}
+
           {activeTab === 'ra' && (
-            <div className="space-y-6">
-              
-              {/* RA Top Bar */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center border border-emerald-200">
-                    <img src={RA_LOGO} className="w-6 h-6 object-contain" alt="RA" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-gray-900">Ocorrências Reclame Aqui</h3>
-                    <p className="text-xs text-gray-500">Média geral: {(raCases.filter(r => typeof r.finalScore === 'number').reduce((acc, r) => acc + (r.finalScore || 0), 0) / (raCases.filter(r => typeof r.finalScore === 'number').length || 1)).toFixed(1)} / 10</p>
-                  </div>
-                </div>
-
-                <button 
-                  onClick={() => {
-                    setRaCaseToEdit(null);
-                    setIsRaModalOpen(true);
-                  }}
-                  className="flex items-center gap-2 bg-[#385041] hover:bg-[#2c4033] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-all shrink-0 active:scale-95"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Novo Chamado RA</span>
-                </button>
-              </div>
-
-              {/* RA Cards Grid */}
-              {raCases.length === 0 ? (
-                <div className="bg-white/50 backdrop-blur-md rounded-3xl border border-white p-12 text-center flex flex-col items-center justify-center">
-                  <ArchiveRestore className="w-12 h-12 text-gray-300 mb-3" />
-                  <h3 className="text-base font-bold text-gray-800 mb-1">Nenhum chamado RA registrado</h3>
-                  <p className="text-xs text-gray-500 max-w-sm mb-4">
-                    Registre os chamados do Reclame Aqui para monitorar a reputação e indicadores.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setRaCaseToEdit(null);
-                      setIsRaModalOpen(true);
-                    }}
-                    className="px-4 py-2 bg-[#385041] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#2c4033] transition-all"
-                  >
-                    Abrir Primeiro RA
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {raCases.map((c) => (
-                    <div
-                      key={c.id}
-                      onClick={() => {
-                        setRaCaseToEdit(c);
-                        setIsRaModalOpen(true);
-                      }}
-                      className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_25px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all p-5 flex flex-col justify-between cursor-pointer group"
-                    >
-                      <div>
-                        <div className="flex justify-between items-center mb-3">
-                          <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border", getStatusColor(c.status))}>
-                            {c.status}
-                          </span>
-                          {typeof c.finalScore === 'number' && (
-                            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                              Nota: {c.finalScore.toFixed(1)}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="mb-2">
-                          <p className="text-[10px] uppercase font-bold text-gray-400">ID Reclamação</p>
-                          <h4 className="text-base font-bold text-gray-900 group-hover:text-[#385041] transition-colors">
-                            {c.raNumber}
-                          </h4>
-                        </div>
-
-                        <div className="p-3 bg-gray-50/80 rounded-xl border border-gray-100 mb-3 text-xs">
-                          <p className="font-bold text-gray-800">{c.customerName}</p>
-                          <p className="text-gray-500 mt-0.5 truncate">{c.phone || c.email || 'Sem contato'}</p>
-                        </div>
-
-                        {c.information && (
-                          <p className="text-xs text-gray-500 line-clamp-2 mb-3 italic">
-                            "{c.information}"
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
-                        <span>{new Date(c.createdAt).toLocaleDateString('pt-BR')}</span>
-                        <span className="font-medium text-gray-600 truncate max-w-[120px]">
-                          {c.assigneeName || 'Fotus CX'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="space-y-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-100"><img src={RA_LOGO} alt="RA" className="h-7 w-7 object-contain" /></span><div><h2 className="text-base font-extrabold text-gray-950">Ocorrências Reclame Aqui</h2><p className="text-xs text-gray-500">{averageRaScore ? `Média dos casos avaliados: ${averageRaScore} / 10` : 'Nenhum caso avaliado ainda'}</p></div></div><button onClick={() => { setRaCaseToEdit(null); setIsRaModalOpen(true); }} className="flex items-center justify-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white"><Plus className="h-4 w-4" />Novo chamado RA</button></div>
+              {raCases.length === 0 ? <EmptyState icon={ArchiveRestore} title="Nenhum chamado RA registrado" description="Os exemplos foram removidos. Registre o primeiro chamado real quando necessário." action="Abrir primeiro chamado" onAction={() => { setRaCaseToEdit(null); setIsRaModalOpen(true); }} /> : <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{raCases.map((caseItem) => <article key={caseItem.id} onClick={() => { setRaCaseToEdit(caseItem); setIsRaModalOpen(true); }} className="cursor-pointer rounded-2xl border border-white/90 bg-white/80 p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"><div className="mb-3 flex items-center justify-between"><span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-extrabold text-gray-700">{caseItem.status}</span>{typeof caseItem.finalScore === 'number' && <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700">Nota {caseItem.finalScore.toFixed(1)}</span>}</div><p className="text-[10px] font-bold uppercase text-gray-400">ID Reclamação</p><h3 className="text-base font-extrabold text-gray-950">{caseItem.raNumber}</h3><div className="mt-3 rounded-xl bg-gray-50 p-3"><p className="text-xs font-bold text-gray-800">{caseItem.customerName}</p><p className="mt-0.5 truncate text-[11px] text-gray-500">{caseItem.phone || caseItem.email || 'Sem contato informado'}</p></div>{caseItem.information && <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-gray-500">{caseItem.information}</p>}</article>)}</div>}
             </div>
           )}
 
-          {/* TAB 3: VISITAS DE INTEGRADORES */}
-          {activeTab === 'visitas' && (
-            <VisitsView
-              visits={visits}
-              onNewVisit={() => {
-                setVisitToEdit(null);
-                setIsVisitModalOpen(true);
-              }}
-              onEditVisit={(v) => {
-                setVisitToEdit(v);
-                setIsVisitModalOpen(true);
-              }}
-              onSeedDemoData={handleSeedData}
-            />
-          )}
-
+          {activeTab === 'visitas' && <VisitsView visits={visits} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} />}
+          {activeTab === 'estrutura' && <OrganizationView units={organizationUnits} currentUser={user} />}
         </main>
 
-        {/* Modals */}
-        <CaseModal 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
-          caseToEdit={caseToEdit}
-          currentUser={user}
-        />
-        
-        <RaModal
-          isOpen={isRaModalOpen}
-          onClose={() => setIsRaModalOpen(false)}
-          caseToEdit={raCaseToEdit}
-          currentUser={user}
-        />
-
-        <VisitModal
-          isOpen={isVisitModalOpen}
-          onClose={() => setIsVisitModalOpen(false)}
-          visitToEdit={visitToEdit}
-          currentUser={user}
-        />
-
-        <IsaChatModal
-          isOpen={isIsaChatOpen}
-          onClose={() => setIsIsaChatOpen(false)}
-          cases={cases}
-          raCases={raCases}
-          visits={visits}
-        />
-
+        <CaseModal isOpen={isCaseModalOpen} onClose={() => setIsCaseModalOpen(false)} caseToEdit={caseToEdit} currentUser={user} organizationUnits={organizationUnits} />
+        <RaModal isOpen={isRaModalOpen} onClose={() => setIsRaModalOpen(false)} caseToEdit={raCaseToEdit} currentUser={user} />
+        <VisitModal isOpen={isVisitModalOpen} onClose={() => setIsVisitModalOpen(false)} visitToEdit={visitToEdit} currentUser={user} />
+        <IsaChatModal isOpen={isIsaChatOpen} onClose={() => setIsIsaChatOpen(false)} cases={cases} raCases={raCases} visits={visits} occurrences={occurrences} organizationUnits={organizationUnits} />
       </div>
     </div>
   );
+}
+
+function EmptyState({ icon: Icon, title, description, action, onAction }: { icon: typeof ArchiveRestore; title: string; description: string; action: string; onAction: () => void }) {
+  return <div className="rounded-3xl border border-dashed border-gray-300 bg-white/60 px-6 py-16 text-center"><Icon className="mx-auto h-12 w-12 text-gray-300" /><h3 className="mt-4 text-base font-extrabold text-gray-800">{title}</h3><p className="mx-auto mt-1 max-w-lg text-xs text-gray-500">{description}</p><button onClick={onAction} className="mt-5 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white">{action}</button></div>;
 }

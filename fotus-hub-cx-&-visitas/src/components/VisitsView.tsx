@@ -8,10 +8,9 @@ interface VisitsViewProps {
   visits: IntegratorVisit[];
   onNewVisit: () => void;
   onEditVisit: (visit: IntegratorVisit) => void;
-  onSeedDemoData?: () => void;
 }
 
-export default function VisitsView({ visits, onNewVisit, onEditVisit, onSeedDemoData }: VisitsViewProps) {
+export default function VisitsView({ visits, onNewVisit, onEditVisit }: VisitsViewProps) {
   const [statusFilter, setStatusFilter] = useState<'Todas' | VisitStatus>('Todas');
   const [search, setSearch] = useState('');
 
@@ -170,14 +169,6 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, onSeedDemo
             >
               Nova Visita
             </button>
-            {onSeedDemoData && (
-              <button
-                onClick={onSeedDemoData}
-                className="px-4 py-2 bg-white text-[#385041] border border-[#385041]/30 text-xs font-bold rounded-xl shadow-xs hover:bg-gray-50 transition-all"
-              >
-                Carregar Exemplos
-              </button>
-            )}
           </div>
         </div>
       ) : (

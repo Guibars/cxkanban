@@ -1,15 +1,122 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Basic rules for the CX app: logged in users can read and write all cases
-    match /cx_cases/{document=**} {
-      allow read, write: if request.auth != null;
+    function isAuthorizedUser() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true
+        && (
+          request.auth.token.email == 'guilhermebarbosars@gmail.com'
+          || request.auth.token.email.matches('^[^@]+@fotus[.]com[.]br$')
+        );
     }
-    match /ra_cases/{document=**} {
-      allow read, write: if request.auth != null;
+
+    function hasNumericTimestamps(data) {
+      return data.createdAt is int && data.updatedAt is int;
     }
-    match /integrator_visits/{document=**} {
-      allow read, write: if request.auth != null;
+
+    match /cx_cases/{caseId} {
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser()
+        && request.resource.data.orderNumber is string
+        && request.resource.data.productCode is string
+        && request.resource.data.quantity is int
+        && request.resource.data.status is string
+        && request.resource.data.observations is string
+        && hasNumericTimestamps(request.resource.data);
+      allow update: if isAuthorizedUser()
+        && request.resource.data.orderNumber is string
+        && request.resource.data.productCode is string
+        && request.resource.data.quantity is int
+        && request.resource.data.status is string
+        && request.resource.data.updatedAt is int;
+      allow delete: if isAuthorizedUser();
+    }
+
+    match /ra_cases/{caseId} {
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser()
+        && request.resource.data.raNumber is string
+        && request.resource.data.customerName is string
+        && request.resource.data.status is string
+        && hasNumericTimestamps(request.resource.data);
+      allow update: if isAuthorizedUser()
+        && request.resource.data.raNumber is string
+        && request.resource.data.customerName is string
+        && request.resource.data.status is string
+        && request.resource.data.updatedAt is int;
+      allow delete: if isAuthorizedUser();
+    }
+
+    match /integrator_visits/{visitId} {
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser()
+        && request.resource.data.integratorName is string
+        && request.resource.data.contactPerson is string
+        && request.resource.data.visitDate is string
+        && request.resource.data.status is string
+        && hasNumericTimestamps(request.resource.data);
+      allow update: if isAuthorizedUser()
+        && request.resource.data.integratorName is string
+        && request.resource.data.visitDate is string
+        && request.resource.data.status is string
+        && request.resource.data.updatedAt is int;
+      allow delete: if isAuthorizedUser();
+    }
+
+    match /organization_units/{unitId} {
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser()
+        && request.resource.data.department is string
+        && request.resource.data.teamName is string
+        && request.resource.data.regional is string
+        && request.resource.data.managerName is string
+        && request.resource.data.managerEmail is string
+        && request.resource.data.leaderName is string
+        && request.resource.data.leaderEmail is string
+        && request.resource.data.active is bool
+        && hasNumericTimestamps(request.resource.data);
+      allow update: if isAuthorizedUser()
+        && request.resource.data.department is string
+        && request.resource.data.teamName is string
+        && request.resource.data.managerName is string
+        && request.resource.data.leaderName is string
+        && request.resource.data.active is bool
+        && request.resource.data.updatedAt is int;
+      allow delete: if isAuthorizedUser();
+    }
+
+    match /occurrences/{occurrenceId} {
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser()
+        && request.resource.data.date is string
+        && request.resource.data.agentName is string
+        && request.resource.data.companyName is string
+        && request.resource.data.state is string
+        && request.resource.data.region is string
+        && request.resource.data.orderNumber is string
+        && request.resource.data.sacCode is string
+        && request.resource.data.occurrenceType is string
+        && request.resource.data.product is string
+        && request.resource.data.quantity is int
+        && request.resource.data.stage is string
+        && request.resource.data.approvalStatus is string
+        && request.resource.data.carrier is string
+        && hasNumericTimestamps(request.resource.data);
+      allow update: if isAuthorizedUser()
+        && request.resource.data.date is string
+        && request.resource.data.agentName is string
+        && request.resource.data.companyName is string
+        && request.resource.data.quantity is int
+        && request.resource.data.stage is string
+        && request.resource.data.approvalStatus is string
+        && request.resource.data.updatedAt is int;
+      allow delete: if isAuthorizedUser();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
