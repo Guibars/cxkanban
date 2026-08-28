@@ -121,3 +121,29 @@ export interface Occurrence {
   createdAt: number;
   updatedAt: number;
 }
+
+export type ExtraCostResponsible = 'Comercial' | 'Cliente';
+
+export interface ExtraCost {
+  id: string;
+  date: string;
+  orderNumber: string;
+  regional: string;
+  product: string;
+  quantity: number;
+  origin: string;
+  productCost: number;
+  logisticsCost: number;
+  taxCost: number;
+  totalCost: number;
+  responsible: ExtraCostResponsible;
+  reasonCategory: string;
+  detailedReason: string;
+  monthYear: string;
+  createdByEmail: string;
+  createdByName: string;
+  importSource?: string;
+  importRow?: number;
+  createdAt: number;
+  updatedAt: number;
+}

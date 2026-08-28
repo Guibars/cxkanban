@@ -3,6 +3,7 @@ import { User } from 'firebase/auth';
 import {
   ArchiveRestore,
   Building2,
+  CircleDollarSign,
   ClipboardList,
   Headset,
   LogOut,
@@ -25,6 +26,7 @@ import { isAuthorizedEmail } from './lib/auth';
 import { cn } from './lib/utils';
 import {
   CXCase,
+  ExtraCost,
   IntegratorVisit,
   Occurrence,
   OrganizationUnit,
@@ -33,6 +35,7 @@ import {
 import Auth from './components/Auth';
 import CaseModal from './components/CaseModal';
 import CxKanbanView from './components/CxKanbanView';
+import ExtraCostsView from './components/ExtraCostsView';
 import IsaChatModal from './components/IsaChatModal';
 import OccurrencesView from './components/OccurrencesView';
 import OrganizationView from './components/OrganizationView';
@@ -40,7 +43,7 @@ import RaModal from './components/RaModal';
 import VisitModal from './components/VisitModal';
 import VisitsView from './components/VisitsView';
 
-type MainTab = 'cx' | 'ocorrencias' | 'ra' | 'visitas' | 'estrutura';
+type MainTab = 'cx' | 'ocorrencias' | 'custos' | 'ra' | 'visitas' | 'estrutura';
 
 const ISA_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1776894141/I_matvg6.png';
 const FOTUS_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1787848825/ChatGPT_Image_27_de_ago._de_2026_13_40_18_tzgwxs.png';
@@ -69,6 +72,7 @@ function isLegacyDemoCase(caseItem: CXCase) {
 const TAB_COPY: Record<MainTab, { title: string; subtitle: string }> = {
   cx: { title: 'Central de Casos CX', subtitle: 'Casos direcionados pela estrutura real de times, regionais e lideranças' },
   ocorrencias: { title: 'Controle de Ocorrências', subtitle: 'Acompanhamento interativo das ocorrências antes controladas por planilha' },
+  custos: { title: 'Custo Extra', subtitle: 'Controle dos gastos não previstos por pedido, regional, origem e responsabilidade' },
   ra: { title: 'Painel Reclame Aqui', subtitle: 'Monitoramento das reclamações, indicadores e resolução' },
   visitas: { title: 'Visitas de Integradores', subtitle: 'Agenda, recepção e acompanhamento dos parceiros' },
   estrutura: { title: 'Estrutura Organizacional', subtitle: 'Cadastro dos times, regionais, gerentes e lideranças responsáveis' },
@@ -82,6 +86,7 @@ export default function App() {
   const [raCases, setRaCases] = useState<RACase[]>([]);
   const [visits, setVisits] = useState<IntegratorVisit[]>([]);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
+  const [extraCosts, setExtraCosts] = useState<ExtraCost[]>([]);
   const [organizationUnits, setOrganizationUnits] = useState<OrganizationUnit[]>([]);
   const [dataError, setDataError] = useState('');
 
@@ -131,6 +136,10 @@ export default function App() {
       setOccurrences(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as Occurrence[]);
     }, handleSnapshotError);
 
+    const unsubExtraCosts = onSnapshot(query(collection(db, 'extra_costs'), orderBy('createdAt', 'desc')), (snapshot) => {
+      setExtraCosts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as ExtraCost[]);
+    }, handleSnapshotError);
+
     const unsubOrganization = onSnapshot(query(collection(db, 'organization_units'), orderBy('createdAt', 'desc')), (snapshot) => {
       setOrganizationUnits(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationUnit[]);
     }, handleSnapshotError);
@@ -140,6 +149,7 @@ export default function App() {
       unsubRa();
       unsubVisits();
       unsubOccurrences();
+      unsubExtraCosts();
       unsubOrganization();
     };
   }, [user]);
@@ -153,6 +163,7 @@ export default function App() {
   const tabs: Array<{ id: MainTab; label: string; icon: typeof Headset; alert?: boolean }> = [
     { id: 'cx', label: 'Casos CX', icon: Headset, alert: cases.some((item) => item.status === 'Aberto') },
     { id: 'ocorrencias', label: 'Ocorrências', icon: ClipboardList, alert: occurrences.some((item) => item.stage !== 'Finalizada') },
+    { id: 'custos', label: 'Custo Extra', icon: CircleDollarSign, alert: extraCosts.some((item) => item.totalCost > 1000) },
     { id: 'ra', label: 'Reclame Aqui', icon: ArchiveRestore, alert: raCases.some((item) => item.status === 'Aberto') },
     { id: 'visitas', label: 'Visitas', icon: Building2, alert: visits.some((item) => item.status === 'Agendada') },
     { id: 'estrutura', label: 'Estrutura', icon: Network, alert: organizationUnits.length === 0 },
@@ -196,6 +207,8 @@ export default function App() {
 
           {activeTab === 'ocorrencias' && <OccurrencesView occurrences={occurrences} organizationUnits={organizationUnits} currentUser={user} />}
 
+          {activeTab === 'custos' && <ExtraCostsView costs={extraCosts} currentUser={user} />}
+
           {activeTab === 'ra' && (
             <div className="space-y-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-100"><img src={RA_LOGO} alt="RA" className="h-7 w-7 object-contain" /></span><div><h2 className="text-base font-extrabold text-gray-950">Ocorrências Reclame Aqui</h2><p className="text-xs text-gray-500">{averageRaScore ? `Média dos casos avaliados: ${averageRaScore} / 10` : 'Nenhum caso avaliado ainda'}</p></div></div><button onClick={() => { setRaCaseToEdit(null); setIsRaModalOpen(true); }} className="flex items-center justify-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white"><Plus className="h-4 w-4" />Novo chamado RA</button></div>
@@ -210,7 +223,7 @@ export default function App() {
         <CaseModal isOpen={isCaseModalOpen} onClose={() => setIsCaseModalOpen(false)} caseToEdit={caseToEdit} currentUser={user} organizationUnits={organizationUnits} />
         <RaModal isOpen={isRaModalOpen} onClose={() => setIsRaModalOpen(false)} caseToEdit={raCaseToEdit} currentUser={user} />
         <VisitModal isOpen={isVisitModalOpen} onClose={() => setIsVisitModalOpen(false)} visitToEdit={visitToEdit} currentUser={user} />
-        <IsaChatModal isOpen={isIsaChatOpen} onClose={() => setIsIsaChatOpen(false)} cases={cases} raCases={raCases} visits={visits} occurrences={occurrences} organizationUnits={organizationUnits} />
+        <IsaChatModal isOpen={isIsaChatOpen} onClose={() => setIsIsaChatOpen(false)} cases={cases} raCases={raCases} visits={visits} occurrences={occurrences} extraCosts={extraCosts} organizationUnits={organizationUnits} />
       </div>
     </div>
   );

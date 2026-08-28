@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, RefreshCw, Send, Sparkles, X } from 'lucide-react';
-import { CXCase, IntegratorVisit, Occurrence, OrganizationUnit, RACase } from '../types';
+import { CXCase, ExtraCost, IntegratorVisit, Occurrence, OrganizationUnit, RACase } from '../types';
 
 interface IsaChatModalProps {
   isOpen: boolean;
@@ -9,6 +9,7 @@ interface IsaChatModalProps {
   raCases: RACase[];
   visits: IntegratorVisit[];
   occurrences: Occurrence[];
+  extraCosts: ExtraCost[];
   organizationUnits: OrganizationUnit[];
 }
 
@@ -38,15 +39,29 @@ function rankingText(title: string, items: Array<{ label: string; count: number 
   return `${title}:\n${items.map((item, index) => `• ${index + 1}º ${item.label} — ${item.count}`).join('\n')}`;
 }
 
-export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, occurrences, organizationUnits }: IsaChatModalProps) {
+function costRankingText(title: string, costs: ExtraCost[], selector: (cost: ExtraCost) => string) {
+  const grouped = new Map<string, { label: string; total: number; count: number }>();
+  costs.forEach((cost) => {
+    const label = selector(cost).trim();
+    if (!label) return;
+    const key = label.toLocaleUpperCase('pt-BR');
+    const current = grouped.get(key);
+    grouped.set(key, { label: current?.label || label, total: (current?.total || 0) + cost.totalCost, count: (current?.count || 0) + 1 });
+  });
+  const ranked = [...grouped.values()].sort((a, b) => b.total - a.total).slice(0, 5);
+  if (!ranked.length) return `${title}: sem dados cadastrados.`;
+  return `${title}:\n${ranked.map((item, index) => `• ${index + 1}º ${item.label} — ${item.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (${item.count})`).join('\n')}`;
+}
+
+export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, occurrences, extraCosts, organizationUnits }: IsaChatModalProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       sender: 'isa',
-      text: 'Olá! Sou a ISA. Posso consolidar os dados reais de Casos CX, Controle de Ocorrências, Reclame Aqui, Visitas e Estrutura Organizacional. O que você quer analisar?',
-      suggestions: ['Relatório geral de ocorrências', 'Transportadoras mais citadas', 'Resumo de todas as abas', 'Como estão os direcionamentos?'],
+      text: 'Olá! Sou a ISA. Posso consolidar os dados reais de Casos CX, Controle de Ocorrências, Custo Extra, Reclame Aqui, Visitas e Estrutura Organizacional. O que você quer analisar?',
+      suggestions: ['Relatório de custos extras', 'Relatório geral de ocorrências', 'Resumo de todas as abas', 'Como estão os direcionamentos?'],
     },
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -86,28 +101,28 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
       };
     }
 
-    if (query.includes('produto')) {
+    if (query.includes('produto') && !query.includes('custo')) {
       return {
         text: `📦 Análise de produtos\n\n${rankingText('Produtos com mais ocorrências', rank(occurrences.map((item) => item.product), 5))}\n\n${rankingText('Tipos de ocorrência', rank(occurrences.map((item) => item.occurrenceType), 5))}`,
         suggestions: ['Transportadoras mais citadas', 'Relatório geral de ocorrências'],
       };
     }
 
-    if (query.includes('região') || query.includes('regiao') || query.includes('uf')) {
+    if ((query.includes('região') || query.includes('regiao') || query.includes('uf')) && !query.includes('custo')) {
       return {
         text: `🗺️ Distribuição geográfica\n\n${rankingText('Regiões com mais ocorrências', rank(occurrences.map((item) => item.region), 5))}\n\n${rankingText('Estados mais citados', rank(occurrences.map((item) => item.state), 8))}`,
         suggestions: ['Relatório geral de ocorrências', 'Transportadoras mais citadas'],
       };
     }
 
-    if (query.includes('ocorrência') || query.includes('ocorrencia') || query.includes('relatório') || query.includes('relatorio')) {
+    if (query.includes('ocorrência') || query.includes('ocorrencia') || ((query.includes('relatório') || query.includes('relatorio')) && !query.includes('custo'))) {
       return {
         text: occurrencesReport(),
         suggestions: ['Transportadoras mais citadas', 'Produtos mais citados', 'Resumo de todas as abas'],
       };
     }
 
-    if (query.includes('estrutura') || query.includes('direcionamento') || query.includes('gerente') || query.includes('liderança') || query.includes('lideranca') || query.includes('regional')) {
+    if ((query.includes('estrutura') || query.includes('direcionamento') || query.includes('gerente') || query.includes('liderança') || query.includes('lideranca') || query.includes('regional')) && !query.includes('custo')) {
       const activeUnits = organizationUnits.filter((unit) => unit.active);
       const routedCases = cases.filter((item) => item.organizationUnitId).length;
       const routedOccurrences = occurrences.filter((item) => item.organizationUnitId).length;
@@ -123,11 +138,21 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
     }
 
     if (query.includes('custo') || query.includes('financeiro') || query.includes('prejuízo') || query.includes('prejuizo')) {
-      const casesWithCost = cases.filter((item) => (item.totalExtraCost || 0) > 0);
-      const total = casesWithCost.reduce((sum, item) => sum + (item.totalExtraCost || 0), 0);
+      const total = extraCosts.reduce((sum, item) => sum + item.totalCost, 0);
+      const average = extraCosts.length ? total / extraCosts.length : 0;
+      const commercial = extraCosts.filter((item) => item.responsible === 'Comercial').reduce((sum, item) => sum + item.totalCost, 0);
+      const customer = extraCosts.filter((item) => item.responsible === 'Cliente').reduce((sum, item) => sum + item.totalCost, 0);
       return {
-        text: `💰 Custos extras de Casos CX\n\n• Total confirmado: ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n• Casos com custo: ${casesWithCost.length} de ${cases.length}\n\n${casesWithCost.slice(0, 5).map((item) => `• Pedido ${item.orderNumber}: ${(item.totalExtraCost || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`).join('\n') || 'Nenhum custo extra cadastrado.'}`,
-        suggestions: ['Casos CX em aberto', 'Resumo de todas as abas'],
+        text: `💰 Relatório de Custos Extras\n\n` +
+          `• Total gasto: ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n` +
+          `• Registros: ${extraCosts.length}\n` +
+          `• Custo médio: ${average.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n` +
+          `• Responsabilidade Comercial: ${commercial.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n` +
+          `• Responsabilidade Cliente: ${customer.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n\n` +
+          `${costRankingText('Regionais com maior custo', extraCosts, (item) => item.regional)}\n\n` +
+          `${costRankingText('Origens com maior custo', extraCosts, (item) => item.origin)}\n\n` +
+          `${costRankingText('Categorias com maior custo', extraCosts, (item) => item.reasonCategory)}`,
+        suggestions: ['Resumo de todas as abas', 'Relatório geral de ocorrências'],
       };
     }
 
@@ -154,11 +179,12 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
       text: `✨ Resumo de todas as abas\n\n` +
         `• Casos CX: ${cases.length}\n` +
         `• Controle de Ocorrências: ${occurrences.length}\n` +
+        `• Custos Extras: ${extraCosts.length} (${extraCosts.reduce((sum, item) => sum + item.totalCost, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})\n` +
         `• Reclame Aqui: ${raCases.length}\n` +
         `• Visitas: ${visits.length}\n` +
         `• Times na estrutura: ${organizationUnits.filter((item) => item.active).length}\n\n` +
-        `Posso detalhar ocorrências, transportadoras, produtos, regiões, custos, direcionamentos, RA ou visitas.`,
-      suggestions: ['Relatório geral de ocorrências', 'Transportadoras mais citadas', 'Como estão os direcionamentos?'],
+        `Posso detalhar ocorrências, transportadoras, produtos, regiões, custos extras, direcionamentos, RA ou visitas.`,
+      suggestions: ['Relatório de custos extras', 'Relatório geral de ocorrências', 'Como estão os direcionamentos?'],
     };
   };
 

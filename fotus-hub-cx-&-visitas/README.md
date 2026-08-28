@@ -49,6 +49,7 @@ Não execute esses comandos se houver dados reais misturados. Nesse caso, exclua
 
 - `organization_units`: setor, time, regional, gerente e liderança;
 - `occurrences`: controle operacional de ocorrências;
+- `extra_costs`: custos não previstos por pedido, regional, origem, responsabilidade e motivo;
 - `cx_cases`: casos CX e seus direcionamentos;
 - `ra_cases`: chamados do Reclame Aqui;
 - `integrator_visits`: visitas de integradores.
@@ -65,3 +66,14 @@ Depois que a nova versão estiver publicada:
 4. Confirme o envio quando o sistema mostrar a quantidade encontrada.
 
 A aba `Controle de Ocorrências` é lida diretamente no navegador e os registros são enviados ao Firestore em blocos. Repetir a importação da mesma planilha atualiza as mesmas linhas, sem criar outra cópia do histórico.
+
+## Importar a planilha de custos extras
+
+Depois de publicar o código e as regras atualizadas do Firestore:
+
+1. Entre na aba **Custo Extra**.
+2. Clique em **Importar planilha**.
+3. Escolha `Planilha_de_Custos_Extras_Fotus_2.xlsx`.
+4. Confirme o envio dos registros encontrados.
+
+O sistema lê a aba `Base de Dados`, calcula novamente o custo total pela soma de produto, logística e impostos e atualiza o painel automaticamente. Reimportar a mesma planilha atualiza as mesmas linhas sem duplicar o histórico.

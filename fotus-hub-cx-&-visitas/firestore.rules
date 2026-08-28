@@ -115,6 +115,33 @@ service cloud.firestore {
       allow delete: if isAuthorizedUser();
     }
 
+    match /extra_costs/{costId} {
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser()
+        && request.resource.data.date is string
+        && request.resource.data.orderNumber is string
+        && request.resource.data.regional is string
+        && request.resource.data.product is string
+        && request.resource.data.quantity is int
+        && request.resource.data.origin is string
+        && request.resource.data.productCost is number
+        && request.resource.data.logisticsCost is number
+        && request.resource.data.taxCost is number
+        && request.resource.data.totalCost is number
+        && request.resource.data.responsible is string
+        && request.resource.data.reasonCategory is string
+        && request.resource.data.detailedReason is string
+        && hasNumericTimestamps(request.resource.data);
+      allow update: if isAuthorizedUser()
+        && request.resource.data.date is string
+        && request.resource.data.orderNumber is string
+        && request.resource.data.quantity is int
+        && request.resource.data.totalCost is number
+        && request.resource.data.responsible is string
+        && request.resource.data.updatedAt is int;
+      allow delete: if isAuthorizedUser();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

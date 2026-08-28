@@ -58,7 +58,7 @@ export default function Auth() {
             </span>
             <h1 className="text-3xl font-extrabold tracking-tight text-gray-950 sm:text-4xl">Fotus Hub</h1>
             <p className="mt-3 max-w-sm text-sm leading-relaxed text-gray-600">
-              Entre para acessar CX, ocorrências, Reclame Aqui, visitas e a estrutura de direcionamento dos times.
+              Entre para acessar CX, ocorrências, custos extras, Reclame Aqui, visitas e a estrutura de direcionamento dos times.
             </p>
           </div>
 
