@@ -9,6 +9,7 @@ import {
   query,
   orderBy,
   deleteDoc,
+  setDoc,
   serverTimestamp,
   writeBatch,
 } from 'firebase/firestore';
@@ -16,6 +17,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged,
   setPersistence,
@@ -44,6 +47,8 @@ export {
   auth,
   googleProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged,
   setPersistence,
@@ -56,6 +61,7 @@ export {
   query,
   orderBy,
   deleteDoc,
+  setDoc,
   serverTimestamp,
   writeBatch,
 };

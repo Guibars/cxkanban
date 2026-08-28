@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertCircle, ArrowRight, LoaderCircle, ShieldCheck } from 'lucide-react';
 import {
   auth,
   browserLocalPersistence,
   googleProvider,
+  getRedirectResult,
   setPersistence,
   signInWithPopup,
+  signInWithRedirect,
 } from '../lib/firebase';
 import { isAuthorizedEmail } from '../lib/auth';
 
@@ -27,6 +29,14 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  useEffect(() => {
+    getRedirectResult(auth).catch((error) => {
+      if (error && typeof error === 'object' && 'code' in error && String(error.code).includes('unauthorized-domain')) {
+        setErrorMessage(getLoginErrorMessage(error));
+      }
+    });
+  }, []);
+
   const handleLogin = async () => {
     setLoading(true);
     setErrorMessage('');
@@ -39,6 +49,12 @@ export default function Auth() {
       }
     } catch (error) {
       console.error('Erro ao fazer login:', error);
+      const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+      if (code.includes('popup-blocked') || code.includes('cancelled-popup-request')) {
+        setErrorMessage('Abrindo o Google em uma página segura...');
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
       setErrorMessage(getLoginErrorMessage(error));
     } finally {
       setLoading(false);

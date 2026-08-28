@@ -3,7 +3,9 @@ export const BRAZIL_STATES = [
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ];
 
-export const OCCURRENCE_AGENTS = ['Adriely', 'Carol', 'Júlia', 'Laís', 'Marcela', 'Naiane', 'Lara'];
+export const DEFAULT_OCCURRENCE_AGENTS = ['Adriely', 'Carol', 'Júlia', 'Laís', 'Marcela', 'Naiane', 'Lara'];
+/** Backwards-compatible alias for consumers that still use the built-in list. */
+export const OCCURRENCE_AGENTS = DEFAULT_OCCURRENCE_AGENTS;
 export const OCCURRENCE_TYPES = ['Material Avariado', 'Material Faltando', 'Material Errado'];
 export const OCCURRENCE_PRODUCTS = ['Módulo', 'Estrutura', 'Inversor', 'Cabo', 'Conectores', 'Material de fixação', 'Microinversor', 'Medidor Inteligente'];
 export const OCCURRENCE_CARRIERS = [

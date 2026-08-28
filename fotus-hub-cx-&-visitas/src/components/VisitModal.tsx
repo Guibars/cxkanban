@@ -83,6 +83,8 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
         visitTime,
         hostName: hostName.trim() || currentUser?.displayName || 'Equipe Fotus',
         hostEmail: currentUser?.email || null,
+        createdByEmail: visitToEdit?.createdByEmail || currentUser?.email || '',
+        createdByName: visitToEdit?.createdByName || currentUser?.displayName || currentUser?.email || '',
         objective: objective.trim(),
         participantsCount: Number(participantsCount) || 1,
         status,

@@ -5,3 +5,51 @@
     @apply w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition-all focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10;
   }
 }
+
+@keyframes isa-orb-breathe {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgb(56 80 65 / 0.15); }
+  50% { transform: scale(1.06); box-shadow: 0 0 0 10px rgb(56 80 65 / 0); }
+}
+
+@keyframes isa-ring-pulse {
+  0% { opacity: .65; transform: scale(.78); }
+  100% { opacity: 0; transform: scale(1.55); }
+}
+
+@keyframes isa-wave-rise {
+  0%, 100% { transform: scaleY(.35); opacity: .45; }
+  50% { transform: scaleY(1); opacity: 1; }
+}
+
+.isa-speaking-state {
+  display: inline-flex;
+  align-items: center;
+  gap: .75rem;
+  border: 1px solid #dce5df;
+  border-radius: 1rem;
+  background: linear-gradient(120deg, #f4faf2, #fff);
+  padding: .6rem .85rem;
+  box-shadow: 0 4px 14px rgb(22 45 32 / .08);
+}
+
+.isa-speaking-orb {
+  position: relative;
+  display: flex;
+  width: 2.35rem;
+  height: 2.35rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: .85rem;
+  background: #e8efe0;
+  animation: isa-orb-breathe 1.6s ease-in-out infinite;
+}
+
+.isa-speaking-orb img { width: 1.85rem; height: 1.85rem; object-fit: contain; }
+.isa-speaking-ring { position: absolute; inset: 0; border: 1px solid #6f8f79; border-radius: .85rem; pointer-events: none; }
+.isa-speaking-ring-one { animation: isa-ring-pulse 1.5s ease-out infinite; }
+.isa-speaking-ring-two { animation: isa-ring-pulse 1.5s .75s ease-out infinite; }
+.isa-wave { display: block; width: 3px; height: 13px; border-radius: 999px; background: #6f8f79; animation: isa-wave-rise .8s ease-in-out infinite; }
+.isa-wave:nth-child(2) { animation-delay: .12s; }
+.isa-wave:nth-child(3) { animation-delay: .24s; }
+.isa-wave:nth-child(4) { animation-delay: .36s; }
+.isa-wave:nth-child(5) { animation-delay: .48s; }

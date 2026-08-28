@@ -40,11 +40,13 @@ service cloud.firestore {
         && request.resource.data.raNumber is string
         && request.resource.data.customerName is string
         && request.resource.data.status is string
+        && request.resource.data.createdByEmail == request.auth.token.email
         && hasNumericTimestamps(request.resource.data);
       allow update: if isAuthorizedUser()
         && request.resource.data.raNumber is string
         && request.resource.data.customerName is string
         && request.resource.data.status is string
+        && request.resource.data.createdByEmail == request.auth.token.email
         && request.resource.data.updatedAt is int;
       allow delete: if isAuthorizedUser();
     }
@@ -56,11 +58,13 @@ service cloud.firestore {
         && request.resource.data.contactPerson is string
         && request.resource.data.visitDate is string
         && request.resource.data.status is string
+        && request.resource.data.createdByEmail == request.auth.token.email
         && hasNumericTimestamps(request.resource.data);
       allow update: if isAuthorizedUser()
         && request.resource.data.integratorName is string
         && request.resource.data.visitDate is string
         && request.resource.data.status is string
+        && request.resource.data.createdByEmail == request.auth.token.email
         && request.resource.data.updatedAt is int;
       allow delete: if isAuthorizedUser();
     }
@@ -140,6 +144,15 @@ service cloud.firestore {
         && request.resource.data.responsible is string
         && request.resource.data.updatedAt is int;
       allow delete: if isAuthorizedUser();
+    }
+
+    match /app_settings/{settingId} {
+      allow read: if isAuthorizedUser();
+      allow create, update: if isAuthorizedUser()
+        && settingId == 'occurrence_agents'
+        && request.resource.data.names is list
+        && request.resource.data.updatedAt is int;
+      allow delete: if false;
     }
 
     match /{document=**} {

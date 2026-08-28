@@ -24,10 +24,29 @@ function normalized(value: string) {
 }
 
 function formatDate(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return repairAmbiguousHistoricalDate(`${year}-${month}-${day}`);
+}
+
+/**
+ * Some rows in the legacy workbook were entered as dd/mm/yyyy while Excel
+ * stored them as mm/dd/yyyy. If that produces a future date with a day up to
+ * 12, the only safe repair is to exchange the month and day.
+ */
+function repairAmbiguousHistoricalDate(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return value;
+  const [, year, month, day] = match;
+  const today = new Date();
+  const candidate = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), 12));
+  const isFuture = candidate.getTime() > Date.now() + 86_400_000;
+  const monthIsAhead = Number(year) === today.getFullYear() && Number(month) > today.getMonth() + 1;
+  if (isFuture && monthIsAhead && Number(day) <= 12) {
+    return `${year}-${day}-${month}`;
+  }
+  return value;
 }
 
 function spreadsheetDate(cell: unknown) {
@@ -43,11 +62,11 @@ function spreadsheetDate(cell: unknown) {
   if (brDate) {
     const [, day, month, rawYear] = brDate;
     const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    return repairAmbiguousHistoricalDate(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
   }
 
   const isoDate = value.match(/^\d{4}-\d{2}-\d{2}/);
-  return isoDate?.[0] || '';
+  return isoDate?.[0] ? repairAmbiguousHistoricalDate(isoDate[0]) : '';
 }
 
 function quantity(cell: unknown) {

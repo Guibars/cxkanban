@@ -49,6 +49,8 @@ export interface RACase {
   finalScore?: number | null;
   assigneeEmail: string | null;
   assigneeName: string | null;
+  createdByEmail?: string;
+  createdByName?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -71,6 +73,8 @@ export interface IntegratorVisit {
   status: VisitStatus;
   notes?: string;
   feedback?: string;
+  createdByEmail?: string;
+  createdByName?: string;
   createdAt: number;
   updatedAt: number;
 }

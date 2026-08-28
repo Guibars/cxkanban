@@ -25,12 +25,16 @@ As regras estão vinculadas ao banco nomeado por meio do arquivo `firebase.json`
 No terminal aberto na raiz do projeto:
 
 ```bash
+# somente se o comando firebase ainda não existir no Mac
+npm install -g firebase-tools
 firebase login
 firebase use gen-lang-client-0929275981
 firebase deploy --only firestore
 ```
 
 Esse comando publica `firestore.rules` no banco configurado e substitui as regras anteriores desse banco.
+
+Para a ISA responder com inteligência sobre todas as abas, crie a variável `GEMINI_API_KEY` nas Environment Variables da Vercel (Production, Preview e Development, se usar). A chave é usada somente pela função segura `api/isa.ts`; ela não fica exposta no navegador. O modelo utilizado é `gemini-3.5-flash-lite`.
 
 ## Remover os dados demonstrativos antigos
 
@@ -41,6 +45,7 @@ Antes de executar qualquer exclusão, confira no Firebase Console se as coleçõ
 ```bash
 firebase firestore:delete --database=ai-studio-752453f7-ae97-40d3-ab96-17738cb30cc2 cx_cases
 firebase firestore:delete --database=ai-studio-752453f7-ae97-40d3-ab96-17738cb30cc2 integrator_visits
+firebase firestore:delete --database=ai-studio-752453f7-ae97-40d3-ab96-17738cb30cc2 ra_cases
 ```
 
 Não execute esses comandos se houver dados reais misturados. Nesse caso, exclua apenas os documentos demonstrativos pelo Firebase Console.
@@ -53,6 +58,7 @@ Não execute esses comandos se houver dados reais misturados. Nesse caso, exclua
 - `cx_cases`: casos CX e seus direcionamentos;
 - `ra_cases`: chamados do Reclame Aqui;
 - `integrator_visits`: visitas de integradores.
+- `app_settings/occurrence_agents`: lista editável de agentes disponíveis no controle de ocorrências.
 
 Nenhuma pessoa ou ocorrência é criada automaticamente. A nova estrutura deve ser cadastrada na aba **Estrutura** antes de direcionar os cards.
 
@@ -67,6 +73,8 @@ Depois que a nova versão estiver publicada:
 
 A aba `Controle de Ocorrências` é lida diretamente no navegador e os registros são enviados ao Firestore em blocos. Repetir a importação da mesma planilha atualiza as mesmas linhas, sem criar outra cópia do histórico.
 
+Após esta atualização, reimporte a planilha para corrigir as linhas antigas em que o Excel interpretou dia e mês invertidos. A conversão agora usa o calendário brasileiro e UTC, evitando também o deslocamento de um dia causado pelo fuso horário.
+
 ## Importar a planilha de custos extras
 
 Depois de publicar o código e as regras atualizadas do Firestore:
@@ -77,3 +85,5 @@ Depois de publicar o código e as regras atualizadas do Firestore:
 4. Confirme o envio dos registros encontrados.
 
 O sistema lê a aba `Base de Dados`, calcula novamente o custo total pela soma de produto, logística e impostos e atualiza o painel automaticamente. Reimportar a mesma planilha atualiza as mesmas linhas sem duplicar o histórico.
+
+Os botões **Gerar relatório PDF** nas abas **Custo Extra** e **Reclame Aqui** abrem um relatório em folha A4; na janela de impressão, escolha **Salvar como PDF**. Os modelos seguem a estrutura visual dos relatórios de referência enviados.

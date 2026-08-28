@@ -53,6 +53,22 @@ function costRankingText(title: string, costs: ExtraCost[], selector: (cost: Ext
   return `${title}:\n${ranked.map((item, index) => `• ${index + 1}º ${item.label} — ${item.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (${item.count})`).join('\n')}`;
 }
 
+function scoreOnTen(value: number) {
+  return value > 10 ? value / 10 : value;
+}
+
+function buildIsaContext(cases: CXCase[], raCases: RACase[], visits: IntegratorVisit[], occurrences: Occurrence[], extraCosts: ExtraCost[], organizationUnits: OrganizationUnit[]) {
+  return JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    cxCases: cases,
+    reclamaAqui: raCases,
+    visitas: visits,
+    ocorrencias: occurrences,
+    custosExtras: extraCosts,
+    estrutura: organizationUnits,
+  });
+}
+
 export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, occurrences, extraCosts, organizationUnits }: IsaChatModalProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -91,6 +107,12 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
       `${rankingText('Regiões com mais ocorrências', rank(occurrences.map((item) => item.region)))}`;
   };
 
+  const agentsReport = () => {
+    const occurrenceAgents = rank(occurrences.map((item) => item.agentName), 10);
+    const cxAgents = rank(cases.map((item) => item.assigneeName || ''), 10);
+    return `👥 Agentes que mais abriram cards\n\n${rankingText('Controle de Ocorrências', occurrenceAgents)}\n\n${rankingText('Casos CX (responsável)', cxAgents)}\n\nBase analisada: ${occurrences.length} ocorrências e ${cases.length} casos CX.`;
+  };
+
   const generateResponse = (question: string) => {
     const query = question.toLocaleLowerCase('pt-BR');
 
@@ -98,6 +120,13 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
       return {
         text: `🚚 Análise de transportadoras\n\n${rankingText('Mais citadas nos cards', rank(occurrences.map((item) => item.carrier), 5))}\n\nBase analisada: ${occurrences.length} ocorrências cadastradas.`,
         suggestions: ['Relatório geral de ocorrências', 'Produtos mais citados', 'Regiões com mais ocorrências'],
+      };
+    }
+
+    if ((query.includes('agente') || query.includes('quem mais')) && (query.includes('mais') || query.includes('card') || query.includes('abriu') || query.includes('abrir') || query.includes('ocorrência') || query.includes('ocorrencia'))) {
+      return {
+        text: agentsReport(),
+        suggestions: ['Relatório geral de ocorrências', 'Resumo de todas as abas', 'Como estão os direcionamentos?'],
       };
     }
 
@@ -166,7 +195,7 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
     if (query.includes('reclame') || query.includes('ra')) {
       const open = raCases.filter((item) => item.status === 'Aberto' || item.status === 'Em Andamento').length;
       const scored = raCases.filter((item) => typeof item.finalScore === 'number');
-      const average = scored.length ? (scored.reduce((sum, item) => sum + (item.finalScore || 0), 0) / scored.length).toFixed(1) : 'sem notas';
+      const average = scored.length ? (scored.reduce((sum, item) => sum + scoreOnTen(item.finalScore || 0), 0) / scored.length).toFixed(1) : 'sem notas';
       return { text: `⭐ Reclame Aqui\n\n• Registros: ${raCases.length}\n• Em aberto ou andamento: ${open}\n• Média dos registros avaliados: ${average}${scored.length ? ' / 10' : ''}`, suggestions: ['Resumo de todas as abas', 'Relatório geral de ocorrências'] };
     }
 
@@ -188,17 +217,28 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
     };
   };
 
-  const handleSend = (suggestion?: string) => {
+  const handleSend = async (suggestion?: string) => {
     const question = (suggestion || input).trim();
     if (!question) return;
     setMessages((current) => [...current, { id: `${Date.now()}-user`, sender: 'user', text: question }]);
     if (!suggestion) setInput('');
     setIsTyping(true);
-    window.setTimeout(() => {
-      const response = generateResponse(question);
-      setMessages((current) => [...current, { id: `${Date.now()}-isa`, sender: 'isa', ...response }]);
+    try {
+      const apiResponse = await fetch('/api/isa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, context: buildIsaContext(cases, raCases, visits, occurrences, extraCosts, organizationUnits) }),
+      });
+      if (!apiResponse.ok) throw new Error('ISA API indisponível');
+      const payload = await apiResponse.json() as { text?: string };
+      if (!payload.text?.trim()) throw new Error('Resposta vazia');
+      setMessages((current) => [...current, { id: `${Date.now()}-isa`, sender: 'isa', text: payload.text!.trim(), suggestions: ['Resumo de todas as abas', 'Relatório geral de ocorrências'] }]);
+    } catch {
+      const localResponse = generateResponse(question);
+      setMessages((current) => [...current, { id: `${Date.now()}-isa`, sender: 'isa', ...localResponse }]);
+    } finally {
       setIsTyping(false);
-    }, 450);
+    }
   };
 
   const resetMessages = () => setMessages([{ id: 'welcome-reset', sender: 'isa', text: 'Conversa reiniciada. Qual análise você quer fazer com os dados atuais?', suggestions: ['Relatório geral de ocorrências', 'Resumo de todas as abas'] }]);
@@ -218,7 +258,7 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
               {message.suggestions && <div className="mt-2 flex max-w-[90%] flex-wrap gap-1.5">{message.suggestions.map((suggestion) => <button key={suggestion} onClick={() => handleSend(suggestion)} className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-600 hover:border-[#385041]/30 hover:bg-[#eef5eb] hover:text-[#385041]">{suggestion}<ArrowRight className="h-3 w-3" /></button>)}</div>}
             </div>
           ))}
-          {isTyping && <div className="inline-flex items-center gap-1.5 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm"><Sparkles className="h-4 w-4 animate-pulse text-[#385041]" /><span className="h-2 w-2 animate-bounce rounded-full bg-[#385041]" /><span className="h-2 w-2 animate-bounce rounded-full bg-[#385041] [animation-delay:0.15s]" /><span className="h-2 w-2 animate-bounce rounded-full bg-[#385041] [animation-delay:0.3s]" /></div>}
+          {isTyping && <div className="isa-speaking-state"><div className="isa-speaking-orb"><img src={ISA_LOGO} alt="ISA analisando" /><span className="isa-speaking-ring isa-speaking-ring-one" /><span className="isa-speaking-ring isa-speaking-ring-two" /></div><div><strong className="block text-xs text-[#385041]">ISA está analisando</strong><div className="mt-1 flex items-center gap-1"><span className="isa-wave" /><span className="isa-wave" /><span className="isa-wave" /><span className="isa-wave" /><span className="isa-wave" /></div></div></div>}
           <div ref={messagesEndRef} />
         </div>
 

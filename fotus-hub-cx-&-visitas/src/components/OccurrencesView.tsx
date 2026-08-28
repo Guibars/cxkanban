@@ -15,6 +15,7 @@ import {
   Search,
   Sparkles,
   Truck,
+  UsersRound,
 } from 'lucide-react';
 import { db, doc, updateDoc } from '../lib/firebase';
 import { readOccurrencesSpreadsheet, saveImportedOccurrences } from '../lib/occurrenceImport';
@@ -25,6 +26,8 @@ interface OccurrencesViewProps {
   occurrences: Occurrence[];
   organizationUnits: OrganizationUnit[];
   currentUser: User;
+  agents: string[];
+  onEditAgents: () => void;
 }
 
 const STAGES: Array<{ id: OccurrenceStage; color: string; dot: string }> = [
@@ -52,7 +55,7 @@ function displayDate(date: string) {
   return year && month && day ? `${day}/${month}/${year}` : date;
 }
 
-export default function OccurrencesView({ occurrences, organizationUnits, currentUser }: OccurrencesViewProps) {
+export default function OccurrencesView({ occurrences, organizationUnits, currentUser, agents, onEditAgents }: OccurrencesViewProps) {
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<'Todas' | OccurrenceStage>('Todas');
   const [showInsights, setShowInsights] = useState(false);
@@ -93,6 +96,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
   const open = occurrences.length - finalized;
   const approved = occurrences.filter((item) => item.approvalStatus === 'Aprovado').length;
   const completionRate = occurrences.length ? Math.round((finalized / occurrences.length) * 100) : 0;
+  const futureDates = occurrences.filter((item) => item.date && item.date > new Date().toISOString().slice(0, 10)).length;
 
   const openNew = () => {
     setEditingOccurrence(null);
@@ -135,7 +139,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
       const saved = await saveImportedOccurrences(imported, (current, total) => {
         setImportMessage(`Importando ${current} de ${total} ocorrências...`);
       });
-      setImportMessage(`${saved} ocorrências da planilha foram sincronizadas com sucesso.`);
+      setImportMessage(`${saved} ocorrências da planilha foram sincronizadas com sucesso. As datas foram normalizadas no padrão brasileiro.`);
     } catch (error) {
       console.error('Erro ao importar ocorrências:', error);
       setImportError(true);
@@ -178,6 +182,9 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
           <button onClick={() => setShowInsights((current) => !current)} className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-extrabold transition-all ${showInsights ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-[#385041]/20 bg-white text-[#385041] hover:bg-[#eef5eb]'}`}>
             <Sparkles className="h-4 w-4" /> Insights Gerais
           </button>
+          <button onClick={onEditAgents} className="flex items-center justify-center gap-2 rounded-xl border border-[#385041]/20 bg-white px-4 py-2.5 text-xs font-extrabold text-[#385041] transition-all hover:bg-[#eef5eb]" title="Editar agentes disponíveis">
+            <UsersRound className="h-4 w-4" /> Editar agentes
+          </button>
           <input ref={spreadsheetInput} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={importSpreadsheet} className="hidden" />
           <button disabled={isImporting} onClick={() => spreadsheetInput.current?.click()} className="flex items-center justify-center gap-2 rounded-xl border border-[#385041]/20 bg-white px-4 py-2.5 text-xs font-extrabold text-[#385041] transition-all hover:bg-[#eef5eb] disabled:cursor-wait disabled:opacity-60">
             {isImporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />} {isImporting ? 'Importando...' : 'Importar planilha'}
@@ -192,6 +199,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
           <span>{importMessage}</span>
         </div>
       )}
+      {futureDates > 0 && <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">{futureDates} data(s) histórica(s) parecem estar no futuro. Reimporte a planilha para aplicar a correção automática de dia e mês.</div>}
 
       {showInsights && (
         <section className="rounded-3xl border border-[#385041]/10 bg-gradient-to-br from-[#eef5eb] via-white to-amber-50/50 p-5 shadow-sm sm:p-6">
@@ -266,7 +274,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
         </div>
       )}
 
-      <OccurrenceModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} occurrence={editingOccurrence} currentUser={currentUser} organizationUnits={organizationUnits} />
+      <OccurrenceModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} occurrence={editingOccurrence} currentUser={currentUser} organizationUnits={organizationUnits} agents={agents} />
     </div>
   );
 }

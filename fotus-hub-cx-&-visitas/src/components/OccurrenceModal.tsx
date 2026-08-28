@@ -5,7 +5,6 @@ import { addDoc, collection, db, doc, updateDoc } from '../lib/firebase';
 import {
   BRAZIL_STATES,
   getRegionFromState,
-  OCCURRENCE_AGENTS,
   OCCURRENCE_CARRIERS,
   OCCURRENCE_PRODUCTS,
   OCCURRENCE_TYPES,
@@ -18,6 +17,7 @@ interface OccurrenceModalProps {
   occurrence: Occurrence | null;
   currentUser: User;
   organizationUnits: OrganizationUnit[];
+  agents: string[];
 }
 
 const STAGES: OccurrenceStage[] = ['Recebida', 'Em Análise', 'Aguardando Retorno', 'Finalizada'];
@@ -31,7 +31,7 @@ const today = () => {
   return `${year}-${month}-${day}`;
 };
 
-export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUser, organizationUnits }: OccurrenceModalProps) {
+export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUser, organizationUnits, agents }: OccurrenceModalProps) {
   const [date, setDate] = useState(today());
   const [agentName, setAgentName] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -146,8 +146,8 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
               <Field label="Agente" icon={UserRound}>
                 <select required value={agentName} onChange={(event) => setAgentName(event.target.value)} className="field-input">
                   <option value="">Selecione a agente</option>
-                  {occurrence?.agentName && !OCCURRENCE_AGENTS.includes(occurrence.agentName) && <option value={occurrence.agentName}>{occurrence.agentName}</option>}
-                  {OCCURRENCE_AGENTS.map((agent) => <option key={agent} value={agent}>{agent}</option>)}
+                  {occurrence?.agentName && !agents.includes(occurrence.agentName) && <option value={occurrence.agentName}>{occurrence.agentName}</option>}
+                  {agents.map((agent) => <option key={agent} value={agent}>{agent}</option>)}
                 </select>
               </Field>
               <div className="sm:col-span-2"><Field label="Nome da empresa" icon={Building2}><input required value={companyName} onChange={(event) => setCompanyName(event.target.value)} className="field-input" placeholder="Razão social ou nome fantasia" /></Field></div>

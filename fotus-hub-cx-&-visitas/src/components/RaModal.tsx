@@ -74,7 +74,10 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
       const in_ = typeof indicatorIN === 'number' ? indicatorIN : parseFloat(indicatorIN as string);
 
       if (!isNaN(ir) && !isNaN(is) && !isNaN(ma) && !isNaN(in_)) {
-        finalScore = (ir * 0.2) + (is * 0.3) + (ma * 0.3) + (in_ * 0.2);
+        // The form records all four indicators on a 0–10 scale. Older
+        // records that used percentages (0–100) are also normalized safely.
+        const indicatorOnTen = (value: number) => value > 10 ? value / 10 : value;
+        finalScore = (indicatorOnTen(ir) * 0.2) + (indicatorOnTen(is) * 0.3) + (ma * 0.3) + (indicatorOnTen(in_) * 0.2);
       }
 
       const caseData = {
@@ -91,6 +94,8 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
         finalScore,
         assigneeEmail: caseToEdit?.assigneeEmail || currentUser?.email || null,
         assigneeName: caseToEdit?.assigneeName || currentUser?.displayName || null,
+        createdByEmail: caseToEdit?.createdByEmail || currentUser?.email || '',
+        createdByName: caseToEdit?.createdByName || currentUser?.displayName || currentUser?.email || '',
         updatedAt: Date.now(),
       };
 

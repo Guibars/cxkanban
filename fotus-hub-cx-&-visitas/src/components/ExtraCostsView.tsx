@@ -1,8 +1,9 @@
 import { ChangeEvent, useMemo, useRef, useState } from 'react';
 import { User } from 'firebase/auth';
-import { BarChart3, Building2, CalendarDays, CircleDollarSign, FileUp, LoaderCircle, Pencil, Plus, Receipt, Search, Sparkles, Tag, UserRound } from 'lucide-react';
+import { BarChart3, Building2, CalendarDays, CircleDollarSign, FileText, FileUp, LoaderCircle, Pencil, Plus, Receipt, Search, Sparkles, Tag, UserRound } from 'lucide-react';
 import { ExtraCost } from '../types';
 import { readExtraCostsSpreadsheet, saveImportedExtraCosts } from '../lib/extraCostImport';
+import { buildExtraCostsReport, openA4PrintWindow } from '../lib/reportPrint';
 import ExtraCostModal from './ExtraCostModal';
 
 interface ExtraCostsViewProps {
@@ -38,6 +39,7 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
   const [isImporting, setIsImporting] = useState(false);
   const [importMessage, setImportMessage] = useState('');
   const [importError, setImportError] = useState(false);
+  const [reportMessage, setReportMessage] = useState('');
   const spreadsheetInput = useRef<HTMLInputElement>(null);
 
   const total = costs.reduce((sum, cost) => sum + cost.totalCost, 0);
@@ -107,6 +109,12 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
     setIsModalOpen(true);
   };
 
+  const generateReport = () => {
+    const opened = openA4PrintWindow('Relatório de Custos Extras', buildExtraCostsReport(costs));
+    setReportMessage(opened ? 'Relatório A4 aberto para impressão ou salvamento em PDF.' : 'Permita pop-ups para abrir o relatório A4.');
+    window.setTimeout(() => setReportMessage(''), 6000);
+  };
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -123,6 +131,7 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
         <div className="flex flex-col gap-2 sm:flex-row">
           <label className="relative min-w-0 flex-1 sm:w-72"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Pedido, regional, produto, motivo..." className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#385041]" /></label>
           <button onClick={() => setShowInsights((current) => !current)} className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-extrabold ${showInsights ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-[#385041]/20 bg-white text-[#385041]'}`}><Sparkles className="h-4 w-4" />Insights</button>
+          <button onClick={generateReport} className="flex items-center justify-center gap-2 rounded-xl border border-[#123e5b]/20 bg-white px-4 py-2.5 text-xs font-extrabold text-[#123e5b] transition-all hover:bg-[#eff5f8]"><FileText className="h-4 w-4" />Gerar relatório PDF</button>
           <input ref={spreadsheetInput} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={importSpreadsheet} className="hidden" />
           <button disabled={isImporting} onClick={() => spreadsheetInput.current?.click()} className="flex items-center justify-center gap-2 rounded-xl border border-[#385041]/20 bg-white px-4 py-2.5 text-xs font-extrabold text-[#385041] disabled:opacity-60">{isImporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}{isImporting ? 'Importando...' : 'Importar planilha'}</button>
           <button onClick={openNew} className="flex items-center justify-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-extrabold text-white"><Plus className="h-4 w-4" />Novo custo</button>
@@ -130,6 +139,7 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
       </div>
 
       {importMessage && <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-xs font-semibold ${importError ? 'border-red-200 bg-red-50 text-red-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>{isImporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}<span>{importMessage}</span></div>}
+      {reportMessage && <div className="flex items-center gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-800"><FileText className="h-4 w-4 shrink-0" /><span>{reportMessage}</span></div>}
 
       {showInsights && (
         <section className="rounded-3xl border border-[#385041]/10 bg-gradient-to-br from-[#eef5eb] via-white to-amber-50/50 p-5 shadow-sm sm:p-6">
