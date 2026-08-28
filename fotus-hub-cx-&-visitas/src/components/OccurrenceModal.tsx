@@ -56,7 +56,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
   useEffect(() => {
     if (!isOpen) return;
     setDate(occurrence?.date || today());
-    setAgentName(occurrence?.agentName || currentUser.displayName || '');
+    setAgentName(occurrence?.agentName || '');
     setCompanyName(occurrence?.companyName || '');
     setState(occurrence?.state || '');
     setOrderNumber(occurrence?.orderNumber || '');
@@ -143,7 +143,13 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
             <SectionTitle number="1" title="Identificação" description="Comece pela data, agente e empresa." />
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Data" icon={CalendarDays}><input required type="date" value={date} onChange={(event) => setDate(event.target.value)} className="field-input" /></Field>
-              <Field label="Agente" icon={UserRound}><input required list="agents-list" value={agentName} onChange={(event) => setAgentName(event.target.value)} className="field-input" placeholder="Selecione ou digite" /><datalist id="agents-list">{OCCURRENCE_AGENTS.map((agent) => <option key={agent} value={agent} />)}</datalist></Field>
+              <Field label="Agente" icon={UserRound}>
+                <select required value={agentName} onChange={(event) => setAgentName(event.target.value)} className="field-input">
+                  <option value="">Selecione a agente</option>
+                  {occurrence?.agentName && !OCCURRENCE_AGENTS.includes(occurrence.agentName) && <option value={occurrence.agentName}>{occurrence.agentName}</option>}
+                  {OCCURRENCE_AGENTS.map((agent) => <option key={agent} value={agent}>{agent}</option>)}
+                </select>
+              </Field>
               <div className="sm:col-span-2"><Field label="Nome da empresa" icon={Building2}><input required value={companyName} onChange={(event) => setCompanyName(event.target.value)} className="field-input" placeholder="Razão social ou nome fantasia" /></Field></div>
               <Field label="UF" icon={MapPin}><select required value={state} onChange={(event) => setState(event.target.value)} className="field-input"><option value="">Selecione</option>{BRAZIL_STATES.map((uf) => <option key={uf} value={uf}>{uf}</option>)}</select></Field>
               <Field label="Nº do pedido" icon={Hash}><input required value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} className="field-input" placeholder="Preserva zeros e hífens" /></Field>

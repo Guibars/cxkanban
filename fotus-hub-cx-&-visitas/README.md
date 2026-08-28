@@ -54,3 +54,14 @@ Não execute esses comandos se houver dados reais misturados. Nesse caso, exclua
 - `integrator_visits`: visitas de integradores.
 
 Nenhuma pessoa ou ocorrência é criada automaticamente. A nova estrutura deve ser cadastrada na aba **Estrutura** antes de direcionar os cards.
+
+## Importar o histórico de ocorrências
+
+Depois que a nova versão estiver publicada:
+
+1. Entre na aba **Ocorrências**.
+2. Clique em **Importar planilha**.
+3. Escolha o arquivo `Controle de Ocorrências - CX.xlsx`.
+4. Confirme o envio quando o sistema mostrar a quantidade encontrada.
+
+A aba `Controle de Ocorrências` é lida diretamente no navegador e os registros são enviados ao Firestore em blocos. Repetir a importação da mesma planilha atualiza as mesmas linhas, sem criar outra cópia do histórico.

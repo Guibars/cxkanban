@@ -116,6 +116,8 @@ export interface Occurrence {
   routedToEmail?: string | null;
   createdByEmail: string;
   createdByName: string;
+  importSource?: string;
+  importRow?: number;
   createdAt: number;
   updatedAt: number;
 }

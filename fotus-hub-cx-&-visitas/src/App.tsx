@@ -46,6 +46,26 @@ const ISA_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1776894141/
 const FOTUS_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1787848825/ChatGPT_Image_27_de_ago._de_2026_13_40_18_tzgwxs.png';
 const RA_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1787843527/25-reclame_mnxv8n.png';
 
+function isLegacyDemoCase(caseItem: CXCase) {
+  const content = [
+    caseItem.orderNumber,
+    caseItem.productCode,
+    caseItem.assigneeName,
+    caseItem.departmentAssigneeName,
+    caseItem.observations,
+  ].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR');
+
+  return [
+    '197010-88',
+    '192716-98',
+    'batt-lfp-5.12kwh',
+    'mod-can-550w',
+    'marcelo fotus',
+    'fernanda souza',
+    'teste1',
+  ].some((marker) => content.includes(marker));
+}
+
 const TAB_COPY: Record<MainTab, { title: string; subtitle: string }> = {
   cx: { title: 'Central de Casos CX', subtitle: 'Casos direcionados pela estrutura real de times, regionais e lideranças' },
   ocorrencias: { title: 'Controle de Ocorrências', subtitle: 'Acompanhamento interativo das ocorrências antes controladas por planilha' },
@@ -95,7 +115,8 @@ export default function App() {
     };
 
     const unsubCases = onSnapshot(query(collection(db, 'cx_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
-      setCases(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as CXCase[]);
+      const storedCases = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as CXCase[];
+      setCases(storedCases.filter((caseItem) => !isLegacyDemoCase(caseItem)));
     }, handleSnapshotError);
 
     const unsubRa = onSnapshot(query(collection(db, 'ra_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
@@ -146,7 +167,7 @@ export default function App() {
         <img src={FOTUS_LOGO} alt="Fotus" className="mb-2 h-auto w-12 object-contain" />
         {tabs.map(({ id, label, icon: Icon, alert }) => (
           <button key={id} onClick={() => setActiveTab(id)} title={label} className={cn('relative rounded-2xl p-3 transition-all', activeTab === id ? 'bg-[#e8efe0] text-[#385041] shadow-sm ring-1 ring-[#385041]/10' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700')}>
-            <Icon className="h-6 w-6" />
+            {id === 'ra' ? <img src={RA_LOGO} alt="Reclame Aqui" className="h-6 w-6 object-contain" /> : <Icon className="h-6 w-6" />}
             {alert && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-500" />}
           </button>
         ))}

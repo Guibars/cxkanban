@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { ChangeEvent, useMemo, useRef, useState } from 'react';
 import { User } from 'firebase/auth';
 import {
   BarChart3,
@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   CircleDot,
   Clock3,
+  FileUp,
+  LoaderCircle,
   MapPinned,
   Package,
   Pencil,
@@ -15,6 +17,7 @@ import {
   Truck,
 } from 'lucide-react';
 import { db, doc, updateDoc } from '../lib/firebase';
+import { readOccurrencesSpreadsheet, saveImportedOccurrences } from '../lib/occurrenceImport';
 import { Occurrence, OccurrenceStage, OrganizationUnit } from '../types';
 import OccurrenceModal from './OccurrenceModal';
 
@@ -55,6 +58,10 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
   const [showInsights, setShowInsights] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOccurrence, setEditingOccurrence] = useState<Occurrence | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState('');
+  const [importError, setImportError] = useState(false);
+  const spreadsheetInput = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -105,6 +112,39 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
     }
   };
 
+  const importSpreadsheet = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setIsImporting(true);
+    setImportError(false);
+    setImportMessage('Lendo a planilha e preparando as ocorrências...');
+
+    try {
+      const imported = await readOccurrencesSpreadsheet(file, currentUser);
+      const confirmed = window.confirm(
+        `Encontramos ${imported.length} ocorrências na planilha. Deseja enviá-las agora para o Firestore?`,
+      );
+
+      if (!confirmed) {
+        setImportMessage('Importação cancelada. Nenhum registro foi enviado.');
+        return;
+      }
+
+      const saved = await saveImportedOccurrences(imported, (current, total) => {
+        setImportMessage(`Importando ${current} de ${total} ocorrências...`);
+      });
+      setImportMessage(`${saved} ocorrências da planilha foram sincronizadas com sucesso.`);
+    } catch (error) {
+      console.error('Erro ao importar ocorrências:', error);
+      setImportError(true);
+      setImportMessage(error instanceof Error ? error.message : 'Não foi possível importar essa planilha.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -138,9 +178,20 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
           <button onClick={() => setShowInsights((current) => !current)} className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-extrabold transition-all ${showInsights ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-[#385041]/20 bg-white text-[#385041] hover:bg-[#eef5eb]'}`}>
             <Sparkles className="h-4 w-4" /> Insights Gerais
           </button>
+          <input ref={spreadsheetInput} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={importSpreadsheet} className="hidden" />
+          <button disabled={isImporting} onClick={() => spreadsheetInput.current?.click()} className="flex items-center justify-center gap-2 rounded-xl border border-[#385041]/20 bg-white px-4 py-2.5 text-xs font-extrabold text-[#385041] transition-all hover:bg-[#eef5eb] disabled:cursor-wait disabled:opacity-60">
+            {isImporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />} {isImporting ? 'Importando...' : 'Importar planilha'}
+          </button>
           <button onClick={openNew} className="flex items-center justify-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-extrabold text-white shadow-sm hover:bg-[#2c4033]"><Plus className="h-4 w-4" /> Nova ocorrência</button>
         </div>
       </div>
+
+      {importMessage && (
+        <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-xs font-semibold ${importError ? 'border-red-200 bg-red-50 text-red-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
+          {isImporting ? <LoaderCircle className="h-4 w-4 shrink-0 animate-spin" /> : <FileUp className="h-4 w-4 shrink-0" />}
+          <span>{importMessage}</span>
+        </div>
+      )}
 
       {showInsights && (
         <section className="rounded-3xl border border-[#385041]/10 bg-gradient-to-br from-[#eef5eb] via-white to-amber-50/50 p-5 shadow-sm sm:p-6">
@@ -166,8 +217,11 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
         <div className="rounded-3xl border border-dashed border-gray-300 bg-white/60 px-6 py-16 text-center">
           <CircleDot className="mx-auto h-12 w-12 text-gray-300" />
           <h3 className="mt-4 text-base font-extrabold text-gray-800">O controle está pronto para receber dados reais</h3>
-          <p className="mx-auto mt-1 max-w-lg text-xs leading-relaxed text-gray-500">Nenhum registro da planilha foi copiado automaticamente. Cadastre uma nova ocorrência ou importe o histórico em uma etapa futura.</p>
-          <button onClick={openNew} className="mt-5 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white">Cadastrar primeira ocorrência</button>
+          <p className="mx-auto mt-1 max-w-lg text-xs leading-relaxed text-gray-500">Importe a planilha atual para trazer todo o histórico ou cadastre uma nova ocorrência manualmente.</p>
+          <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+            <button disabled={isImporting} onClick={() => spreadsheetInput.current?.click()} className="flex items-center justify-center gap-2 rounded-xl border border-[#385041]/20 bg-white px-4 py-2.5 text-xs font-bold text-[#385041] disabled:opacity-60"><FileUp className="h-4 w-4" />Importar histórico</button>
+            <button onClick={openNew} className="rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white">Cadastrar primeira ocorrência</button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">

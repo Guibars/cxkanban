@@ -10,6 +10,7 @@ import {
   orderBy,
   deleteDoc,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import {
   getAuth,
@@ -56,4 +57,5 @@ export {
   orderBy,
   deleteDoc,
   serverTimestamp,
+  writeBatch,
 };
