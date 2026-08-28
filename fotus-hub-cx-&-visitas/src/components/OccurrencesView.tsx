@@ -15,6 +15,7 @@ import {
   Plus,
   Search,
   Sparkles,
+  Trophy,
   Truck,
   UsersRound,
 } from 'lucide-react';
@@ -114,7 +115,8 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
     const year = new Date().getFullYear();
     const currentYear = occurrences.filter((item) => item.date?.startsWith(`${year}-`));
     const valueFor = (item: Occurrence) => analyticsDimension === 'agents' ? item.agentName : analyticsDimension === 'carriers' ? item.carrier : item.state;
-    const topSeries = rankBy(currentYear.map(valueFor), 5).map((item) => item.label);
+    const seriesLimit = analyticsDimension === 'agents' ? 50 : analyticsDimension === 'states' ? 27 : 12;
+    const topSeries = rankBy(currentYear.map(valueFor), seriesLimit).map((item) => item.label);
     const months = Array.from({ length: 12 }, (_, index) => {
       const monthKey = `${year}-${String(index + 1).padStart(2, '0')}`;
       const monthItems = currentYear.filter((item) => item.date?.startsWith(`${monthKey}-`));
@@ -352,8 +354,18 @@ interface ProductivityChartProps {
 
 function ProductivityChart({ year, dimension, months, series, selectedSeries, onDimensionChange, onSelectSeries }: ProductivityChartProps) {
   const dimensionTitle = dimension === 'agents' ? 'produtividade das agentes' : dimension === 'carriers' ? 'ocorrências por transportadora' : 'ocorrências por estado / UF';
+  const allItemsLabel = dimension === 'agents' ? 'todas as agentes' : dimension === 'carriers' ? 'todas as transportadoras' : 'todos os estados / UF';
+  const allItemsButton = dimension === 'states' ? 'Ver total de todos' : 'Ver total de todas';
+  const rankingTitle = dimension === 'agents' ? 'Quem está na frente' : dimension === 'carriers' ? 'Transportadoras mais citadas' : 'Estados / UF com maior volume';
   const selectedIndex = series.indexOf(selectedSeries);
   const effectiveSeries = selectedSeries === 'Todos' || selectedIndex >= 0 ? selectedSeries : 'Todos';
+  const annualRanking = series
+    .map((label, seriesIndex) => ({
+      label,
+      total: months.reduce((sum, month) => sum + (month.values[seriesIndex] || 0), 0),
+    }))
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label, 'pt-BR'));
+  const highestTotal = annualRanking[0]?.total || 0;
   const chartData = months.map((month) => ({
     key: month.key,
     label: month.label,
@@ -365,18 +377,59 @@ function ProductivityChart({ year, dimension, months, series, selectedSeries, on
     <section className="mt-5 overflow-hidden rounded-3xl border border-[#385041]/10 bg-white/90 shadow-sm">
       <div className="border-b border-gray-100 bg-gradient-to-r from-[#f3f8f1] via-white to-[#eef5f8] p-5 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div><p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]"><LineChart className="h-4 w-4" />Performance mensal</p><h2 className="mt-1 text-lg font-extrabold text-gray-950">{dimensionTitle} · {year}</h2><p className="mt-1 text-xs text-gray-500">Quantidade de cards por mês. Troque a leitura e escolha uma categoria para comparar os 12 meses.</p></div>
+          <div><p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]"><LineChart className="h-4 w-4" />Performance mensal</p><h2 className="mt-1 text-lg font-extrabold text-gray-950">{dimensionTitle} · {year}</h2><p className="mt-1 max-w-2xl text-xs leading-relaxed text-gray-500">As barras representam os meses. Em <strong>Todos</strong>, cada barra soma todas as ocorrências; selecione uma opção para acompanhar seu resultado individual.</p></div>
           <div className="flex flex-wrap gap-1.5 rounded-2xl border border-white/90 bg-white/80 p-1.5 shadow-sm">
             {ANALYTICS_DIMENSIONS.map((item) => <button key={item.id} type="button" onClick={() => onDimensionChange(item.id)} className={`rounded-xl px-3 py-2 text-[11px] font-extrabold transition-all ${dimension === item.id ? 'bg-[#385041] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}>{item.label}</button>)}
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={() => onSelectSeries('Todos')} className={`rounded-full border px-3 py-1.5 text-[10px] font-extrabold transition-all ${effectiveSeries === 'Todos' ? 'border-[#385041] bg-[#385041] text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-[#385041]/30'}`}>Todos</button>
-          {series.map((label) => <button key={label} type="button" onClick={() => onSelectSeries(label)} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition-all ${effectiveSeries === label ? 'border-[#385041] bg-[#e8efe0] text-[#385041] shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-[#385041]/30'}`}>{label}</button>)}
-          {!series.length && <span className="rounded-full bg-amber-50 px-3 py-1.5 text-[10px] font-bold text-amber-700">Ainda não há dados deste ano para montar as séries.</span>}
-        </div>
       </div>
 
+      {!!annualRanking.length && (
+        <div className="border-b border-gray-100 bg-white px-5 py-5 sm:px-6">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="flex items-center gap-2 text-xs font-extrabold text-gray-900"><Trophy className="h-4 w-4 text-amber-500" />{rankingTitle} em {year}</p>
+              <p className="mt-1 text-[10px] text-gray-500">A posição considera o total de cards no ano. Clique em uma linha para ver a evolução mensal.</p>
+            </div>
+            <button type="button" onClick={() => onSelectSeries('Todos')} className={`mt-2 w-fit rounded-full border px-3 py-1.5 text-[10px] font-extrabold transition-all sm:mt-0 ${effectiveSeries === 'Todos' ? 'border-[#385041] bg-[#385041] text-white shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-[#385041]/30'}`}>{allItemsButton}</button>
+          </div>
+
+          <div className="mt-4 grid max-h-[360px] gap-2 overflow-y-auto pr-1 md:grid-cols-2 xl:grid-cols-3">
+            {annualRanking.map((item, index) => {
+              const isLeader = index === 0;
+              const isSelected = effectiveSeries === item.label;
+              const progress = highestTotal ? Math.max(5, Math.round((item.total / highestTotal) * 100)) : 0;
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => onSelectSeries(item.label)}
+                  aria-pressed={isSelected}
+                  className={`group rounded-2xl border p-3 text-left transition-all ${isSelected ? 'border-[#385041] bg-[#f0f5ed] shadow-sm' : isLeader ? 'border-amber-200 bg-amber-50/70 hover:border-amber-300' : 'border-gray-200 bg-white hover:border-[#385041]/30 hover:bg-gray-50'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black ${isLeader ? 'bg-amber-400 text-amber-950' : 'bg-gray-100 text-gray-600'}`}>{index + 1}º</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <strong className="truncate text-xs text-gray-900">{item.label}</strong>
+                        {isLeader && <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-900">Líder</span>}
+                      </span>
+                      <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-black/5"><span className={`block h-full rounded-full ${isLeader ? 'bg-amber-400' : 'bg-[#6f8f79]'}`} style={{ width: `${progress}%` }} /></span>
+                    </span>
+                    <span className="shrink-0 text-right"><strong className="block text-sm text-gray-950">{item.total}</strong><span className="block text-[8px] font-bold uppercase tracking-wide text-gray-400">cards</span></span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="border-b border-gray-100 bg-gray-50/70 px-5 py-3 text-[10px] text-gray-600">
+        {effectiveSeries === 'Todos'
+          ? <>Você está vendo o <strong className="text-gray-900">total mensal de {allItemsLabel}</strong>.</>
+          : <>Você está vendo somente <strong className="text-[#385041]">{effectiveSeries}</strong>. Clique em “{allItemsButton}” para voltar.</>}
+      </div>
       <div className="p-3 sm:p-5"><PillBarChart data={chartData} ariaLabel={`Gráfico mensal de ${dimensionTitle} em ${year}`} valueFormatter={(value) => String(value)} emptyMessage="Ainda não há ocorrências para esta seleção." /></div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 bg-gray-50/70 px-5 py-3 text-[10px] text-gray-500"><span>Seleção atual: <strong className="text-gray-800">{effectiveSeries}</strong></span><span>Total exibido: <strong className="text-gray-800">{chartData.reduce((sum, month) => sum + month.value, 0)} cards</strong></span></div>
     </section>

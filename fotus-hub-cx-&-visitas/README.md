@@ -75,7 +75,7 @@ A aba `Controle de Ocorrências` é lida diretamente no navegador e os registros
 
 Após esta atualização, reimporte a planilha para corrigir as linhas antigas em que o Excel interpretou dia e mês invertidos. A conversão agora usa o calendário brasileiro e UTC, evitando também o deslocamento de um dia causado pelo fuso horário.
 
-Na aba de ocorrências, **Insights Gerais** abre o gráfico de produtividade mensal do ano atual. É possível alternar entre agentes, transportadoras e estados/UF e selecionar **Todos** ou uma categoria específica para comparar os 12 meses.
+Na aba de ocorrências, **Insights Gerais** abre o gráfico de produtividade mensal do ano atual. É possível alternar entre agentes, transportadoras e estados/UF. O ranking anual mostra claramente quem está na frente e o total de cards; ao clicar em uma posição, o gráfico exibe a evolução mensal somente daquela seleção. A opção **Todos** soma todas as ocorrências em cada mês.
 
 ## Importar a planilha de custos extras
 
