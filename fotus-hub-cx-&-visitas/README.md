@@ -75,6 +75,8 @@ A aba `Controle de Ocorrências` é lida diretamente no navegador e os registros
 
 Após esta atualização, reimporte a planilha para corrigir as linhas antigas em que o Excel interpretou dia e mês invertidos. A conversão agora usa o calendário brasileiro e UTC, evitando também o deslocamento de um dia causado pelo fuso horário.
 
+Na aba de ocorrências, **Insights Gerais** abre o gráfico de produtividade mensal do ano atual. É possível alternar entre agentes, transportadoras e estados/UF e clicar nas séries para ocultá-las ou exibi-las.
+
 ## Importar a planilha de custos extras
 
 Depois de publicar o código e as regras atualizadas do Firestore:
@@ -87,3 +89,5 @@ Depois de publicar o código e as regras atualizadas do Firestore:
 O sistema lê a aba `Base de Dados`, calcula novamente o custo total pela soma de produto, logística e impostos e atualiza o painel automaticamente. Reimportar a mesma planilha atualiza as mesmas linhas sem duplicar o histórico.
 
 Os botões **Gerar relatório PDF** nas abas **Custo Extra** e **Reclame Aqui** abrem um relatório em folha A4; na janela de impressão, escolha **Salvar como PDF**. Os modelos seguem a estrutura visual dos relatórios de referência enviados.
+
+Em **Custo Extra**, o filtro inicia no mês atual. A opção **Todos** mostra o histórico completo, e a visão anual permanece disponível para comparação mês a mês.
