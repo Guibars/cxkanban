@@ -5,6 +5,7 @@ import { ExtraCost } from '../types';
 import { readExtraCostsSpreadsheet, saveImportedExtraCosts } from '../lib/extraCostImport';
 import { buildExtraCostsReport, openA4PrintWindow } from '../lib/reportPrint';
 import ExtraCostModal from './ExtraCostModal';
+import PillBarChart from './PillBarChart';
 
 interface ExtraCostsViewProps {
   costs: ExtraCost[];
@@ -83,16 +84,6 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
     category: aggregateCost(filtered, (cost) => cost.reasonCategory),
   }), [filtered]);
 
-  const months = useMemo(() => {
-    const grouped = new Map<string, { total: number; count: number }>();
-    filtered.forEach((cost) => {
-      if (!cost.monthYear) return;
-      const current = grouped.get(cost.monthYear) || { total: 0, count: 0 };
-      grouped.set(cost.monthYear, { total: current.total + cost.totalCost, count: current.count + 1 });
-    });
-    return [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-12).map(([month, values]) => ({ month, ...values }));
-  }, [filtered]);
-
   const annualMonths = useMemo(() => {
     const year = new Date().getFullYear();
     const grouped = new Map<string, { total: number; count: number }>();
@@ -106,8 +97,6 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
       return { month, ...(grouped.get(month) || { total: 0, count: 0 }) };
     });
   }, [costs]);
-  const highestMonth = Math.max(...months.map((month) => month.total), 1);
-
   const importSpreadsheet = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -190,11 +179,8 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
                 <CostRanking title="Categorias do motivo" icon={BarChart3} items={insights.category} grandTotal={total} />
               </div>
               <div className="rounded-2xl border border-white bg-white/85 p-4 shadow-sm">
-                <h3 className="flex items-center gap-2 text-xs font-extrabold text-gray-800"><CalendarDays className="h-4 w-4 text-[#385041]" />Evolução mensal</h3>
-                <div className="mt-5 flex h-52 items-end gap-2 border-b border-gray-200 px-1">
-                  {months.map((month) => <div key={month.month} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1" title={`${month.month}: ${currency(month.total)} em ${month.count} registros`}><span className="hidden text-[8px] font-bold text-gray-500 2xl:block">{currency(month.total)}</span><div className="w-full min-w-2 rounded-t-lg bg-gradient-to-t from-[#385041] to-[#7da08a]" style={{ height: `${Math.max(4, Math.round((month.total / highestMonth) * 170))}px` }} /><span className="text-[8px] font-bold text-gray-500">{month.month.slice(5)}/{month.month.slice(2, 4)}</span></div>)}
-                  {!months.length && <p className="m-auto text-xs text-gray-400">Sem datas para montar a evolução</p>}
-                </div>
+                <h3 className="flex items-center gap-2 text-xs font-extrabold text-gray-800"><CalendarDays className="h-4 w-4 text-[#385041]" />Resumo do período selecionado</h3>
+                <div className="mt-4 space-y-2"><SummaryRow label="Período" value={monthFilter === 'Todos' ? 'Todos os meses' : monthFilter === currentMonthKey() ? 'Mês atual' : monthLabel(monthFilter)} /><SummaryRow label="Registros" value={filtered.length.toLocaleString('pt-BR')} /><SummaryRow label="Total" value={currency(total)} /><SummaryRow label="Custo médio" value={currency(average)} /></div>
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center"><CostType label="Produto" value={filtered.reduce((sum, cost) => sum + cost.productCost, 0)} /><CostType label="Logística" value={filtered.reduce((sum, cost) => sum + cost.logisticsCost, 0)} /><CostType label="Impostos" value={filtered.reduce((sum, cost) => sum + cost.taxCost, 0)} /></div>
               </div>
             </div>
@@ -238,18 +224,21 @@ function CostType({ label, value }: { label: string; value: number }) {
   return <div className="rounded-xl bg-gray-50 p-2"><span className="block text-[9px] font-bold text-gray-400">{label}</span><strong className="mt-0.5 block truncate text-[10px] text-gray-800">{currency(value)}</strong></div>;
 }
 
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return <div className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-2.5"><span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</span><strong className="truncate text-xs capitalize text-gray-800">{value}</strong></div>;
+}
+
 function AnnualCostChart({ months, year }: { months: Array<{ month: string; total: number; count: number }>; year: number }) {
-  const max = Math.max(...months.map((month) => month.total), 1);
+  const chartData = months.map((month) => {
+    const [, monthNumber] = month.month.split('-');
+    const label = new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date(year, Number(monthNumber) - 1, 1)).replace('.', '');
+    return { key: month.month, label, value: month.total, tooltip: `${monthLabel(month.month)}: ${currency(month.total)} em ${month.count} registro(s)` };
+  });
+  const compactCurrency = (value: number) => value >= 1000 ? `R$ ${(value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k` : `R$ ${Math.round(value)}`;
   return (
     <div className="mt-5 rounded-2xl border border-white bg-white/85 p-4 shadow-sm">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"><div><h3 className="flex items-center gap-2 text-xs font-extrabold text-gray-800"><CalendarDays className="h-4 w-4 text-[#123e5b]" />Visão anual de custos · {year}</h3><p className="mt-1 text-[11px] text-gray-500">Comparativo mensal de todos os registros do ano. Passe o cursor sobre uma coluna para ver os detalhes.</p></div><span className="rounded-full bg-[#eef5eb] px-3 py-1 text-[10px] font-extrabold text-[#385041]">12 meses</span></div>
-      <div className="mt-5 flex h-56 items-end gap-1 border-b border-gray-200 px-1 sm:gap-2">
-        {months.map((month) => {
-          const [, monthNumber] = month.month.split('-');
-          const label = new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date(year, Number(monthNumber) - 1, 1)).replace('.', '');
-          return <div key={month.month} className="group flex min-w-0 flex-1 flex-col items-center justify-end gap-1" title={`${monthLabel(month.month)}: ${currency(month.total)} em ${month.count} registro(s)`}><span className="hidden rounded bg-gray-900 px-1.5 py-1 text-[9px] font-bold text-white group-hover:block">{currency(month.total)}</span><div className={`w-full min-w-1.5 rounded-t-lg transition-all group-hover:brightness-110 ${month.total ? 'bg-gradient-to-t from-[#123e5b] to-[#6f9bb4]' : 'bg-gray-100'}`} style={{ height: `${Math.max(month.total ? 5 : 2, Math.round((month.total / max) * 175))}px` }} /><span className="text-[9px] font-bold uppercase text-gray-500">{label}</span></div>;
-        })}
-      </div>
+      <div className="mt-4"><PillBarChart data={chartData} ariaLabel={`Visão anual de custos de ${year}`} valueFormatter={compactCurrency} emptyMessage="Ainda não há custos cadastrados neste ano." /></div>
     </div>
   );
 }

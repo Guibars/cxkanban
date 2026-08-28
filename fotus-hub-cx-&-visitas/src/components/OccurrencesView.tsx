@@ -22,6 +22,7 @@ import { db, doc, updateDoc } from '../lib/firebase';
 import { readOccurrencesSpreadsheet, saveImportedOccurrences } from '../lib/occurrenceImport';
 import { Occurrence, OccurrenceStage, OrganizationUnit } from '../types';
 import OccurrenceModal from './OccurrenceModal';
+import PillBarChart from './PillBarChart';
 
 interface OccurrencesViewProps {
   occurrences: Occurrence[];
@@ -69,7 +70,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
   const [stageFilter, setStageFilter] = useState<'Todas' | OccurrenceStage>('Todas');
   const [showInsights, setShowInsights] = useState(true);
   const [analyticsDimension, setAnalyticsDimension] = useState<AnalyticsDimension>('agents');
-  const [hiddenSeries, setHiddenSeries] = useState<string[]>([]);
+  const [selectedSeries, setSelectedSeries] = useState('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOccurrence, setEditingOccurrence] = useState<Occurrence | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -139,11 +140,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
 
   const changeAnalyticsDimension = (dimension: AnalyticsDimension) => {
     setAnalyticsDimension(dimension);
-    setHiddenSeries([]);
-  };
-
-  const toggleSeries = (label: string) => {
-    setHiddenSeries((current) => current.includes(label) ? current.filter((item) => item !== label) : [...current, label]);
+    setSelectedSeries('Todos');
   };
 
   const changeStage = async (occurrence: Occurrence, stage: OccurrenceStage) => {
@@ -261,9 +258,9 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
             dimension={analyticsDimension}
             months={productivityChart.months}
             series={productivityChart.topSeries}
-            hiddenSeries={hiddenSeries}
+            selectedSeries={selectedSeries}
             onDimensionChange={changeAnalyticsDimension}
-            onToggleSeries={toggleSeries}
+            onSelectSeries={setSelectedSeries}
           />
         </section>
       )}
@@ -348,59 +345,40 @@ interface ProductivityChartProps {
   dimension: AnalyticsDimension;
   months: Array<{ key: string; label: string; total: number; values: number[] }>;
   series: string[];
-  hiddenSeries: string[];
+  selectedSeries: string;
   onDimensionChange: (dimension: AnalyticsDimension) => void;
-  onToggleSeries: (label: string) => void;
+  onSelectSeries: (label: string) => void;
 }
 
-const CHART_COLORS = ['#385041', '#2f78a8', '#e18b2e', '#8a5db5', '#c34e5d'];
-
-function ProductivityChart({ year, dimension, months, series, hiddenSeries, onDimensionChange, onToggleSeries }: ProductivityChartProps) {
-  const width = 840;
-  const height = 300;
-  const left = 48;
-  const right = 20;
-  const top = 18;
-  const bottom = 46;
-  const plotWidth = width - left - right;
-  const plotHeight = height - top - bottom;
-  const max = Math.max(1, ...months.flatMap((month) => month.values));
-  const pointX = (index: number) => left + (index / Math.max(months.length - 1, 1)) * plotWidth;
-  const pointY = (value: number) => top + plotHeight - (value / max) * plotHeight;
-  const visibleSeries = series.filter((label) => !hiddenSeries.includes(label));
+function ProductivityChart({ year, dimension, months, series, selectedSeries, onDimensionChange, onSelectSeries }: ProductivityChartProps) {
   const dimensionTitle = dimension === 'agents' ? 'produtividade das agentes' : dimension === 'carriers' ? 'ocorrências por transportadora' : 'ocorrências por estado / UF';
+  const selectedIndex = series.indexOf(selectedSeries);
+  const effectiveSeries = selectedSeries === 'Todos' || selectedIndex >= 0 ? selectedSeries : 'Todos';
+  const chartData = months.map((month) => ({
+    key: month.key,
+    label: month.label,
+    value: effectiveSeries === 'Todos' ? month.total : month.values[selectedIndex] || 0,
+    tooltip: `${month.label}/${year} · ${effectiveSeries === 'Todos' ? 'Todas as ocorrências' : effectiveSeries}: ${effectiveSeries === 'Todos' ? month.total : month.values[selectedIndex] || 0} card(s)`,
+  }));
 
   return (
     <section className="mt-5 overflow-hidden rounded-3xl border border-[#385041]/10 bg-white/90 shadow-sm">
       <div className="border-b border-gray-100 bg-gradient-to-r from-[#f3f8f1] via-white to-[#eef5f8] p-5 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div><p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]"><LineChart className="h-4 w-4" />Performance mensal</p><h2 className="mt-1 text-lg font-extrabold text-gray-950">{dimensionTitle} · {year}</h2><p className="mt-1 text-xs text-gray-500">Quantidade de cards por mês. Use os controles para trocar a leitura e ligar ou desligar séries.</p></div>
+          <div><p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]"><LineChart className="h-4 w-4" />Performance mensal</p><h2 className="mt-1 text-lg font-extrabold text-gray-950">{dimensionTitle} · {year}</h2><p className="mt-1 text-xs text-gray-500">Quantidade de cards por mês. Troque a leitura e escolha uma categoria para comparar os 12 meses.</p></div>
           <div className="flex flex-wrap gap-1.5 rounded-2xl border border-white/90 bg-white/80 p-1.5 shadow-sm">
             {ANALYTICS_DIMENSIONS.map((item) => <button key={item.id} type="button" onClick={() => onDimensionChange(item.id)} className={`rounded-xl px-3 py-2 text-[11px] font-extrabold transition-all ${dimension === item.id ? 'bg-[#385041] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}>{item.label}</button>)}
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          {series.map((label, index) => <button key={label} type="button" onClick={() => onToggleSeries(label)} className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold transition-all ${hiddenSeries.includes(label) ? 'border-gray-200 bg-gray-50 text-gray-400 line-through' : 'border-gray-200 bg-white text-gray-700 hover:border-[#385041]/30'}`}><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: hiddenSeries.includes(label) ? '#b8c0c4' : CHART_COLORS[index] }} />{label}</button>)}
+          <button type="button" onClick={() => onSelectSeries('Todos')} className={`rounded-full border px-3 py-1.5 text-[10px] font-extrabold transition-all ${effectiveSeries === 'Todos' ? 'border-[#385041] bg-[#385041] text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-[#385041]/30'}`}>Todos</button>
+          {series.map((label) => <button key={label} type="button" onClick={() => onSelectSeries(label)} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition-all ${effectiveSeries === label ? 'border-[#385041] bg-[#e8efe0] text-[#385041] shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-[#385041]/30'}`}>{label}</button>)}
           {!series.length && <span className="rounded-full bg-amber-50 px-3 py-1.5 text-[10px] font-bold text-amber-700">Ainda não há dados deste ano para montar as séries.</span>}
         </div>
       </div>
 
-      <div className="overflow-x-auto p-3 sm:p-5">
-        <svg viewBox={`0 0 ${width} ${height}`} className="min-w-[650px] w-full" role="img" aria-label={`Gráfico mensal de ${dimensionTitle}`}>
-          <defs><linearGradient id="productivity-chart-bg" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#f6faf7" /><stop offset="100%" stopColor="#ffffff" /></linearGradient></defs>
-          <rect x={left} y={top} width={plotWidth} height={plotHeight} rx="12" fill="url(#productivity-chart-bg)" />
-          {[0, 0.25, 0.5, 0.75, 1].map((ratio) => { const y = top + plotHeight - ratio * plotHeight; const value = Math.round(max * ratio); return <g key={ratio}><line x1={left} x2={left + plotWidth} y1={y} y2={y} stroke="#dfe7e2" strokeDasharray="3 5" /><text x={left - 10} y={y + 4} textAnchor="end" fill="#87948c" fontSize="10" fontWeight="700">{value}</text></g>; })}
-          {months.map((month, index) => <text key={month.key} x={pointX(index)} y={height - 16} textAnchor="middle" fill="#78857e" fontSize="10" fontWeight="700" textTransform="uppercase">{month.label}</text>)}
-          {series.map((label, seriesIndex) => {
-            if (hiddenSeries.includes(label)) return null;
-            const values = months.map((month) => month.values[seriesIndex] || 0);
-            const points = values.map((value, index) => `${pointX(index)},${pointY(value)}`).join(' ');
-            return <g key={label}><polyline points={points} fill="none" stroke={CHART_COLORS[seriesIndex]} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />{values.map((value, index) => <circle key={`${label}-${months[index].key}`} cx={pointX(index)} cy={pointY(value)} r="4" fill="#fff" stroke={CHART_COLORS[seriesIndex]} strokeWidth="2"><title>{`${label} · ${months[index].label}: ${value} ocorrência(s)`}</title></circle>)}</g>;
-          })}
-          {!visibleSeries.length && <text x={left + plotWidth / 2} y={top + plotHeight / 2} textAnchor="middle" fill="#87948c" fontSize="13" fontWeight="700">Selecione uma série para visualizar</text>}
-        </svg>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 bg-gray-50/70 px-5 py-3 text-[10px] text-gray-500"><span>Total no ano: <strong className="text-gray-800">{months.reduce((sum, month) => sum + month.total, 0)} ocorrências</strong></span><span>As séries exibem as cinco categorias com maior volume.</span></div>
+      <div className="p-3 sm:p-5"><PillBarChart data={chartData} ariaLabel={`Gráfico mensal de ${dimensionTitle} em ${year}`} valueFormatter={(value) => String(value)} emptyMessage="Ainda não há ocorrências para esta seleção." /></div>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 bg-gray-50/70 px-5 py-3 text-[10px] text-gray-500"><span>Seleção atual: <strong className="text-gray-800">{effectiveSeries}</strong></span><span>Total exibido: <strong className="text-gray-800">{chartData.reduce((sum, month) => sum + month.value, 0)} cards</strong></span></div>
     </section>
   );
 }
