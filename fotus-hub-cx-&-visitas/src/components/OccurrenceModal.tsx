@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { User } from 'firebase/auth';
-import { Building2, CalendarDays, CheckCircle2, Hash, MapPin, Package, Route, Save, Truck, UserRound, X } from 'lucide-react';
+import { Building2, CalendarDays, CheckCircle2, CircleDollarSign, Hash, MapPin, Package, Route, Save, ShieldAlert, Truck, UserRound, X } from 'lucide-react';
 import { addDoc, collection, db, doc, updateDoc } from '../lib/firebase';
 import {
   BRAZIL_STATES,
@@ -39,7 +39,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
   const [orderNumber, setOrderNumber] = useState('');
   const [uniqueNumber, setUniqueNumber] = useState('');
   const [sacCode, setSacCode] = useState('');
-  const [occurrenceType, setOccurrenceType] = useState('Material Avariado');
+  const [occurrenceType, setOccurrenceType] = useState('Material Faltando');
   const [product, setProduct] = useState('Módulo');
   const [quantity, setQuantity] = useState(1);
   const [stage, setStage] = useState<OccurrenceStage>('Recebida');
@@ -47,6 +47,9 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
   const [carrier, setCarrier] = useState('');
   const [comments, setComments] = useState('');
   const [consultant, setConsultant] = useState('');
+  const [isDamage, setIsDamage] = useState(false);
+  const [damageAmount, setDamageAmount] = useState(0);
+  const [city, setCity] = useState('');
   const [organizationUnitId, setOrganizationUnitId] = useState('');
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -56,13 +59,13 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
   useEffect(() => {
     if (!isOpen) return;
     setDate(occurrence?.date || today());
-    setAgentName(occurrence?.agentName || '');
+    setAgentName(occurrence?.agentName || (agents.length === 1 ? agents[0] : ''));
     setCompanyName(occurrence?.companyName || '');
     setState(occurrence?.state || '');
     setOrderNumber(occurrence?.orderNumber || '');
     setUniqueNumber(occurrence?.uniqueNumber || '');
     setSacCode(occurrence?.sacCode || '');
-    setOccurrenceType(occurrence?.occurrenceType || 'Material Avariado');
+    setOccurrenceType(occurrence?.occurrenceType || 'Material Faltando');
     setProduct(occurrence?.product || 'Módulo');
     setQuantity(occurrence?.quantity || 1);
     setStage(occurrence?.stage || 'Recebida');
@@ -70,9 +73,12 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
     setCarrier(occurrence?.carrier || '');
     setComments(occurrence?.comments || '');
     setConsultant(occurrence?.consultant || '');
+    setIsDamage(occurrence?.isDamage ?? Boolean(occurrence?.occurrenceType?.toLocaleLowerCase('pt-BR').includes('avari')));
+    setDamageAmount(occurrence?.damageAmount || 0);
+    setCity(occurrence?.city || '');
     setOrganizationUnitId(occurrence?.organizationUnitId || '');
     setErrorMessage('');
-  }, [currentUser.displayName, isOpen, occurrence]);
+  }, [agents, currentUser.displayName, isOpen, occurrence]);
 
   if (!isOpen) return null;
 
@@ -99,6 +105,9 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
       carrier: carrier.trim(),
       comments: comments.trim(),
       consultant: consultant.trim(),
+      isDamage,
+      damageAmount: isDamage ? Math.max(0, Number(damageAmount) || 0) : 0,
+      city: city.trim(),
       organizationUnitId: selectedUnit?.id || null,
       routedToName: selectedUnit?.managerName || null,
       routedToEmail: selectedUnit?.managerEmail || null,
@@ -128,16 +137,24 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-6">
       <form onSubmit={handleSubmit} className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-white bg-white shadow-2xl">
-        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-gray-100 bg-white/95 px-5 py-4 backdrop-blur-xl sm:px-7">
+        <div className="sticky top-0 z-20 flex flex-col gap-3 border-b border-gray-100 bg-white/95 px-5 py-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <div>
             <h2 className="text-lg font-extrabold text-gray-950">{occurrence ? 'Editar ocorrência' : 'Nova ocorrência'}</h2>
             <p className="text-xs text-gray-500">Fluxo digital baseado no controle operacional atual.</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-2xl border border-gray-200 bg-gray-50 p-1">
+              <button type="button" onClick={() => { setIsDamage(false); if (occurrenceType.toLocaleLowerCase('pt-BR').includes('avari')) setOccurrenceType('Material Faltando'); }} className={`rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all ${!isDamage ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>Ocorrência comum</button>
+              <button type="button" onClick={() => { setIsDamage(true); setOccurrenceType('Material Avariado'); }} className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all ${isDamage ? 'bg-amber-400 text-amber-950 shadow-sm' : 'text-gray-500'}`}><ShieldAlert className="h-3.5 w-3.5" />Avaria com custo</button>
+            </div>
+            <button type="button" onClick={onClose} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+          </div>
         </div>
 
         <div className="space-y-6 p-5 sm:p-7">
           {errorMessage && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{errorMessage}</p>}
+
+          {isDamage && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="flex items-center gap-2 text-xs font-extrabold text-amber-900"><ShieldAlert className="h-4 w-4" />Avaria selecionada</p><p className="mt-1 text-[10px] text-amber-800">O valor, a transportadora, a cidade e a UF alimentarão os rankings financeiros da operação.</p></div>}
 
           <section>
             <SectionTitle number="1" title="Identificação" description="Comece pela data, agente e empresa." />
@@ -152,6 +169,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
               </Field>
               <div className="sm:col-span-2"><Field label="Nome da empresa" icon={Building2}><input required value={companyName} onChange={(event) => setCompanyName(event.target.value)} className="field-input" placeholder="Razão social ou nome fantasia" /></Field></div>
               <Field label="UF" icon={MapPin}><select required value={state} onChange={(event) => setState(event.target.value)} className="field-input"><option value="">Selecione</option>{BRAZIL_STATES.map((uf) => <option key={uf} value={uf}>{uf}</option>)}</select></Field>
+              <Field label={isDamage ? 'Cidade da avaria' : 'Cidade'} icon={MapPin}><input required={isDamage} value={city} onChange={(event) => setCity(event.target.value)} className="field-input" placeholder="Cidade onde ocorreu" /></Field>
               <Field label="Nº do pedido" icon={Hash}><input required value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} className="field-input" placeholder="Preserva zeros e hífens" /></Field>
               <Field label="Nº único" icon={Hash}><input value={uniqueNumber} onChange={(event) => setUniqueNumber(event.target.value)} className="field-input" /></Field>
               <Field label="Cód. SAC" icon={Hash}><input required value={sacCode} onChange={(event) => setSacCode(event.target.value)} className="field-input" /></Field>
@@ -165,6 +183,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
               <Field label="Produto" icon={Package}><input required list="products-list" value={product} onChange={(event) => setProduct(event.target.value)} className="field-input" /><datalist id="products-list">{OCCURRENCE_PRODUCTS.map((item) => <option key={item} value={item} />)}</datalist></Field>
               <Field label="Quantidade" icon={Package}><input required min={1} step={1} type="number" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} className="field-input" /></Field>
               <Field label="Transportadora" icon={Truck}><input required list="carriers-list" value={carrier} onChange={(event) => setCarrier(event.target.value)} className="field-input" placeholder="Selecione ou digite" /><datalist id="carriers-list">{OCCURRENCE_CARRIERS.map((item) => <option key={item} value={item} />)}</datalist></Field>
+              {isDamage && <Field label="Valor da avaria" icon={CircleDollarSign}><input required min={0.01} step={0.01} type="number" value={damageAmount || ''} onChange={(event) => setDamageAmount(Number(event.target.value))} className="field-input" placeholder="0,00" /></Field>}
             </div>
           </section>
 

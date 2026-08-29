@@ -88,6 +88,8 @@ export interface OrganizationUnit {
   managerEmail: string;
   leaderName: string;
   leaderEmail: string;
+  coordinatorName?: string;
+  coordinatorEmail?: string;
   active: boolean;
   createdByEmail: string;
   createdAt: number;
@@ -115,6 +117,9 @@ export interface Occurrence {
   carrier: string;
   comments: string;
   consultant: string;
+  isDamage?: boolean;
+  damageAmount?: number;
+  city?: string;
   organizationUnitId?: string | null;
   routedToName?: string | null;
   routedToEmail?: string | null;
@@ -122,6 +127,22 @@ export interface Occurrence {
   createdByName: string;
   importSource?: string;
   importRow?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type AppSection = 'visao-geral' | 'ocorrencias' | 'custos' | 'ra' | 'visitas' | 'estrutura';
+export type UserAccessRole = 'Agente' | 'Gerente' | 'Líder' | 'Coordenador' | 'Administrador';
+
+export interface UserAccessProfile {
+  id: string;
+  email: string;
+  displayName: string;
+  role: UserAccessRole;
+  agentName?: string;
+  organizationUnitIds: string[];
+  visibleTabs: AppSection[];
+  active: boolean;
   createdAt: number;
   updatedAt: number;
 }

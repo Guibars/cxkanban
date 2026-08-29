@@ -32,6 +32,8 @@ const emptyForm = {
   managerEmail: '',
   leaderName: '',
   leaderEmail: '',
+  coordinatorName: '',
+  coordinatorEmail: '',
   active: true,
 };
 
@@ -54,12 +56,15 @@ export default function OrganizationView({ units, currentUser }: OrganizationVie
       unit.managerEmail,
       unit.leaderName,
       unit.leaderEmail,
+      unit.coordinatorName || '',
+      unit.coordinatorEmail || '',
     ].some((value) => value.toLowerCase().includes(query)));
   }, [search, units]);
 
   const regionsCount = new Set(units.filter((unit) => unit.active).map((unit) => unit.regional)).size;
   const managersCount = new Set(units.filter((unit) => unit.active).map((unit) => unit.managerEmail.toLowerCase())).size;
   const leadersCount = new Set(units.filter((unit) => unit.active).map((unit) => unit.leaderEmail.toLowerCase())).size;
+  const coordinatorsCount = new Set(units.filter((unit) => unit.active && unit.coordinatorEmail).map((unit) => (unit.coordinatorEmail || '').toLowerCase())).size;
 
   const openCreateForm = () => {
     setEditingUnit(null);
@@ -78,6 +83,8 @@ export default function OrganizationView({ units, currentUser }: OrganizationVie
       managerEmail: unit.managerEmail,
       leaderName: unit.leaderName,
       leaderEmail: unit.leaderEmail,
+      coordinatorName: unit.coordinatorName || '',
+      coordinatorEmail: unit.coordinatorEmail || '',
       active: unit.active,
     });
     setErrorMessage('');
@@ -97,6 +104,8 @@ export default function OrganizationView({ units, currentUser }: OrganizationVie
       managerEmail: form.managerEmail.trim().toLowerCase(),
       leaderName: form.leaderName.trim(),
       leaderEmail: form.leaderEmail.trim().toLowerCase(),
+      coordinatorName: form.coordinatorName.trim(),
+      coordinatorEmail: form.coordinatorEmail.trim().toLowerCase(),
       active: form.active,
       updatedAt: now,
     };
@@ -133,12 +142,13 @@ export default function OrganizationView({ units, currentUser }: OrganizationVie
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {[
           { label: 'Times cadastrados', value: units.length, icon: Network, color: 'text-[#385041] bg-[#e8efe0]' },
           { label: 'Regionais ativas', value: regionsCount, icon: MapPinned, color: 'text-blue-700 bg-blue-50' },
           { label: 'Gerentes ativos', value: managersCount, icon: UserRoundCog, color: 'text-violet-700 bg-violet-50' },
           { label: 'Lideranças', value: leadersCount, icon: Users, color: 'text-amber-700 bg-amber-50' },
+          { label: 'Coordenação', value: coordinatorsCount, icon: UserRoundCog, color: 'text-violet-700 bg-violet-50' },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm backdrop-blur-md">
             <div className="flex items-center justify-between">
@@ -208,6 +218,11 @@ export default function OrganizationView({ units, currentUser }: OrganizationVie
                   <p className="mt-1 text-sm font-bold text-gray-900">{unit.leaderName}</p>
                   <p className="mt-1 flex items-center gap-1.5 truncate text-[11px] text-gray-500"><Mail className="h-3 w-3" />{unit.leaderEmail}</p>
                 </div>
+                {(unit.coordinatorName || unit.coordinatorEmail) && <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-3">
+                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-violet-700/70">Coordenação do setor</p>
+                  <p className="mt-1 text-sm font-bold text-gray-900">{unit.coordinatorName || 'Não informado'}</p>
+                  <p className="mt-1 flex items-center gap-1.5 truncate text-[11px] text-gray-500"><Mail className="h-3 w-3" />{unit.coordinatorEmail || 'Sem e-mail'}</p>
+                </div>}
               </div>
             </article>
           ))}
@@ -247,6 +262,13 @@ export default function OrganizationView({ units, currentUser }: OrganizationVie
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Nome completo" value={form.leaderName} onChange={(value) => setForm({ ...form, leaderName: value })} placeholder="Nome real" />
                   <Field label="E-mail corporativo" value={form.leaderEmail} onChange={(value) => setForm({ ...form, leaderEmail: value })} placeholder="nome@fotus.com.br" type="email" icon={Mail} />
+                </div>
+              </div>
+              <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-4">
+                <p className="mb-3 text-xs font-extrabold uppercase tracking-wider text-violet-800">Coordenação do setor</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Nome completo" value={form.coordinatorName} onChange={(value) => setForm({ ...form, coordinatorName: value })} placeholder="Nome real" />
+                  <Field label="E-mail corporativo" value={form.coordinatorEmail} onChange={(value) => setForm({ ...form, coordinatorEmail: value })} placeholder="nome@fotus.com.br" type="email" icon={Mail} />
                 </div>
               </div>
               <label className="flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-sm font-semibold text-gray-700">

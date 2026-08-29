@@ -12,43 +12,65 @@ service cloud.firestore {
         );
     }
 
+    function isDeveloper() {
+      return isAuthorizedUser() && request.auth.token.email == 'guilhermebarbosars@gmail.com';
+    }
+
+    function canManagePeople() {
+      return isDeveloper()
+        || (
+          exists(/databases/$(database)/documents/user_access/$(request.auth.token.email))
+          && get(/databases/$(database)/documents/user_access/$(request.auth.token.email)).data.active == true
+          && get(/databases/$(database)/documents/user_access/$(request.auth.token.email)).data.role in ['Administrador', 'Coordenador', 'Líder']
+        );
+    }
+
+    function canViewTab(tabId) {
+      return isDeveloper()
+        || (
+          exists(/databases/$(database)/documents/user_access/$(request.auth.token.email))
+          && get(/databases/$(database)/documents/user_access/$(request.auth.token.email)).data.active == true
+          && tabId in get(/databases/$(database)/documents/user_access/$(request.auth.token.email)).data.visibleTabs
+        );
+    }
+
     function hasNumericTimestamps(data) {
       return data.createdAt is int && data.updatedAt is int;
     }
 
     match /cx_cases/{caseId} {
-      allow read: if isAuthorizedUser();
-      allow create: if isAuthorizedUser()
+      allow read: if isDeveloper();
+      allow create: if isDeveloper()
         && request.resource.data.orderNumber is string
         && request.resource.data.productCode is string
         && request.resource.data.quantity is int
         && request.resource.data.status is string
         && request.resource.data.observations is string
         && hasNumericTimestamps(request.resource.data);
-      allow update: if isAuthorizedUser()
+      allow update: if isDeveloper()
         && request.resource.data.orderNumber is string
         && request.resource.data.productCode is string
         && request.resource.data.quantity is int
         && request.resource.data.status is string
         && request.resource.data.updatedAt is int;
-      allow delete: if isAuthorizedUser();
+      allow delete: if isDeveloper();
     }
 
     match /ra_cases/{caseId} {
-      allow read: if isAuthorizedUser();
-      allow create: if isAuthorizedUser()
+      allow read: if isAuthorizedUser() && canViewTab('ra');
+      allow create: if isAuthorizedUser() && canViewTab('ra')
         && request.resource.data.raNumber is string
         && request.resource.data.customerName is string
         && request.resource.data.status is string
         && request.resource.data.createdByEmail == request.auth.token.email
         && hasNumericTimestamps(request.resource.data);
-      allow update: if isAuthorizedUser()
+      allow update: if isAuthorizedUser() && canViewTab('ra')
         && request.resource.data.raNumber is string
         && request.resource.data.customerName is string
         && request.resource.data.status is string
         && request.resource.data.createdByEmail == request.auth.token.email
         && request.resource.data.updatedAt is int;
-      allow delete: if isAuthorizedUser();
+      allow delete: if isAuthorizedUser() && canViewTab('ra');
     }
 
     match /integrator_visits/{visitId} {
@@ -71,7 +93,7 @@ service cloud.firestore {
 
     match /organization_units/{unitId} {
       allow read: if isAuthorizedUser();
-      allow create: if isAuthorizedUser()
+      allow create: if canManagePeople()
         && request.resource.data.department is string
         && request.resource.data.teamName is string
         && request.resource.data.regional is string
@@ -79,16 +101,20 @@ service cloud.firestore {
         && request.resource.data.managerEmail is string
         && request.resource.data.leaderName is string
         && request.resource.data.leaderEmail is string
+        && (!request.resource.data.keys().hasAny(['coordinatorName']) || request.resource.data.coordinatorName is string)
+        && (!request.resource.data.keys().hasAny(['coordinatorEmail']) || request.resource.data.coordinatorEmail is string)
         && request.resource.data.active is bool
         && hasNumericTimestamps(request.resource.data);
-      allow update: if isAuthorizedUser()
+      allow update: if canManagePeople()
         && request.resource.data.department is string
         && request.resource.data.teamName is string
         && request.resource.data.managerName is string
         && request.resource.data.leaderName is string
+        && (!request.resource.data.keys().hasAny(['coordinatorName']) || request.resource.data.coordinatorName is string)
+        && (!request.resource.data.keys().hasAny(['coordinatorEmail']) || request.resource.data.coordinatorEmail is string)
         && request.resource.data.active is bool
         && request.resource.data.updatedAt is int;
-      allow delete: if isAuthorizedUser();
+      allow delete: if isDeveloper();
     }
 
     match /occurrences/{occurrenceId} {
@@ -107,6 +133,9 @@ service cloud.firestore {
         && request.resource.data.stage is string
         && request.resource.data.approvalStatus is string
         && request.resource.data.carrier is string
+        && (!request.resource.data.keys().hasAny(['isDamage']) || request.resource.data.isDamage is bool)
+        && (!request.resource.data.keys().hasAny(['damageAmount']) || request.resource.data.damageAmount is number)
+        && (!request.resource.data.keys().hasAny(['city']) || request.resource.data.city is string)
         && hasNumericTimestamps(request.resource.data);
       allow update: if isAuthorizedUser()
         && request.resource.data.date is string
@@ -115,13 +144,16 @@ service cloud.firestore {
         && request.resource.data.quantity is int
         && request.resource.data.stage is string
         && request.resource.data.approvalStatus is string
+        && (!request.resource.data.keys().hasAny(['isDamage']) || request.resource.data.isDamage is bool)
+        && (!request.resource.data.keys().hasAny(['damageAmount']) || request.resource.data.damageAmount is number)
+        && (!request.resource.data.keys().hasAny(['city']) || request.resource.data.city is string)
         && request.resource.data.updatedAt is int;
       allow delete: if isAuthorizedUser();
     }
 
     match /extra_costs/{costId} {
-      allow read: if isAuthorizedUser();
-      allow create: if isAuthorizedUser()
+      allow read: if isAuthorizedUser() && canViewTab('custos');
+      allow create: if isAuthorizedUser() && canViewTab('custos')
         && request.resource.data.date is string
         && request.resource.data.orderNumber is string
         && request.resource.data.regional is string
@@ -136,22 +168,35 @@ service cloud.firestore {
         && request.resource.data.reasonCategory is string
         && request.resource.data.detailedReason is string
         && hasNumericTimestamps(request.resource.data);
-      allow update: if isAuthorizedUser()
+      allow update: if isAuthorizedUser() && canViewTab('custos')
         && request.resource.data.date is string
         && request.resource.data.orderNumber is string
         && request.resource.data.quantity is int
         && request.resource.data.totalCost is number
         && request.resource.data.responsible is string
         && request.resource.data.updatedAt is int;
-      allow delete: if isAuthorizedUser();
+      allow delete: if isAuthorizedUser() && canViewTab('custos');
     }
 
     match /app_settings/{settingId} {
       allow read: if isAuthorizedUser();
-      allow create, update: if isAuthorizedUser()
+      allow create, update: if canManagePeople()
         && settingId == 'occurrence_agents'
         && request.resource.data.names is list
         && request.resource.data.updatedAt is int;
+      allow delete: if false;
+    }
+
+    match /user_access/{userEmail} {
+      allow read: if isAuthorizedUser();
+      allow create, update: if isDeveloper()
+        && request.resource.data.email == userEmail
+        && request.resource.data.displayName is string
+        && request.resource.data.role is string
+        && request.resource.data.organizationUnitIds is list
+        && request.resource.data.visibleTabs is list
+        && request.resource.data.active is bool
+        && hasNumericTimestamps(request.resource.data);
       allow delete: if false;
     }
 

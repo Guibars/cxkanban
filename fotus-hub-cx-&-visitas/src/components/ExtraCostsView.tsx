@@ -46,7 +46,7 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
   const [search, setSearch] = useState('');
   const [responsibleFilter, setResponsibleFilter] = useState<'Todos' | 'Comercial' | 'Cliente'>('Todos');
   const [monthFilter, setMonthFilter] = useState(currentMonthKey());
-  const [showInsights, setShowInsights] = useState(true);
+  const [showInsights, setShowInsights] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCost, setEditingCost] = useState<ExtraCost | null>(null);
   const [isImporting, setIsImporting] = useState(false);

@@ -24,46 +24,68 @@ function shell(title: string, subtitle: string, body: string) {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
     @page { size: A4; margin: 12mm 13mm 14mm; }
     * { box-sizing: border-box; }
-    body { margin: 0; color: #17202b; font-family: Arial, Helvetica, sans-serif; font-size: 10px; line-height: 1.35; background: #fff; }
+    body { margin: 0; color: #23272b; font-family: Arial, Helvetica, sans-serif; font-size: 9.5px; line-height: 1.35; background: #fff; }
     .page { width: 100%; }
-    .header { border-bottom: 3px solid #f08a24; padding: 2px 0 12px; margin-bottom: 15px; }
-    .brand { color: #163f5b; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-    h1 { color: #123e5b; font-size: 23px; line-height: 1.05; margin: 5px 0 4px; }
-    .subtitle { color: #667382; font-size: 10px; margin: 0; }
-    .muted { color: #74808c; }
-    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 16px; }
-    .kpi { border: 1px solid #dce3e8; border-radius: 7px; padding: 10px 11px; background: #f8fafb; }
-    .kpi-label { color: #6e7c88; font-size: 8px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
-    .kpi-value { color: #123e5b; font-size: 17px; font-weight: 800; margin-top: 3px; }
-    .section-title { border-left: 4px solid #f08a24; color: #123e5b; font-size: 13px; font-weight: 800; margin: 17px 0 8px; padding-left: 7px; }
-    .callout { border: 1px solid #f2c48d; border-radius: 6px; background: #fff8ee; color: #6f4217; padding: 9px 11px; margin: 9px 0 13px; }
+    .hero { background: #24567f; border-bottom: 5px solid #f5a623; color: #fff; margin: -12mm -13mm 18px; padding: 16mm 13mm 13mm; }
+    .hero .brand { color: #f5a623; }
+    .hero h1 { color: #fff; }
+    .plain-header { margin-bottom: 14px; }
+    .plain-header h1 { color: #0d0d0d; font-size: 21px; }
+    .brand { color: #24567f; font-size: 9px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+    h1 { color: #24567f; font-size: 23px; line-height: 1.05; margin: 6px 0 5px; }
+    .subtitle { color: #d8e4ed; font-size: 9.5px; margin: 0; }
+    .plain-header .subtitle { color: #4f5358; }
+    .muted { color: #737a80; }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin: 0 0 14px; }
+    .kpi { border-right: 1px solid #e2e8ed; padding: 11px; text-align: center; background: #f3f6f8; }
+    .kpi:first-child { border-radius: 5px 0 0 5px; }
+    .kpi:last-child { border-right: 0; border-radius: 0 5px 5px 0; background: #fff0d7; }
+    .kpi-label { color: #6d747b; font-size: 7.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .kpi-value { color: #24567f; font-size: 18px; font-weight: 800; margin-bottom: 2px; }
+    .section-title, .band { background: #e7eff5; color: #24567f; font-size: 10.5px; font-weight: 800; letter-spacing: .03em; margin: 14px 0 7px; padding: 6px 9px; text-transform: uppercase; }
+    .band-blue { background: #2878b7; color: #fff; text-transform: none; font-size: 12px; }
+    .band-navy { background: #173f6b; color: #fff; text-transform: none; font-size: 12px; }
+    .band-orange { background: #df8b19; color: #fff; text-transform: none; font-size: 12px; }
+    .band-red { background: #c7382c; color: #fff; text-transform: none; font-size: 12px; }
+    .callout { border: 1px solid #d7d7d7; background: #fff; color: #24282c; padding: 9px 11px; margin: 0 0 13px; }
+    .positive { color: #00a84f; font-weight: 800; margin: 7px 0 12px; }
+    .note { color: #6e7378; font-size: 8px; font-style: italic; margin: -5px 0 12px; }
     table { border-collapse: collapse; width: 100%; margin: 5px 0 11px; }
-    th { background: #123e5b; color: #fff; font-size: 8px; font-weight: 800; padding: 6px 5px; text-align: left; }
-    td { border-bottom: 1px solid #e4e9ed; color: #26333e; font-size: 8.5px; padding: 5px; vertical-align: top; }
-    tr:nth-child(even) td { background: #f7f9fa; }
+    th { background: #24567f; color: #fff; font-size: 8px; font-weight: 800; padding: 5px 6px; text-align: left; }
+    td { border: 1px solid #d9dde0; color: #2c3034; font-size: 8.3px; padding: 4px 6px; vertical-align: top; }
+    tr:nth-child(even) td { background: #f5f7f8; }
+    .total-row td { background: #e7eff5 !important; color: #24567f; font-weight: 800; }
     .right { text-align: right; }
     .center { text-align: center; }
     .pill { border-radius: 12px; display: inline-block; font-size: 8px; font-weight: 800; padding: 3px 7px; }
     .pill-green { background: #e8f6ed; color: #1d7a42; }
     .pill-red { background: #fff0ef; color: #b53b36; }
     .pill-orange { background: #fff4e5; color: #a45b12; }
-    .grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .stat-list { border: 1px solid #e0e7eb; border-radius: 6px; padding: 9px 10px; }
     .stat-row { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid #edf0f2; padding: 5px 0; }
     .stat-row:last-child { border-bottom: 0; }
     .bar-wrap { background: #e8edf0; border-radius: 4px; height: 6px; margin-top: 4px; overflow: hidden; }
     .bar { background: #4f7d62; height: 100%; }
-    .mini-chart { align-items: end; border-bottom: 1px solid #cfd9df; display: flex; gap: 8px; height: 104px; margin: 7px 0 13px; padding: 0 5px; }
+    .report-chart { border: 1px solid #d8dde1; margin: 7px 0 14px; padding: 10px 12px 7px; }
+    .chart-title { font-size: 10px; font-weight: 800; margin-bottom: 8px; }
+    .mini-chart { align-items: end; border-bottom: 1px solid #aeb7be; display: flex; gap: 9px; height: 125px; margin: 0; padding: 0 8px; }
     .chart-col { align-items: center; display: flex; flex: 1; flex-direction: column; height: 100%; justify-content: end; min-width: 0; }
-    .chart-bar { background: linear-gradient(#7da08a, #385041); border-radius: 4px 4px 0 0; min-height: 3px; width: 100%; }
-    .chart-label { color: #74808c; font-size: 7px; margin-top: 4px; white-space: nowrap; }
+    .chart-value { color: #2d3135; font-size: 8px; font-weight: 800; margin-bottom: 2px; white-space: nowrap; }
+    .chart-bar { background: #24567f; min-height: 3px; width: 72%; }
+    .chart-bar.focus { background: #f5a623; }
+    .chart-label { color: #4f555a; font-size: 7px; margin-top: 4px; white-space: nowrap; }
+    .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; margin: 12px auto 8px; max-width: 560px; align-items: end; }
+    .comparison-bar { background: #b9bec6; height: 100px; padding-top: 6px; text-align: center; font-weight: 800; }
+    .comparison-bar.future { background: #f2c77f; height: 88px; }
+    .comparison-label { margin-top: 5px; text-align: center; font-size: 8px; }
     .page-break { break-before: page; }
-    .footer { border-top: 1px solid #dce3e8; color: #87929c; font-size: 8px; margin-top: 18px; padding-top: 7px; text-align: center; }
+    .footer { color: #24567f; font-size: 8px; font-weight: 700; margin-top: 18px; padding-top: 7px; text-align: right; }
     @media screen { body { background: #eef2f4; padding: 22px; } .page { background: #fff; margin: 0 auto; max-width: 794px; min-height: 1123px; padding: 40px 44px; box-shadow: 0 4px 24px #152b3b22; } }
   </style></head><body><main class="page">${body}<div class="footer">Fotus Distribuidora Solar · Relatório gerado em ${escapeHtml(reportDate())}</div></main><script>window.addEventListener('load',function(){setTimeout(function(){window.print()},280)})</script></body></html>`;
 }
 
-function topValues(items: ExtraCost[], selector: (item: ExtraCost) => string) {
+function topValues(items: ExtraCost[], selector: (item: ExtraCost) => string, limit = 8) {
   const grouped = new Map<string, { label: string; total: number; count: number }>();
   items.forEach((item) => {
     const label = selector(item).trim() || 'Não informado';
@@ -71,29 +93,36 @@ function topValues(items: ExtraCost[], selector: (item: ExtraCost) => string) {
     const current = grouped.get(key);
     grouped.set(key, { label: current?.label || label, total: (current?.total || 0) + item.totalCost, count: (current?.count || 0) + 1 });
   });
-  return [...grouped.values()].sort((a, b) => b.total - a.total).slice(0, 8);
+  return [...grouped.values()].sort((a, b) => b.total - a.total).slice(0, limit);
 }
 
 export function buildExtraCostsReport(costs: ExtraCost[]) {
   const total = costs.reduce((sum, item) => sum + item.totalCost, 0);
-  const august = costs.filter((item) => (item.monthYear || '').endsWith('-08')).reduce((sum, item) => sum + item.totalCost, 0);
-  const highestRegional = topValues(costs, (item) => item.regional)[0];
-  const months = topValues(costs, (item) => item.monthYear).sort((a, b) => a.label.localeCompare(b.label));
+  const months = topValues(costs, (item) => item.monthYear, 12).sort((a, b) => a.label.localeCompare(b.label));
+  const latestMonthKey = months[months.length - 1]?.label || '';
+  const latestMonthCosts = costs.filter((item) => item.monthYear === latestMonthKey);
+  const latestMonthTotal = latestMonthCosts.reduce((sum, item) => sum + item.totalCost, 0);
+  const latestMonthName = latestMonthKey ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(new Date(`${latestMonthKey}-01T12:00:00`)) : 'período atual';
+  const periodStart = months[0]?.label ? new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date(`${months[0].label}-01T12:00:00`)) : 'início';
+  const periodEnd = latestMonthKey ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(new Date(`${latestMonthKey}-01T12:00:00`)) : 'atual';
   const highestMonth = Math.max(...months.map((item) => item.total), 1);
-  const detailRows = costs.slice().sort((a, b) => a.date.localeCompare(b.date)).map((item) => `<tr><td>${escapeHtml(dateLabel(item.date))}</td><td>${escapeHtml(item.orderNumber)}</td><td>${escapeHtml(item.regional)}</td><td>${escapeHtml(item.product)}${item.quantity ? ` ×${item.quantity}` : ''}</td><td>${escapeHtml(item.responsible)}</td><td class="right">${currency(item.totalCost)}</td></tr>`).join('');
-  const responsibleRows = topValues(costs, (item) => item.responsible).map((item) => `<tr><td>${escapeHtml(item.label)}</td><td class="center">${item.count}</td><td class="right">${currency(item.total)}</td></tr>`).join('');
-  const regionalRows = topValues(costs, (item) => item.regional).map((item) => `<tr><td>${escapeHtml(item.label)}</td><td class="center">${item.count}</td><td class="right">${currency(item.total)}</td></tr>`).join('');
+  const highestCount = Math.max(...months.map((item) => item.count), 1);
+  const detailRows = latestMonthCosts.slice().sort((a, b) => a.date.localeCompare(b.date)).map((item) => `<tr><td>${escapeHtml(dateLabel(item.date))}</td><td>${escapeHtml(item.orderNumber)}</td><td>${escapeHtml(item.regional)}</td><td>${escapeHtml(item.product)}${item.quantity ? ` ×${item.quantity}` : ''}</td><td>${escapeHtml(item.responsible)}</td><td class="right">${currency(item.totalCost)}</td></tr>`).join('');
+  const responsibleRows = topValues(latestMonthCosts, (item) => item.responsible).map((item) => `<tr><td>${escapeHtml(item.label)}</td><td class="center">${item.count}</td><td class="right">${currency(item.total)}</td></tr>`).join('');
+  const regionalRows = topValues(latestMonthCosts, (item) => item.regional).map((item) => `<tr><td>${escapeHtml(item.label)}</td><td class="center">${item.count}</td><td class="right">${currency(item.total)}</td></tr>`).join('');
+  const causeRows = topValues(latestMonthCosts, (item) => item.reasonCategory).map((item) => `<tr><td>${escapeHtml(item.label)}</td><td class="center">${item.count}</td><td class="right">${currency(item.total)}</td></tr>`).join('');
   const monthlyRows = months.map((item) => `<tr><td>${escapeHtml(item.label)}</td><td class="center">${item.count}</td><td class="right">${currency(item.total)}</td></tr>`).join('');
 
   return shell('Relatório de Custos Extras', 'Comercial e Cliente · Consolidado dos registros reais', `
-    <header class="header"><div class="brand">FOTUS · Comercial e Cliente</div><h1>Relatório de Custos Extras</h1><p class="subtitle">Consolidado dos custos cadastrados no Hub · Emitido em ${escapeHtml(reportDate())}</p></header>
-    <div class="kpis"><div class="kpi"><div class="kpi-label">Total de custos</div><div class="kpi-value">${currency(total)}</div></div><div class="kpi"><div class="kpi-label">Ocorrências</div><div class="kpi-value">${costs.length}</div></div><div class="kpi"><div class="kpi-label">Total em agosto</div><div class="kpi-value">${currency(august)}</div></div></div>
-    <div class="callout"><strong>Leitura executiva:</strong> ${costs.length ? `o maior concentrador regional é ${escapeHtml(highestRegional?.label || 'não identificado')}, com ${currency(highestRegional?.total || 0)} em ${highestRegional?.count || 0} registro(s).` : 'Ainda não há custos extras cadastrados para análise.'}</div>
-    <div class="section-title">Evolução mensal</div><div class="mini-chart">${months.map((item) => `<div class="chart-col" title="${escapeHtml(item.label)}: ${currency(item.total)}"><div class="chart-bar" style="height:${Math.max(3, Math.round((item.total / highestMonth) * 78))}px"></div><span class="chart-label">${escapeHtml(item.label.slice(5))}</span></div>`).join('') || '<span class="muted">Sem dados</span>'}</div><table><thead><tr><th>Mês</th><th class="center">Registros</th><th class="right">Total</th></tr></thead><tbody>${monthlyRows || '<tr><td colspan="3" class="center muted">Sem dados</td></tr>'}</tbody></table>
-    <div class="grid-two"><div><div class="section-title">Por responsável</div><table><thead><tr><th>Responsável</th><th class="center">Qtd.</th><th class="right">Total</th></tr></thead><tbody>${responsibleRows || '<tr><td colspan="3" class="center muted">Sem dados</td></tr>'}</tbody></table></div><div><div class="section-title">Por regional</div><table><thead><tr><th>Regional</th><th class="center">Qtd.</th><th class="right">Total</th></tr></thead><tbody>${regionalRows || '<tr><td colspan="3" class="center muted">Sem dados</td></tr>'}</tbody></table></div></div>
-    <div class="page-break"></div><header class="header"><div class="brand">FOTUS · Detalhamento</div><h1>Detalhamento dos custos</h1><p class="subtitle">Registros que compõem o consolidado apresentado na primeira página.</p></header>
-    <table><thead><tr><th>Data</th><th>Pedido</th><th>Regional</th><th>Produto</th><th>Responsável</th><th class="right">Valor</th></tr></thead><tbody>${detailRows || '<tr><td colspan="6" class="center muted">Sem registros</td></tr>'}</tbody></table>
-    <div class="section-title">Composição financeira</div><div class="stat-list"><div class="stat-row"><span>Produto</span><strong>${currency(costs.reduce((sum, item) => sum + item.productCost, 0))}</strong></div><div class="stat-row"><span>Logística</span><strong>${currency(costs.reduce((sum, item) => sum + item.logisticsCost, 0))}</strong></div><div class="stat-row"><span>Impostos</span><strong>${currency(costs.reduce((sum, item) => sum + item.taxCost, 0))}</strong></div><div class="stat-row"><span>Total geral</span><strong>${currency(total)}</strong></div></div>`);
+    <header class="hero"><div class="brand">Custos extras · Fotus CX</div><h1>Relatório de Custos Extras</h1><p class="subtitle">Comercial e Cliente · Consolidado ${escapeHtml(periodStart)}–${escapeHtml(periodEnd)} · Emitido em ${escapeHtml(reportDate())}</p></header>
+    <div class="kpis"><div class="kpi"><div class="kpi-value">${currency(total)}</div><div class="kpi-label">Custo total do período</div></div><div class="kpi"><div class="kpi-value">${costs.length}</div><div class="kpi-label">Ocorrências no período</div></div><div class="kpi"><div class="kpi-value">${currency(latestMonthTotal)}</div><div class="kpi-label">Custo em ${escapeHtml(latestMonthName)}</div></div></div>
+    <div class="section-title">Visão geral · ${escapeHtml(periodStart)} a ${escapeHtml(periodEnd)}</div><table><thead><tr><th>Mês</th><th class="center">Qtd. Ocorrências</th><th class="right">Custo Total</th></tr></thead><tbody>${monthlyRows || '<tr><td colspan="3" class="center muted">Sem dados</td></tr>'}<tr class="total-row"><td>Total consolidado</td><td class="center">${costs.length}</td><td class="right">${currency(total)}</td></tr></tbody></table>
+    <div class="report-chart"><div class="chart-title">Evolução de Ocorrências por Mês</div><div class="mini-chart">${months.map((item, index) => `<div class="chart-col"><span class="chart-value">${item.count}</span><div class="chart-bar ${index === months.length - 1 ? 'focus' : ''}" style="height:${Math.max(3, Math.round((item.count / highestCount) * 92))}px"></div><span class="chart-label">${escapeHtml(new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date(`${item.label}-01T12:00:00`)))}</span></div>`).join('') || '<span class="muted">Sem dados</span>'}</div></div>
+    <div class="report-chart"><div class="chart-title">Evolução de Valor por Mês</div><div class="mini-chart">${months.map((item, index) => `<div class="chart-col"><span class="chart-value">${escapeHtml(currency(item.total).replace(',00', ''))}</span><div class="chart-bar ${index === months.length - 1 ? 'focus' : ''}" style="height:${Math.max(3, Math.round((item.total / highestMonth) * 92))}px"></div><span class="chart-label">${escapeHtml(new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date(`${item.label}-01T12:00:00`)))}</span></div>`).join('') || '<span class="muted">Sem dados</span>'}</div></div>
+    <div class="page-break"></div><div class="section-title" style="background:#fff0d7;color:#b76400">Foco do mês · ${escapeHtml(latestMonthName)}</div>
+    <div class="section-title">1. Detalhamento de ${escapeHtml(latestMonthName)}</div><table><thead><tr><th>Data</th><th>Pedido</th><th>Regional</th><th>Produto</th><th>Responsável</th><th class="right">Valor</th></tr></thead><tbody>${detailRows || '<tr><td colspan="6" class="center muted">Sem registros</td></tr>'}<tr class="total-row"><td colspan="5">Total do mês</td><td class="right">${currency(latestMonthTotal)}</td></tr></tbody></table>
+    <div class="section-title">2. Custo por responsável</div><table><thead><tr><th>Responsável</th><th class="center">Qtd.</th><th class="right">Valor</th></tr></thead><tbody>${responsibleRows || '<tr><td colspan="3" class="center muted">Sem dados</td></tr>'}<tr class="total-row"><td>Total</td><td class="center">${latestMonthCosts.length}</td><td class="right">${currency(latestMonthTotal)}</td></tr></tbody></table><p class="note">Comercial = custo por erro interno · Cliente = bonificação ou relacionamento.</p>
+    <div class="section-title">3. Custo por causa raiz e por regional</div><div class="grid-two"><table><thead><tr><th>Causa raiz</th><th class="center">Qtd.</th><th class="right">Valor</th></tr></thead><tbody>${causeRows || '<tr><td colspan="3" class="center muted">Sem dados</td></tr>'}</tbody></table><table><thead><tr><th>Regional</th><th class="center">Qtd.</th><th class="right">Valor</th></tr></thead><tbody>${regionalRows || '<tr><td colspan="3" class="center muted">Sem dados</td></tr>'}</tbody></table></div><table><tbody><tr class="total-row"><td>Total · ${escapeHtml(latestMonthName)}</td><td class="center">${latestMonthCosts.length} ocorrências</td><td class="right">${currency(latestMonthTotal)}</td></tr></tbody></table>`);
 }
 
 const RA_TARGETS = { indicatorIR: 100, indicatorIS: 90, indicatorMA: 8.5, indicatorIN: 87.5 } as const;
@@ -118,16 +147,37 @@ export function buildRaReport(cases: RACase[]) {
   const scoreValues = cases.map((item) => item.finalScore).filter((value): value is number => typeof value === 'number');
   const averageScore = scoreValues.length ? scoreValues.reduce((sum, value) => sum + scoreOnTen(value), 0) / scoreValues.length : null;
   const caseRows = belowMeta.slice(0, 12).map((item) => `<tr><td>${escapeHtml(item.raNumber)}</td><td>${escapeHtml(item.customerName)}</td><td>${escapeHtml(item.status)}</td><td>${item.finalScore === null || item.finalScore === undefined ? '—' : scoreOnTen(item.finalScore).toFixed(1)}</td><td>${escapeHtml(item.information || 'Sem observação')}</td></tr>`).join('');
+  const achievedMetrics = [
+    raAverage(cases, 'indicatorIR') !== null && (raAverage(cases, 'indicatorIR') || 0) >= RA_TARGETS.indicatorIR,
+    raAverage(cases, 'indicatorIS') !== null && (raAverage(cases, 'indicatorIS') || 0) >= RA_TARGETS.indicatorIS,
+    raAverage(cases, 'indicatorMA') !== null && (raAverage(cases, 'indicatorMA') || 0) >= RA_TARGETS.indicatorMA,
+    raAverage(cases, 'indicatorIN') !== null && (raAverage(cases, 'indicatorIN') || 0) >= RA_TARGETS.indicatorIN,
+  ].filter(Boolean).length;
+  const monthGroups = new Map<string, number[]>();
+  cases.forEach((item) => {
+    if (typeof item.finalScore !== 'number' || !item.createdAt) return;
+    const date = new Date(item.createdAt);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    monthGroups.set(key, [...(monthGroups.get(key) || []), scoreOnTen(item.finalScore)]);
+  });
+  const scoreMonths = [...monthGroups.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-7).map(([key, values]) => ({ key, value: values.reduce((sum, value) => sum + value, 0) / values.length }));
+  const scoreMax = Math.max(...scoreMonths.map((item) => item.value), 10);
+  const now = new Date();
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).getTime();
+  const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1).getTime();
+  const currentWindow = cases.filter((item) => item.createdAt >= sixMonthsAgo);
+  const previousWindow = cases.filter((item) => item.createdAt >= twelveMonthsAgo && item.createdAt < sixMonthsAgo);
+  const currentResolvedRate = currentWindow.length ? Math.round((currentWindow.filter((item) => item.status === 'Resolvido').length / currentWindow.length) * 100) : 0;
+  const previousResolvedRate = previousWindow.length ? Math.round((previousWindow.filter((item) => item.status === 'Resolvido').length / previousWindow.length) * 100) : 0;
 
   return shell('Relatório Estratégico RA', 'Reclame Aqui · Consolidado dos registros reais', `
-    <header class="header"><div class="brand">FOTUS DISTRIBUIDORA SOLAR</div><h1>Relatório Estratégico RA</h1><p class="subtitle">Indicadores e tratativas do Reclame Aqui · Emitido em ${escapeHtml(reportDate())}</p></header>
-    <div class="kpis"><div class="kpi"><div class="kpi-label">Total de reclamações</div><div class="kpi-value">${cases.length}</div></div><div class="kpi"><div class="kpi-label">Finalizados</div><div class="kpi-value">${resolved}</div></div><div class="kpi"><div class="kpi-label">Nota média</div><div class="kpi-value">${averageScore === null ? '—' : `${averageScore.toFixed(1)} / 10`}</div></div></div>
-    <div class="section-title">Indicadores do mês</div><table><thead><tr><th>Índice</th><th class="center">Peso</th><th class="center">Real</th><th class="center">Meta</th><th class="center">Farol</th></tr></thead><tbody>${raMetric('Resposta (IR)', '20%', raAverage(cases, 'indicatorIR'), RA_TARGETS.indicatorIR)}${raMetric('Solução (IS)', '30%', raAverage(cases, 'indicatorIS'), RA_TARGETS.indicatorIS)}${raMetric('Nota do consumidor (MA)', '30%', raAverage(cases, 'indicatorMA'), RA_TARGETS.indicatorMA, '')}${raMetric('Voltaria a negociar (IN)', '20%', raAverage(cases, 'indicatorIN'), RA_TARGETS.indicatorIN)}</tbody></table>
-    <div class="callout"><strong>Leitura estratégica:</strong> ${cases.length ? `${resolved} de ${cases.length} reclamações estão finalizadas${averageScore === null ? '' : ` e a nota média dos casos avaliados é ${averageScore.toFixed(1)}`}.` : 'Ainda não há reclamações reais cadastradas para análise.'}</div>
-    <div class="section-title">Casos que pedem atenção</div><table><thead><tr><th>Pedido RA</th><th>Cliente</th><th>Status</th><th>Nota</th><th>Entendimento / observação</th></tr></thead><tbody>${caseRows || '<tr><td colspan="5" class="center muted">Nenhum caso abaixo da meta</td></tr>'}</tbody></table>
-    <div class="page-break"></div><header class="header"><div class="brand">FOTUS · Análise de jornada</div><h1>Leitura complementar</h1><p class="subtitle">Base completa e próximos focos de acompanhamento.</p></header>
-    <div class="section-title">Comparativo e próximos focos</div><div class="mini-chart"><div class="chart-col"><div class="chart-bar" style="height:${Math.max(3, cases.length ? Math.round((resolved / cases.length) * 78) : 3)}px"></div><span class="chart-label">Finalizados</span></div><div class="chart-col"><div class="chart-bar" style="background:linear-gradient(#f6b15d,#c66d16);height:${Math.max(3, cases.length ? Math.round(((cases.length - resolved) / cases.length) * 78) : 3)}px"></div><span class="chart-label">Em aberto</span></div></div><div class="stat-list"><div class="stat-row"><span>Reclamações em aberto ou andamento</span><strong>${cases.filter((item) => item.status === 'Aberto' || item.status === 'Em Andamento').length}</strong></div><div class="stat-row"><span>Casos com nota registrada</span><strong>${scoreValues.length}</strong></div><div class="stat-row"><span>Casos sem nota registrada</span><strong>${cases.length - scoreValues.length}</strong></div><div class="stat-row"><span>Taxa de finalização</span><strong>${cases.length ? Math.round((resolved / cases.length) * 100) : 0}%</strong></div></div>
-    <div class="callout"><strong>Recomendação:</strong> priorizar os casos em aberto, registrar os quatro indicadores em cada nova tratativa e revisar os casos listados como “pedem atenção” antes do próximo fechamento.</div>`);
+    <header class="plain-header"><h1>Relatório Estratégico RA · ${escapeHtml(new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(new Date()))}</h1><p class="subtitle">Fotus Distribuidora Solar · Emitido em ${escapeHtml(reportDate())}</p><p style="font-weight:800;margin:7px 0 0">Total de Reclamações: ${cases.length} | Finalizados: ${resolved}</p></header>
+    <div class="band band-blue">Indicadores do Mês</div><table><thead><tr><th>Índice</th><th class="center">Peso</th><th class="center">Real %</th><th class="center">Meta</th><th class="center">Farol</th></tr></thead><tbody>${raMetric('Resposta (IR)', '20%', raAverage(cases, 'indicatorIR'), RA_TARGETS.indicatorIR)}${raMetric('Solução (IS)', '30%', raAverage(cases, 'indicatorIS'), RA_TARGETS.indicatorIS)}${raMetric('Nota do consumidor (MA)', '30%', raAverage(cases, 'indicatorMA'), RA_TARGETS.indicatorMA, '')}${raMetric('Voltaria a negociar (IN)', '20%', raAverage(cases, 'indicatorIN'), RA_TARGETS.indicatorIN)}</tbody></table>
+    <p class="positive">${achievedMetrics === 4 ? 'Os 4 índices bateram a meta do período.' : `${achievedMetrics} de 4 índices atingiram a meta do período.`}</p>
+    <div class="band band-orange">Leitura Estratégica</div><div class="callout">${cases.length ? `O período encerra com ${resolved} de ${cases.length} casos finalizados. ${averageScore === null ? 'Ainda faltam avaliações para consolidar a Nota do Consumidor.' : `A média dos registros avaliados ficou em ${averageScore.toFixed(1)}, frente à meta de ${RA_TARGETS.indicatorMA}.`} Os indicadores consideram apenas clientes que responderam à avaliação; casos sem retorno não devem ser interpretados como sucesso.` : 'Ainda não há reclamações reais cadastradas para análise.'}</div>
+    <div class="band band-red">Casos Abaixo da Meta</div><table><thead><tr><th>Pedido / RA</th><th>Cliente</th><th>Status</th><th>Nota</th><th>Entendimento</th></tr></thead><tbody>${caseRows || '<tr><td colspan="5" class="center muted">Nenhum caso abaixo da meta</td></tr>'}</tbody></table>
+    <div class="band band-navy">Comparativo: janela anterior vs. janela atual</div><div class="report-chart"><div class="chart-title" style="text-align:center">Reclame Aqui · Comparativo móvel de 6 meses</div><div class="comparison"><div><div class="comparison-bar">${previousWindow.length}<br><span style="color:#2878b7">${previousResolvedRate}% resolvidos</span></div><div class="comparison-label">Janela anterior</div></div><div><div class="comparison-bar future">${currentWindow.length}<br><span style="color:#00a36c">${currentResolvedRate}% resolvidos</span></div><div class="comparison-label">Janela atual</div></div></div></div><p class="positive">Taxa de resolução: ${previousResolvedRate}% → ${currentResolvedRate}% (${currentResolvedRate - previousResolvedRate >= 0 ? '+' : ''}${currentResolvedRate - previousResolvedRate} p.p.)</p><p>A leitura compara duas janelas móveis de seis meses para reduzir distorções de um único mês e evidenciar a direção mais recente do atendimento.</p>
+    <div class="page-break"></div><div class="report-chart"><div class="chart-title" style="text-align:center">Nota do Consumidor (MA) · Evolução mês a mês</div><div class="mini-chart" style="height:180px">${scoreMonths.map((item) => `<div class="chart-col"><span class="chart-value" style="color:${item.value >= RA_TARGETS.indicatorMA ? '#00a36c' : '#c7382c'}">${item.value.toFixed(1)}</span><div class="chart-bar" style="height:${Math.max(3, Math.round((item.value / scoreMax) * 135))}px;background:#2e7fc5"></div><span class="chart-label">${escapeHtml(new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date(`${item.key}-01T12:00:00`)))}</span></div>`).join('') || '<span class="muted">Sem notas mensais suficientes</span>'}</div><p class="note" style="margin-top:8px">Meta de referência da Nota do Consumidor: ${RA_TARGETS.indicatorMA}.</p></div><p>A série mensal evidencia a estabilidade da experiência ao longo do tempo. Meses abaixo da meta devem ser cruzados com os casos listados na primeira página antes da definição das próximas tratativas.</p>`);
 }
 
 export function openA4PrintWindow(title: string, html: string) {

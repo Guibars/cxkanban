@@ -52,13 +52,14 @@ Não execute esses comandos se houver dados reais misturados. Nesse caso, exclua
 
 ## Novas coleções
 
-- `organization_units`: setor, time, regional, gerente e liderança;
+- `organization_units`: setor, time, regional, gerente, liderança e coordenação;
 - `occurrences`: controle operacional de ocorrências;
 - `extra_costs`: custos não previstos por pedido, regional, origem, responsabilidade e motivo;
 - `cx_cases`: casos CX e seus direcionamentos;
 - `ra_cases`: chamados do Reclame Aqui;
 - `integrator_visits`: visitas de integradores.
 - `app_settings/occurrence_agents`: lista editável de agentes disponíveis no controle de ocorrências.
+- `user_access`: função, agente vinculada, times acompanhados e abas liberadas para cada e-mail.
 
 Nenhuma pessoa ou ocorrência é criada automaticamente. A nova estrutura deve ser cadastrada na aba **Estrutura** antes de direcionar os cards.
 
@@ -75,7 +76,24 @@ A aba `Controle de Ocorrências` é lida diretamente no navegador e os registros
 
 Após esta atualização, reimporte a planilha para corrigir as linhas antigas em que o Excel interpretou dia e mês invertidos. A conversão agora usa o calendário brasileiro e UTC, evitando também o deslocamento de um dia causado pelo fuso horário.
 
-Na aba de ocorrências, **Insights Gerais** abre o gráfico de produtividade mensal do ano atual. É possível alternar entre agentes, transportadoras e estados/UF. O ranking anual mostra claramente quem está na frente e o total de cards; ao clicar em uma posição, o gráfico exibe a evolução mensal somente daquela seleção. A opção **Todos** soma todas as ocorrências em cada mês.
+Na aba de ocorrências, **Insights Gerais** começa fechado e abre o gráfico de produtividade mensal do ano atual. É possível alternar entre agentes, transportadoras e estados/UF. O ranking anual mostra claramente quem está na frente e o total de cards; ao clicar em uma posição, o gráfico exibe a evolução mensal somente daquela seleção. A opção **Todos** soma todas as ocorrências em cada mês. O comparativo com a média da equipe mede apenas volume de cards e não é apresentado como nota de desempenho.
+
+Os cards podem ser filtrados por hoje, últimos 7 dias, últimos 15 dias, mês atual, período personalizado ou histórico completo. Cada coluna mostra inicialmente três cards e oferece **Ver mais** quando houver outros registros.
+
+Ao abrir uma nova ocorrência, marque **Avaria com custo** para informar valor, transportadora, cidade e UF. Esses campos alimentam os rankings financeiros por transportadora e região.
+
+## Controle de visibilidade
+
+A conta `guilhermebarbosars@gmail.com` é a administradora do MVP. Depois de publicar o código e as regras:
+
+1. Entre com a conta de desenvolvimento.
+2. Clique na foto de perfil.
+3. Abra **Gerenciar visibilidade**.
+4. Cadastre o e-mail, a função, o nome da agente usado nos cards, o time e as abas liberadas.
+
+Por padrão, agentes acessam Visão Geral, Ocorrências e Visitas. **Custo Extra**, **Reclame Aqui** e **Estrutura** só aparecem quando forem liberados. Uma agente vê apenas os próprios cards e indicadores; gerente, líder e coordenador veem os cards das agentes vinculadas aos times que acompanham. O desenvolvedor continua vendo toda a empresa.
+
+A nova aba **Visão Geral** respeita esse mesmo escopo e mostra somente os indicadores autorizados para cada perfil.
 
 ## Importar a planilha de custos extras
 
