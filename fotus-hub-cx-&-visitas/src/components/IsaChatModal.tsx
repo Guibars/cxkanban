@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, RefreshCw, Send, Sparkles, X } from 'lucide-react';
-import { CXCase, ExtraCost, IntegratorVisit, Occurrence, OrganizationUnit, RACase } from '../types';
+import { ArrowRight, RefreshCw, Send, X } from 'lucide-react';
+import { CXCase, ExtraCost, IntegratorVisit, Occurrence, OrganizationPerson, OrganizationUnit, RACase } from '../types';
 
 interface IsaChatModalProps {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface IsaChatModalProps {
   occurrences: Occurrence[];
   extraCosts: ExtraCost[];
   organizationUnits: OrganizationUnit[];
+  organizationPeople: OrganizationPerson[];
 }
 
 interface Message {
@@ -57,7 +58,19 @@ function scoreOnTen(value: number) {
   return value > 10 ? value / 10 : value;
 }
 
-function buildIsaContext(cases: CXCase[], raCases: RACase[], visits: IntegratorVisit[], occurrences: Occurrence[], extraCosts: ExtraCost[], organizationUnits: OrganizationUnit[]) {
+function cleanIsaText(text: string) {
+  return text
+    .replace(/^\s{0,3}#{1,6}\s*/gm, '')
+    .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
+    .replace(/_{1,3}([^_]+)_{1,3}/g, '$1')
+    .replace(/`{1,3}([^`]+)`{1,3}/g, '$1')
+    .replace(/[\*`]+/g, '')
+    .replace(/^\s*[-+]\s+/gm, '• ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function buildIsaContext(cases: CXCase[], raCases: RACase[], visits: IntegratorVisit[], occurrences: Occurrence[], extraCosts: ExtraCost[], organizationUnits: OrganizationUnit[], organizationPeople: OrganizationPerson[]) {
   return JSON.stringify({
     generatedAt: new Date().toISOString(),
     cxCases: cases,
@@ -65,11 +78,12 @@ function buildIsaContext(cases: CXCase[], raCases: RACase[], visits: IntegratorV
     visitas: visits,
     ocorrencias: occurrences,
     custosExtras: extraCosts,
-    estrutura: organizationUnits,
+    estruturaAnterior: organizationUnits,
+    estruturaHierarquica: organizationPeople,
   });
 }
 
-export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, occurrences, extraCosts, organizationUnits }: IsaChatModalProps) {
+export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, occurrences, extraCosts, organizationUnits, organizationPeople }: IsaChatModalProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -153,15 +167,21 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
 
     if ((query.includes('estrutura') || query.includes('direcionamento') || query.includes('gerente') || query.includes('liderança') || query.includes('lideranca') || query.includes('regional')) && !query.includes('custo')) {
       const activeUnits = organizationUnits.filter((unit) => unit.active);
+      const activePeople = organizationPeople.filter((person) => person.active);
       const routedCases = cases.filter((item) => item.organizationUnitId).length;
       const routedOccurrences = occurrences.filter((item) => item.organizationUnitId).length;
       return {
         text: `🧭 Estrutura e direcionamentos\n\n` +
-          `• Times ativos: ${activeUnits.length}\n` +
+          `• Pessoas na nova estrutura: ${activePeople.length}\n` +
+          `• Heads: ${activePeople.filter((person) => person.role === 'Head').length}\n` +
+          `• Gerentes: ${activePeople.filter((person) => person.role === 'Gerente').length}\n` +
+          `• Coordenadores: ${activePeople.filter((person) => person.role === 'Coordenador').length}\n` +
+          `• Líderes: ${activePeople.filter((person) => person.role === 'Líder').length}\n` +
+          `• Cadastros do modelo anterior: ${activeUnits.length}\n` +
           `• Regionais cadastradas: ${new Set(activeUnits.map((item) => item.regional)).size}\n` +
           `• Casos CX direcionados: ${routedCases} de ${cases.length}\n` +
           `• Ocorrências direcionadas: ${routedOccurrences} de ${occurrences.length}\n\n` +
-          (activeUnits.length ? activeUnits.slice(0, 8).map((unit) => `• ${unit.department} / ${unit.teamName} / ${unit.regional}: ${unit.managerName} → liderança ${unit.leaderName}`).join('\n') : 'Nenhum time foi cadastrado ainda.'),
+          (activePeople.length ? activePeople.slice(0, 12).map((person) => `• ${person.role}: ${person.name}${person.reportsToName ? ` → responde para ${person.reportsToName}` : ''}`).join('\n') : 'Nenhuma pessoa foi cadastrada na nova estrutura ainda.'),
         suggestions: ['Resumo de todas as abas', 'Casos CX em aberto'],
       };
     }
@@ -211,7 +231,7 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
         `• Custos Extras: ${extraCosts.length} (${extraCosts.reduce((sum, item) => sum + item.totalCost, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})\n` +
         `• Reclame Aqui: ${raCases.length}\n` +
         `• Visitas: ${visits.length}\n` +
-        `• Times na estrutura: ${organizationUnits.filter((item) => item.active).length}\n\n` +
+        `• Pessoas na estrutura: ${organizationPeople.filter((item) => item.active).length}\n\n` +
         `Posso detalhar ocorrências, transportadoras, produtos, regiões, custos extras, direcionamentos, RA ou visitas.`,
       suggestions: ['Relatório de custos extras', 'Relatório geral de ocorrências', 'Como estão os direcionamentos?'],
     };
@@ -227,12 +247,12 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
       const apiResponse = await fetch('/api/isa', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, context: buildIsaContext(cases, raCases, visits, occurrences, extraCosts, organizationUnits) }),
+        body: JSON.stringify({ question, context: buildIsaContext(cases, raCases, visits, occurrences, extraCosts, organizationUnits, organizationPeople) }),
       });
       if (!apiResponse.ok) throw new Error('ISA API indisponível');
       const payload = await apiResponse.json() as { text?: string };
       if (!payload.text?.trim()) throw new Error('Resposta vazia');
-      setMessages((current) => [...current, { id: `${Date.now()}-isa`, sender: 'isa', text: payload.text!.trim(), suggestions: ['Resumo de todas as abas', 'Relatório geral de ocorrências'] }]);
+      setMessages((current) => [...current, { id: `${Date.now()}-isa`, sender: 'isa', text: cleanIsaText(payload.text!), suggestions: ['Resumo de todas as abas', 'Relatório geral de ocorrências'] }]);
     } catch {
       const localResponse = generateResponse(question);
       setMessages((current) => [...current, { id: `${Date.now()}-isa`, sender: 'isa', ...localResponse }]);
@@ -247,14 +267,14 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-md sm:p-6">
       <div className="flex h-[88vh] max-h-[780px] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white bg-white/95 shadow-2xl">
         <header className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-[#eef5eb] via-white to-[#e7f3ec] px-5 py-4">
-          <div className="flex items-center gap-3"><div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-white p-1 shadow-sm"><img src={ISA_LOGO} alt="ISA" className="h-full w-full object-contain" /><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" /></div><div><div className="flex items-center gap-2"><h2 className="font-extrabold text-gray-950">ISA</h2><span className="rounded-full bg-[#385041] px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white">Dados do Hub</span></div><p className="text-xs text-gray-500">Análises em tempo real das abas conectadas</p></div></div>
+          <div className="flex items-center gap-3"><div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-white p-1 shadow-sm"><img src={ISA_LOGO} alt="ISA" className="h-full w-full object-contain" /><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" /></div><div><div className="flex items-center gap-2"><h2 className="font-extrabold text-gray-950">ISA</h2><span className="rounded-full bg-[#385041] px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white">Dados do Hub</span></div><p className="text-xs font-semibold text-gray-600">Muito mais que IA.</p></div></div>
           <div className="flex gap-1"><button onClick={resetMessages} className="rounded-xl p-2 text-gray-400 hover:bg-white hover:text-gray-700" title="Limpar conversa"><RefreshCw className="h-4 w-4" /></button><button onClick={onClose} className="rounded-xl p-2 text-gray-400 hover:bg-white hover:text-gray-700" title="Fechar"><X className="h-5 w-5" /></button></div>
         </header>
 
         <div className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white p-5 sm:p-6">
           {messages.map((message) => (
             <div key={message.id} className={`flex flex-col ${message.sender === 'user' ? 'items-end' : 'items-start'}`}>
-              <div className={`max-w-[88%] whitespace-pre-line rounded-2xl p-4 text-sm leading-relaxed shadow-sm ${message.sender === 'user' ? 'rounded-br-sm bg-[#385041] font-medium text-white' : 'rounded-bl-sm border border-gray-200 bg-white text-gray-700'}`}>{message.text}</div>
+              <div className={`max-w-[88%] whitespace-pre-line rounded-2xl p-4 text-sm leading-relaxed shadow-sm ${message.sender === 'user' ? 'rounded-br-sm bg-[#385041] font-medium text-white' : 'rounded-bl-sm border border-gray-200 bg-white text-gray-700'}`}>{message.sender === 'isa' ? cleanIsaText(message.text) : message.text}</div>
               {message.suggestions && <div className="mt-2 flex max-w-[90%] flex-wrap gap-1.5">{message.suggestions.map((suggestion) => <button key={suggestion} onClick={() => handleSend(suggestion)} className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-600 hover:border-[#385041]/30 hover:bg-[#eef5eb] hover:text-[#385041]">{suggestion}<ArrowRight className="h-3 w-3" /></button>)}</div>}
             </div>
           ))}

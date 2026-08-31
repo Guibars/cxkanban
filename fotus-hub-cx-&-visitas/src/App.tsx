@@ -12,7 +12,6 @@ import {
   Plus,
   RefreshCw,
   Settings2,
-  Sparkles,
 } from 'lucide-react';
 import {
   auth,
@@ -35,6 +34,7 @@ import {
   IntegratorVisit,
   Occurrence,
   OrganizationUnit,
+  OrganizationPerson,
   RACase,
   AppSection,
   UserAccessProfile,
@@ -90,7 +90,7 @@ const TAB_COPY: Record<MainTab, { title: string; subtitle: string }> = {
   custos: { title: 'Custo Extra', subtitle: 'Controle dos gastos não previstos por pedido, regional, origem e responsabilidade' },
   ra: { title: 'Painel Reclame Aqui', subtitle: 'Monitoramento das reclamações, indicadores e resolução' },
   visitas: { title: 'Visitas de Integradores', subtitle: 'Agenda, recepção e acompanhamento dos parceiros' },
-  estrutura: { title: 'Estrutura Organizacional', subtitle: 'Cadastro dos times, regionais, gerentes e lideranças responsáveis' },
+  estrutura: { title: 'Estrutura Organizacional', subtitle: 'Organograma em cadeia: Head, Gerente, Coordenador e Líder' },
 };
 
 export default function App() {
@@ -103,6 +103,7 @@ export default function App() {
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [extraCosts, setExtraCosts] = useState<ExtraCost[]>([]);
   const [organizationUnits, setOrganizationUnits] = useState<OrganizationUnit[]>([]);
+  const [organizationPeople, setOrganizationPeople] = useState<OrganizationPerson[]>([]);
   const [occurrenceAgents, setOccurrenceAgents] = useState<string[]>(DEFAULT_OCCURRENCE_AGENTS);
   const [accessProfiles, setAccessProfiles] = useState<UserAccessProfile[]>([]);
   const [dataError, setDataError] = useState('');
@@ -151,6 +152,10 @@ export default function App() {
       setOrganizationUnits(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationUnit[]);
     }, handleSnapshotError);
 
+    const unsubOrganizationPeople = onSnapshot(query(collection(db, 'organization_people'), orderBy('createdAt', 'asc')), (snapshot) => {
+      setOrganizationPeople(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationPerson[]);
+    }, handleSnapshotError);
+
     const unsubAgents = onSnapshot(doc(db, 'app_settings', 'occurrence_agents'), (snapshot) => {
       const names = snapshot.exists() ? snapshot.data().names : null;
       const cleanNames = Array.isArray(names)
@@ -167,6 +172,7 @@ export default function App() {
       unsubVisits();
       unsubOccurrences();
       unsubOrganization();
+      unsubOrganizationPeople();
       unsubAgents();
       unsubAccess();
     };
@@ -179,13 +185,15 @@ export default function App() {
 
     const profile = accessProfiles.find((item) => item.email.toLowerCase() === email);
     const inferredUnits = organizationUnits.filter((unit) => [unit.managerEmail, unit.leaderEmail, unit.coordinatorEmail || ''].some((value) => value.toLowerCase() === email));
-    const inferredRole = inferredUnits.some((unit) => (unit.coordinatorEmail || '').toLowerCase() === email)
-      ? 'Coordenador'
-      : inferredUnits.some((unit) => unit.leaderEmail.toLowerCase() === email)
-        ? 'Líder'
-        : inferredUnits.some((unit) => unit.managerEmail.toLowerCase() === email)
-          ? 'Gerente'
-          : 'Agente';
+    const organizationPerson = organizationPeople.find((person) => person.email.toLowerCase() === email);
+    let inferredRole: UserAccessProfile['role'] = 'Agente';
+    if (organizationPerson?.role === 'Head') inferredRole = 'Administrador';
+    else if (organizationPerson?.role === 'Gerente') inferredRole = 'Gerente';
+    else if (organizationPerson?.role === 'Coordenador') inferredRole = 'Coordenador';
+    else if (organizationPerson?.role === 'Líder') inferredRole = 'Líder';
+    else if (inferredUnits.some((unit) => (unit.coordinatorEmail || '').toLowerCase() === email)) inferredRole = 'Coordenador';
+    else if (inferredUnits.some((unit) => unit.leaderEmail.toLowerCase() === email)) inferredRole = 'Líder';
+    else if (inferredUnits.some((unit) => unit.managerEmail.toLowerCase() === email)) inferredRole = 'Gerente';
     const role = profile?.role || inferredRole;
     const unitIds = profile?.organizationUnitIds?.length ? profile.organizationUnitIds : inferredUnits.map((unit) => unit.id);
     const defaultTabs: MainTab[] = role === 'Líder' || role === 'Coordenador' || role === 'Administrador'
@@ -199,7 +207,7 @@ export default function App() {
       active: profile?.active ?? true,
       isDeveloper,
     };
-  }, [accessProfiles, organizationUnits, user]);
+  }, [accessProfiles, organizationPeople, organizationUnits, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -255,7 +263,7 @@ export default function App() {
     { id: 'custos', label: 'Custo Extra', icon: CircleDollarSign, alert: visibleCosts.some((item) => item.totalCost > 1000) },
     { id: 'ra', label: 'Reclame Aqui', icon: ArchiveRestore, alert: visibleRaCases.some((item) => item.status === 'Aberto') },
     { id: 'visitas', label: 'Visitas', icon: Building2, alert: visits.some((item) => item.status === 'Agendada') },
-    { id: 'estrutura', label: 'Estrutura', icon: Network, alert: organizationUnits.length === 0 },
+    { id: 'estrutura', label: 'Estrutura', icon: Network, alert: organizationPeople.length === 0 },
   ].filter((tab) => canView(tab.id));
 
   const scoreCases = visibleRaCases.filter((item) => typeof item.finalScore === 'number');
@@ -263,15 +271,16 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-[#f8fbf8] via-[#f2f6f3] to-[#e8efe9] font-sans text-gray-900">
-      <aside className="hidden w-20 shrink-0 flex-col items-center gap-5 border-r border-gray-200/80 bg-white/80 py-6 shadow-sm backdrop-blur-xl sm:flex">
-        <img src={FOTUS_LOGO} alt="Fotus" className="mb-2 h-auto w-12 object-contain" />
+      <aside className="hidden w-24 shrink-0 flex-col items-center gap-2 border-r border-gray-200/80 bg-white/90 px-2 py-5 shadow-[6px_0_30px_rgba(44,64,51,0.04)] backdrop-blur-xl sm:flex">
+        <img src={FOTUS_LOGO} alt="Fotus" className="mb-4 h-auto w-14 object-contain" />
         {tabs.map(({ id, label, icon: Icon, alert }) => (
-          <button key={id} onClick={() => setActiveTab(id)} title={label} className={cn('relative rounded-2xl p-3 transition-all', activeTab === id ? 'bg-[#e8efe0] text-[#385041] shadow-sm ring-1 ring-[#385041]/10' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700')}>
+          <button key={id} onClick={() => setActiveTab(id)} title={label} className={cn('relative flex w-full flex-col items-center gap-1 rounded-2xl px-1 py-2.5 transition-all', activeTab === id ? 'bg-[#e8efe0] text-[#385041] shadow-sm ring-1 ring-[#385041]/10' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700')}>
             {id === 'ra' ? <img src={RA_LOGO} alt="Reclame Aqui" className="h-6 w-6 object-contain" /> : <Icon className="h-6 w-6" />}
+            <span className="max-w-full truncate text-[8px] font-extrabold">{label}</span>
             {alert && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-500" />}
           </button>
         ))}
-        <button onClick={() => setIsIsaChatOpen(true)} title="Abrir ISA" className="mt-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#385041] to-[#4e6d5b] p-1 text-white shadow-md transition-transform hover:scale-105"><img src={ISA_LOGO} alt="ISA" className="h-full w-full object-contain" /></button>
+        <button onClick={() => setIsIsaChatOpen(true)} title="Abrir ISA" className="mt-auto flex h-12 w-12 items-center justify-center rounded-2xl transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#385041]/20"><img src={ISA_LOGO} alt="ISA" className="h-12 w-12 object-contain drop-shadow-md" /></button>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -279,7 +288,7 @@ export default function App() {
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3"><img src={FOTUS_LOGO} alt="Fotus" className="h-9 w-auto object-contain sm:hidden" /><div className="min-w-0"><h1 className="truncate text-base font-extrabold tracking-tight text-gray-950 sm:text-lg">{TAB_COPY[activeTab].title}</h1><p className="hidden truncate text-xs text-gray-500 md:block">{TAB_COPY[activeTab].subtitle}</p></div></div>
             <div className="flex items-center gap-2 sm:gap-3">
-              <button onClick={() => setIsIsaChatOpen(true)} className="flex items-center gap-2 rounded-2xl border border-[#385041]/20 bg-gradient-to-r from-[#eef6ec] to-[#e6f3eb] px-3 py-2 shadow-sm transition-all hover:shadow-md"><img src={ISA_LOGO} alt="ISA" className="h-6 w-6 object-contain" /><span className="hidden text-left sm:block"><strong className="block text-xs text-[#385041]">Falar com ISA</strong><small className="block text-[9px] text-gray-500">Relatórios do Hub</small></span><Sparkles className="hidden h-3.5 w-3.5 text-amber-500 sm:block" /></button>
+              <button onClick={() => setIsIsaChatOpen(true)} title="Falar com a ISA" className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#385041]/20"><img src={ISA_LOGO} alt="Abrir ISA" className="h-11 w-11 object-contain drop-shadow-sm" /></button>
               <div className="relative border-l border-gray-200 pl-2 sm:pl-3">
                 <button type="button" onClick={() => setIsProfileMenuOpen((current) => !current)} className="flex items-center gap-2 rounded-xl p-1.5 text-left transition-colors hover:bg-gray-50" aria-expanded={isProfileMenuOpen}>
                   <div className="hidden text-right lg:block"><p className="text-xs font-bold text-gray-800">{user.displayName || user.email}</p><p className="text-[10px] text-gray-500">{access.role} · {user.email}</p></div>
@@ -317,14 +326,14 @@ export default function App() {
           )}
 
           {activeTab === 'visitas' && <VisitsView visits={visits} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} />}
-          {activeTab === 'estrutura' && <OrganizationView units={organizationUnits} currentUser={user} />}
+          {activeTab === 'estrutura' && <OrganizationView units={organizationUnits} people={organizationPeople} currentUser={user} canManage={canManageAgents} canDeleteLegacy={access.isDeveloper} />}
         </main>
 
         <RaModal isOpen={isRaModalOpen} onClose={() => setIsRaModalOpen(false)} caseToEdit={raCaseToEdit} currentUser={user} />
         <VisitModal isOpen={isVisitModalOpen} onClose={() => setIsVisitModalOpen(false)} visitToEdit={visitToEdit} currentUser={user} />
         <AgentManagerModal isOpen={isAgentManagerOpen} onClose={() => setIsAgentManagerOpen(false)} agents={occurrenceAgents} currentUser={user} />
         <AccessControlModal isOpen={isAccessControlOpen} onClose={() => setIsAccessControlOpen(false)} profiles={accessProfiles} units={organizationUnits} agents={occurrenceAgents} currentUser={user} />
-        <IsaChatModal isOpen={isIsaChatOpen} onClose={() => setIsIsaChatOpen(false)} cases={access.isDeveloper ? cases : []} raCases={visibleRaCases} visits={visits} occurrences={visibleOccurrences} extraCosts={visibleCosts} organizationUnits={visibleOrganizationUnits} />
+        <IsaChatModal isOpen={isIsaChatOpen} onClose={() => setIsIsaChatOpen(false)} cases={access.isDeveloper ? cases : []} raCases={visibleRaCases} visits={visits} occurrences={visibleOccurrences} extraCosts={visibleCosts} organizationUnits={visibleOrganizationUnits} organizationPeople={organizationPeople} />
       </div>
     </div>
   );

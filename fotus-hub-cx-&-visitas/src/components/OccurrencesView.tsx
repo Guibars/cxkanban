@@ -27,6 +27,7 @@ import { db, doc, updateDoc } from '../lib/firebase';
 import { readOccurrencesSpreadsheet, saveImportedOccurrences } from '../lib/occurrenceImport';
 import { Occurrence, OccurrenceStage, OrganizationUnit } from '../types';
 import OccurrenceModal from './OccurrenceModal';
+import PillBarChart from './PillBarChart';
 
 interface OccurrencesViewProps {
   occurrences: Occurrence[];
@@ -443,7 +444,6 @@ interface ProductivityChartProps {
 }
 
 function ProductivityChart({ year, dimension, months, series, selectedSeries, onDimensionChange, onSelectSeries }: ProductivityChartProps) {
-  const [focusedMonth, setFocusedMonth] = useState(`${year}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
   const dimensionTitle = dimension === 'agents' ? 'produtividade das agentes' : dimension === 'carriers' ? 'ocorrências por transportadora' : 'ocorrências por estado / UF';
   const allItemsLabel = dimension === 'agents' ? 'todas as agentes' : dimension === 'carriers' ? 'todas as transportadoras' : 'todos os estados / UF';
   const allItemsButton = dimension === 'states' ? 'Ver total de todos' : 'Ver total de todas';
@@ -465,8 +465,6 @@ function ProductivityChart({ year, dimension, months, series, selectedSeries, on
     value: effectiveSeries === 'Todos' ? month.total : month.values[selectedIndex] || 0,
     tooltip: `${month.label}/${year} · ${effectiveSeries === 'Todos' ? 'Todas as ocorrências' : effectiveSeries}: ${effectiveSeries === 'Todos' ? month.total : month.values[selectedIndex] || 0} card(s)`,
   }));
-  const focusedData = chartData.find((item) => item.key === focusedMonth) || chartData[0];
-  const maxChartValue = Math.max(...chartData.map((item) => item.value), 1);
   const annualDisplayed = chartData.reduce((sum, month) => sum + month.value, 0);
 
   return (
@@ -527,25 +525,7 @@ function ProductivityChart({ year, dimension, months, series, selectedSeries, on
           ? <>Você está vendo o <strong className="text-gray-900">total mensal de {allItemsLabel}</strong>.</>
           : <>Você está vendo somente <strong className="text-[#385041]">{effectiveSeries}</strong>. Clique em “{allItemsButton}” para voltar.</>}
       </div>
-      <div className="grid gap-4 p-3 sm:p-5 lg:grid-cols-[1fr_210px]">
-        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-[#f7f9f7] p-4">
-          <div className="grid min-w-[720px] grid-cols-12 gap-2" role="img" aria-label={`Gráfico mensal de ${dimensionTitle} em ${year}`}>
-            {chartData.map((month) => {
-              const isFocused = focusedData?.key === month.key;
-              const height = month.value ? Math.max(8, Math.round((month.value / maxChartValue) * 160)) : 3;
-              return <button key={month.key} type="button" onClick={() => setFocusedMonth(month.key)} title={month.tooltip} aria-pressed={isFocused} className={`group flex h-[225px] flex-col items-center justify-end rounded-xl px-1 py-2 transition-all ${isFocused ? 'bg-white shadow-sm ring-1 ring-[#385041]/10' : 'hover:bg-white/70'}`}>
-                <span className={`mb-2 rounded-full px-2 py-1 text-[9px] font-extrabold ${isFocused ? 'bg-[#385041] text-white' : 'text-gray-600'}`}>{month.value}</span>
-                <span className="flex h-40 w-full max-w-9 items-end overflow-hidden rounded-xl bg-[#e1e7e2]"><span className={`block w-full rounded-xl transition-all ${isFocused ? 'bg-amber-400' : 'bg-[#6f8f79] group-hover:bg-[#385041]'}`} style={{ height: `${height}px` }} /></span>
-                <span className={`mt-2 text-[9px] font-extrabold uppercase ${isFocused ? 'text-[#385041]' : 'text-gray-400'}`}>{month.label}</span>
-              </button>;
-            })}
-          </div>
-        </div>
-        <aside className="flex flex-col justify-between rounded-2xl border border-[#385041]/10 bg-[#eef5eb] p-4">
-          <div><p className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-[#385041]">Mês selecionado</p><h3 className="mt-2 text-2xl font-black uppercase text-gray-950">{focusedData?.label || '—'}</h3><strong className="mt-3 block text-3xl text-[#385041]">{focusedData?.value || 0}</strong><span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">cards</span></div>
-          <div className="mt-5 border-t border-[#385041]/10 pt-4"><span className="block text-[9px] text-gray-500">Leitura atual</span><strong className="mt-1 block text-xs text-gray-900">{effectiveSeries === 'Todos' ? allItemsLabel : effectiveSeries}</strong><p className="mt-2 text-[9px] leading-relaxed text-gray-500">Clique em qualquer mês para abrir seu valor com destaque.</p></div>
-        </aside>
-      </div>
+      <div className="p-3 sm:p-5"><PillBarChart data={chartData} ariaLabel={`Gráfico mensal de ${dimensionTitle} em ${year}`} valueFormatter={(value) => `${value} cards`} primaryLabel={effectiveSeries === 'Todos' ? allItemsLabel : effectiveSeries} emptyMessage="Ainda não há ocorrências para montar o gráfico deste ano." /></div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 bg-gray-50/70 px-5 py-3 text-[10px] text-gray-500"><span>Seleção atual: <strong className="text-gray-800">{effectiveSeries}</strong></span><span>Total exibido: <strong className="text-gray-800">{annualDisplayed} cards</strong></span></div>
     </section>
   );

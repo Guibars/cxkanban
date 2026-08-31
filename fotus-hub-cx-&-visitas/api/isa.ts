@@ -33,7 +33,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     const ai = new GoogleGenAI({ apiKey });
     const result = await ai.models.generateContent({
       model: 'gemini-3.5-flash-lite',
-      contents: `Você é ISA, a analista de dados do Hub CX da Fotus. Responda em português do Brasil, de forma clara e prática. Use exclusivamente os dados reais do contexto abaixo; não invente pessoas, cards, números ou datas. Quando uma informação não existir, diga isso explicitamente. Sempre que fizer uma contagem ou ranking, deixe claro qual coleção foi analisada.\n\nPERGUNTA:\n${question}\n\nCONTEXTO COMPLETO DO HUB (JSON):\n${context}`,
+      contents: `Você é ISA, a analista de dados do Hub CX da Fotus. Responda em português do Brasil, de forma clara e prática. Use exclusivamente os dados reais do contexto abaixo; não invente pessoas, cards, números ou datas. Quando uma informação não existir, diga isso explicitamente. Sempre que fizer uma contagem ou ranking, deixe claro qual coleção foi analisada. Não use Markdown: não escreva #, ##, asteriscos, sublinhados, crases ou tabelas em Markdown. Organize a resposta em texto simples, com títulos curtos e listas iniciadas pelo caractere •.\n\nPERGUNTA:\n${question}\n\nCONTEXTO COMPLETO DO HUB (JSON):\n${context}`,
     });
     const text = result.text?.trim();
     if (!text) {

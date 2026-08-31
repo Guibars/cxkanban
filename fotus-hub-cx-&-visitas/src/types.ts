@@ -96,6 +96,23 @@ export interface OrganizationUnit {
   updatedAt: number;
 }
 
+export type OrganizationRole = 'Head' | 'Gerente' | 'Coordenador' | 'Líder';
+
+export interface OrganizationPerson {
+  id: string;
+  name: string;
+  email: string;
+  role: OrganizationRole;
+  reportsToId?: string | null;
+  reportsToName?: string | null;
+  department?: string;
+  regional?: string;
+  active: boolean;
+  createdByEmail: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export type OccurrenceStage = 'Recebida' | 'Em Análise' | 'Aguardando Retorno' | 'Finalizada';
 export type OccurrenceApproval = 'Pendente' | 'Aprovado' | 'Reprovado';
 

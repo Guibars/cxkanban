@@ -1,91 +1,100 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { User } from 'firebase/auth';
 import {
+  ArrowDown,
+  BriefcaseBusiness,
   Building2,
+  Crown,
   Mail,
   MapPinned,
   Network,
   Pencil,
   Plus,
-  Power,
   Save,
   Search,
-  UserRoundCog,
+  Trash2,
+  UserCog,
   Users,
   X,
 } from 'lucide-react';
-import { addDoc, collection, db, doc, updateDoc } from '../lib/firebase';
-import { OrganizationUnit } from '../types';
+import { addDoc, collection, db, deleteDoc, doc, updateDoc } from '../lib/firebase';
+import { OrganizationPerson, OrganizationRole, OrganizationUnit } from '../types';
 
 interface OrganizationViewProps {
   units: OrganizationUnit[];
+  people: OrganizationPerson[];
   currentUser: User;
+  canManage: boolean;
+  canDeleteLegacy: boolean;
 }
 
 const REGIONAL_SUGGESTIONS = ['Nacional', 'Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
+const ROLE_ORDER: OrganizationRole[] = ['Head', 'Gerente', 'Coordenador', 'Líder'];
+const SUPERVISOR_ROLE: Partial<Record<OrganizationRole, OrganizationRole>> = {
+  Gerente: 'Head',
+  Coordenador: 'Gerente',
+  Líder: 'Coordenador',
+};
+const ROLE_STYLE: Record<OrganizationRole, { title: string; description: string; icon: typeof Crown; accent: string; soft: string; line: string }> = {
+  Head: { title: 'Kanban Head', description: 'Responsáveis pela gestão executiva', icon: Crown, accent: 'text-violet-700', soft: 'bg-violet-50', line: 'border-violet-200' },
+  Gerente: { title: 'Kanban Gerência', description: 'Gerentes vinculados a um Head', icon: BriefcaseBusiness, accent: 'text-blue-700', soft: 'bg-blue-50', line: 'border-blue-200' },
+  Coordenador: { title: 'Kanban Coordenadores', description: 'Coordenadores vinculados a um gerente', icon: UserCog, accent: 'text-amber-700', soft: 'bg-amber-50', line: 'border-amber-200' },
+  Líder: { title: 'Kanban Líderes', description: 'Líderes vinculados a um coordenador', icon: Users, accent: 'text-emerald-700', soft: 'bg-emerald-50', line: 'border-emerald-200' },
+};
 
-const emptyForm = {
+const emptyForm: {
+  name: string;
+  email: string;
+  role: OrganizationRole;
+  reportsToId: string;
+  department: string;
+  regional: string;
+  active: boolean;
+} = {
+  name: '',
+  email: '',
+  role: 'Head',
+  reportsToId: '',
   department: '',
-  teamName: '',
   regional: '',
-  managerName: '',
-  managerEmail: '',
-  leaderName: '',
-  leaderEmail: '',
-  coordinatorName: '',
-  coordinatorEmail: '',
   active: true,
 };
 
-export default function OrganizationView({ units, currentUser }: OrganizationViewProps) {
+export default function OrganizationView({ units, people, currentUser, canManage, canDeleteLegacy }: OrganizationViewProps) {
   const [search, setSearch] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingUnit, setEditingUnit] = useState<OrganizationUnit | null>(null);
+  const [editingPerson, setEditingPerson] = useState<OrganizationPerson | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const filteredUnits = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return units;
-    return units.filter((unit) => [
-      unit.department,
-      unit.teamName,
-      unit.regional,
-      unit.managerName,
-      unit.managerEmail,
-      unit.leaderName,
-      unit.leaderEmail,
-      unit.coordinatorName || '',
-      unit.coordinatorEmail || '',
-    ].some((value) => value.toLowerCase().includes(query)));
-  }, [search, units]);
+  const filteredPeople = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase('pt-BR');
+    if (!query) return people;
+    return people.filter((person) => [person.name, person.email, person.role, person.department || '', person.regional || '', person.reportsToName || '']
+      .some((value) => value.toLocaleLowerCase('pt-BR').includes(query)));
+  }, [people, search]);
 
-  const regionsCount = new Set(units.filter((unit) => unit.active).map((unit) => unit.regional)).size;
-  const managersCount = new Set(units.filter((unit) => unit.active).map((unit) => unit.managerEmail.toLowerCase())).size;
-  const leadersCount = new Set(units.filter((unit) => unit.active).map((unit) => unit.leaderEmail.toLowerCase())).size;
-  const coordinatorsCount = new Set(units.filter((unit) => unit.active && unit.coordinatorEmail).map((unit) => (unit.coordinatorEmail || '').toLowerCase())).size;
+  const personById = useMemo(() => new Map(people.map((person) => [person.id, person])), [people]);
+  const supervisorOptions = people.filter((person) => person.active && person.role === SUPERVISOR_ROLE[form.role] && person.id !== editingPerson?.id);
 
-  const openCreateForm = () => {
-    setEditingUnit(null);
-    setForm(emptyForm);
+  const openCreateForm = (role: OrganizationRole = 'Head') => {
+    setEditingPerson(null);
+    setForm({ ...emptyForm, role });
     setErrorMessage('');
     setIsFormOpen(true);
   };
 
-  const openEditForm = (unit: OrganizationUnit) => {
-    setEditingUnit(unit);
+  const openEditForm = (person: OrganizationPerson) => {
+    setEditingPerson(person);
     setForm({
-      department: unit.department,
-      teamName: unit.teamName,
-      regional: unit.regional,
-      managerName: unit.managerName,
-      managerEmail: unit.managerEmail,
-      leaderName: unit.leaderName,
-      leaderEmail: unit.leaderEmail,
-      coordinatorName: unit.coordinatorName || '',
-      coordinatorEmail: unit.coordinatorEmail || '',
-      active: unit.active,
+      name: person.name,
+      email: person.email,
+      role: person.role,
+      reportsToId: person.reportsToId || '',
+      department: person.department || '',
+      regional: person.regional || '',
+      active: person.active,
     });
     setErrorMessage('');
     setIsFormOpen(true);
@@ -93,28 +102,32 @@ export default function OrganizationView({ units, currentUser }: OrganizationVie
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    const supervisor = form.role === 'Head' ? null : personById.get(form.reportsToId);
+    if (form.role !== 'Head' && !supervisor) {
+      setErrorMessage(`Selecione para qual ${SUPERVISOR_ROLE[form.role]?.toLocaleLowerCase('pt-BR')} esta pessoa responde.`);
+      return;
+    }
+
     setSaving(true);
     setErrorMessage('');
     const now = Date.now();
     const payload = {
-      department: form.department.trim(),
-      teamName: form.teamName.trim(),
+      name: form.name.replace(/\s+/g, ' ').trim(),
+      email: form.email.trim().toLowerCase(),
+      role: form.role,
+      reportsToId: supervisor?.id || null,
+      reportsToName: supervisor?.name || null,
+      department: form.department.replace(/\s+/g, ' ').trim(),
       regional: form.regional.trim(),
-      managerName: form.managerName.trim(),
-      managerEmail: form.managerEmail.trim().toLowerCase(),
-      leaderName: form.leaderName.trim(),
-      leaderEmail: form.leaderEmail.trim().toLowerCase(),
-      coordinatorName: form.coordinatorName.trim(),
-      coordinatorEmail: form.coordinatorEmail.trim().toLowerCase(),
       active: form.active,
       updatedAt: now,
     };
 
     try {
-      if (editingUnit) {
-        await updateDoc(doc(db, 'organization_units', editingUnit.id), payload);
+      if (editingPerson) {
+        await updateDoc(doc(db, 'organization_people', editingPerson.id), payload);
       } else {
-        await addDoc(collection(db, 'organization_units'), {
+        await addDoc(collection(db, 'organization_people'), {
           ...payload,
           createdByEmail: currentUser.email || '',
           createdAt: now,
@@ -122,168 +135,126 @@ export default function OrganizationView({ units, currentUser }: OrganizationVie
       }
       setIsFormOpen(false);
     } catch (error) {
-      console.error('Erro ao salvar estrutura:', error);
-      setErrorMessage('Não foi possível salvar. Confira as regras do Firestore e tente novamente.');
+      console.error('Erro ao salvar pessoa na estrutura:', error);
+      setErrorMessage('Não foi possível salvar. Publique as regras atualizadas do Firestore e tente novamente.');
     } finally {
       setSaving(false);
     }
   };
 
-  const toggleUnit = async (unit: OrganizationUnit) => {
+  const removePerson = async (person: OrganizationPerson) => {
+    const dependents = people.filter((item) => item.reportsToId === person.id);
+    const warning = dependents.length
+      ? `${person.name} possui ${dependents.length} pessoa(s) vinculada(s). Elas ficarão sem responsável até serem editadas. Deseja excluir mesmo assim?`
+      : `Deseja excluir o card de ${person.name}?`;
+    if (!window.confirm(warning)) return;
+
     try {
-      await updateDoc(doc(db, 'organization_units', unit.id), {
-        active: !unit.active,
+      await Promise.all(dependents.map((item) => updateDoc(doc(db, 'organization_people', item.id), {
+        reportsToId: null,
+        reportsToName: null,
         updatedAt: Date.now(),
-      });
+      })));
+      await deleteDoc(doc(db, 'organization_people', person.id));
     } catch (error) {
-      console.error('Erro ao atualizar estrutura:', error);
+      console.error('Erro ao excluir pessoa:', error);
+      window.alert('Não foi possível excluir este card. Confira as regras publicadas do Firestore.');
+    }
+  };
+
+  const removeLegacyUnit = async (unit: OrganizationUnit) => {
+    if (!window.confirm(`Excluir definitivamente o cadastro antigo “${unit.teamName}”?`)) return;
+    try {
+      await deleteDoc(doc(db, 'organization_units', unit.id));
+    } catch (error) {
+      console.error('Erro ao excluir cadastro antigo:', error);
+      window.alert('Não foi possível excluir este cadastro. Apenas o administrador principal pode remover cadastros antigos.');
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        {[
-          { label: 'Times cadastrados', value: units.length, icon: Network, color: 'text-[#385041] bg-[#e8efe0]' },
-          { label: 'Regionais ativas', value: regionsCount, icon: MapPinned, color: 'text-blue-700 bg-blue-50' },
-          { label: 'Gerentes ativos', value: managersCount, icon: UserRoundCog, color: 'text-violet-700 bg-violet-50' },
-          { label: 'Lideranças', value: leadersCount, icon: Users, color: 'text-amber-700 bg-amber-50' },
-          { label: 'Coordenação', value: coordinatorsCount, icon: UserRoundCog, color: 'text-violet-700 bg-violet-50' },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm backdrop-blur-md">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">{label}</p>
-                <p className="mt-1 text-2xl font-extrabold text-gray-950">{value}</p>
-              </div>
-              <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5" /></span>
-            </div>
+      <section className="overflow-hidden rounded-3xl border border-[#385041]/10 bg-white/85 shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-gray-100 bg-[#f4f8f2] p-5 lg:flex-row lg:items-end lg:justify-between sm:p-6">
+          <div>
+            <p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]"><Network className="h-4 w-4" />Cadeia de liderança</p>
+            <h2 className="mt-1 text-xl font-extrabold text-gray-950">Head → Gerente → Coordenador → Líder</h2>
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-gray-500">Cada card mostra a função e para quem aquela pessoa responde. O vínculo fica salvo no Firestore.</p>
           </div>
-        ))}
-      </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <label className="relative min-w-0 sm:w-72">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nome, e-mail ou regional" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#385041]" />
+            </label>
+            {canManage && <button onClick={() => openCreateForm()} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#2c4033]"><Plus className="h-4 w-4" />Cadastrar pessoa</button>}
+          </div>
+        </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-extrabold text-gray-950">Estrutura de direcionamento</h2>
-          <p className="text-xs text-gray-500">Cada card pode ser encaminhado ao gerente correto e escalado para sua liderança.</p>
+        <div className="grid grid-cols-2 gap-px bg-gray-100 lg:grid-cols-4">
+          {ROLE_ORDER.map((role) => {
+            const config = ROLE_STYLE[role];
+            const Icon = config.icon;
+            const count = people.filter((person) => person.role === role && person.active).length;
+            return <div key={role} className="bg-white p-4"><div className="flex items-center justify-between gap-3"><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${config.soft} ${config.accent}`}><Icon className="h-5 w-5" /></span><strong className="text-2xl text-gray-950">{count}</strong></div><p className="mt-3 text-[10px] font-extrabold uppercase tracking-wide text-gray-500">{role}s ativos</p></div>;
+          })}
         </div>
-        <div className="flex gap-2">
-          <label className="relative flex-1 sm:w-64">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar time ou regional" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#385041]" />
-          </label>
-          <button onClick={openCreateForm} className="flex shrink-0 items-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#2c4033]">
-            <Plus className="h-4 w-4" /> Novo time
-          </button>
-        </div>
-      </div>
+      </section>
 
-      {filteredUnits.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-gray-300 bg-white/60 px-6 py-16 text-center">
-          <Network className="mx-auto h-11 w-11 text-gray-300" />
-          <h3 className="mt-4 text-base font-bold text-gray-800">Nenhuma estrutura cadastrada</h3>
-          <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-gray-500">Cadastre o primeiro time com regional, gerente e liderança. Nenhuma pessoa é criada automaticamente.</p>
-          <button onClick={openCreateForm} className="mt-5 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white">Cadastrar primeiro time</button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filteredUnits.map((unit) => (
-            <article key={unit.id} className={`rounded-2xl border bg-white/85 p-5 shadow-sm transition-all ${unit.active ? 'border-white/90' : 'border-gray-200 opacity-60'}`}>
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${unit.active ? 'bg-emerald-500' : 'bg-gray-300'}`} />
-                    <h3 className="truncate text-sm font-extrabold text-gray-950">{unit.teamName}</h3>
-                  </div>
-                  <p className="mt-1 truncate text-xs font-semibold text-[#385041]">{unit.department}</p>
+      <section className="overflow-x-auto pb-2">
+        <div className="grid min-w-[1120px] grid-cols-4 gap-4">
+          {ROLE_ORDER.map((role, roleIndex) => {
+            const config = ROLE_STYLE[role];
+            const Icon = config.icon;
+            const rolePeople = filteredPeople.filter((person) => person.role === role);
+            return (
+              <div key={role} className={`relative min-h-[420px] rounded-3xl border bg-white/65 p-3 shadow-sm ${config.line}`}>
+                {roleIndex < ROLE_ORDER.length - 1 && <span className="absolute -right-3 top-10 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400 shadow-sm"><ArrowDown className="h-3.5 w-3.5 -rotate-90" /></span>}
+                <div className="flex items-center justify-between gap-2 px-1 py-2">
+                  <div className="flex min-w-0 items-center gap-2.5"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${config.soft} ${config.accent}`}><Icon className="h-4 w-4" /></span><span className="min-w-0"><strong className="block truncate text-xs text-gray-950">{config.title}</strong><small className="block truncate text-[9px] text-gray-500">{config.description}</small></span></div>
+                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-extrabold text-gray-600">{rolePeople.length}</span>
                 </div>
-                <div className="flex gap-1">
-                  <button onClick={() => toggleUnit(unit)} title={unit.active ? 'Desativar' : 'Ativar'} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><Power className="h-4 w-4" /></button>
-                  <button onClick={() => openEditForm(unit)} title="Editar" className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><Pencil className="h-4 w-4" /></button>
+
+                <div className="mt-2 space-y-3">
+                  {rolePeople.map((person) => {
+                    const supervisor = person.reportsToId ? personById.get(person.reportsToId) : null;
+                    return <article key={person.id} className={`rounded-2xl border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${person.active ? 'border-gray-100' : 'border-gray-200 opacity-60'}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0"><div className="flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${person.active ? 'bg-emerald-500' : 'bg-gray-300'}`} /><h3 className="truncate text-sm font-extrabold text-gray-950">{person.name}</h3></div><p className="mt-1 flex items-center gap-1.5 truncate text-[10px] text-gray-500"><Mail className="h-3 w-3" />{person.email}</p></div>
+                        {canManage && <div className="flex shrink-0 gap-0.5"><button onClick={() => openEditForm(person)} title="Editar card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><Pencil className="h-3.5 w-3.5" /></button><button onClick={() => removePerson(person)} title="Excluir card" className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button></div>}
+                      </div>
+                      {(person.department || person.regional) && <div className="mt-3 flex flex-wrap gap-1.5">{person.department && <span className="rounded-full bg-gray-100 px-2 py-1 text-[9px] font-bold text-gray-600">{person.department}</span>}{person.regional && <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[9px] font-bold text-blue-700"><MapPinned className="h-2.5 w-2.5" />{person.regional}</span>}</div>}
+                      {role !== 'Head' && <div className={`mt-3 rounded-xl border px-3 py-2.5 ${supervisor ? `${config.soft} ${config.line}` : 'border-red-100 bg-red-50'}`}><small className="block text-[8px] font-extrabold uppercase tracking-wide text-gray-400">Responde para</small><strong className={`mt-0.5 block truncate text-[11px] ${supervisor ? 'text-gray-800' : 'text-red-700'}`}>{supervisor?.name || person.reportsToName || 'Responsável não definido'}</strong><span className="mt-0.5 block text-[9px] text-gray-500">{SUPERVISOR_ROLE[role]}</span></div>}
+                    </article>;
+                  })}
+                  {!rolePeople.length && <div className="rounded-2xl border border-dashed border-gray-200 bg-white/50 px-4 py-10 text-center"><Icon className="mx-auto h-7 w-7 text-gray-300" /><p className="mt-2 text-[10px] font-semibold text-gray-400">Nenhum {role.toLocaleLowerCase('pt-BR')} cadastrado</p>{canManage && <button onClick={() => openCreateForm(role)} className="mt-3 text-[10px] font-extrabold text-[#385041]">+ Adicionar</button>}</div>}
                 </div>
               </div>
-
-              <div className="mb-4 flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2 text-xs font-bold text-blue-800">
-                <MapPinned className="h-4 w-4" /> {unit.regional}
-              </div>
-
-              <div className="space-y-3">
-                <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
-                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">Gerente do time</p>
-                  <p className="mt-1 text-sm font-bold text-gray-900">{unit.managerName}</p>
-                  <p className="mt-1 flex items-center gap-1.5 truncate text-[11px] text-gray-500"><Mail className="h-3 w-3" />{unit.managerEmail}</p>
-                </div>
-                <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-3">
-                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700/70">Liderança do gerente</p>
-                  <p className="mt-1 text-sm font-bold text-gray-900">{unit.leaderName}</p>
-                  <p className="mt-1 flex items-center gap-1.5 truncate text-[11px] text-gray-500"><Mail className="h-3 w-3" />{unit.leaderEmail}</p>
-                </div>
-                {(unit.coordinatorName || unit.coordinatorEmail) && <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-3">
-                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-violet-700/70">Coordenação do setor</p>
-                  <p className="mt-1 text-sm font-bold text-gray-900">{unit.coordinatorName || 'Não informado'}</p>
-                  <p className="mt-1 flex items-center gap-1.5 truncate text-[11px] text-gray-500"><Mail className="h-3 w-3" />{unit.coordinatorEmail || 'Sem e-mail'}</p>
-                </div>}
-              </div>
-            </article>
-          ))}
+            );
+          })}
         </div>
-      )}
+      </section>
 
-      {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <form onSubmit={handleSubmit} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-5">
-              <div>
-                <h3 className="text-lg font-extrabold text-gray-950">{editingUnit ? 'Editar estrutura' : 'Cadastrar time'}</h3>
-                <p className="text-xs text-gray-500">Use somente nomes e e-mails reais da empresa.</p>
-              </div>
-              <button type="button" onClick={() => setIsFormOpen(false)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+      {!!units.length && <section className="rounded-3xl border border-amber-200 bg-amber-50/55 p-5 shadow-sm">
+        <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-amber-700"><Network className="h-5 w-5" /></span><div><h3 className="text-sm font-extrabold text-gray-950">Cadastros do modelo anterior</h3><p className="mt-1 text-[10px] leading-relaxed text-gray-600">Esses cards foram criados antes da nova hierarquia. Você pode conferir e apagar os que não serão mais utilizados.</p></div></div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{units.map((unit) => <article key={unit.id} className="rounded-2xl border border-amber-100 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><strong className="block truncate text-xs text-gray-900">{unit.teamName}</strong><span className="mt-1 block truncate text-[10px] text-gray-500">{unit.department} · {unit.regional}</span></div>{canDeleteLegacy && <button onClick={() => removeLegacyUnit(unit)} title="Excluir cadastro antigo" className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>}</div><div className="mt-3 grid gap-1 text-[10px] text-gray-600"><span>Gerente: <strong>{unit.managerName}</strong></span><span>Liderança: <strong>{unit.leaderName}</strong></span>{unit.coordinatorName && <span>Coordenação: <strong>{unit.coordinatorName}</strong></span>}</div></article>)}</div>
+      </section>}
+
+      {isFormOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+        <form onSubmit={handleSubmit} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white bg-white shadow-2xl">
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-5"><div><h3 className="text-lg font-extrabold text-gray-950">{editingPerson ? 'Editar pessoa' : 'Cadastrar pessoa'}</h3><p className="text-xs text-gray-500">Monte a cadeia informando a função e o responsável direto.</p></div><button type="button" onClick={() => setIsFormOpen(false)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button></div>
+          <div className="space-y-5 p-6">
+            {errorMessage && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{errorMessage}</p>}
+            <div className="grid gap-4 sm:grid-cols-2"><Field label="Nome completo" value={form.name} onChange={(value) => setForm({ ...form, name: value })} placeholder="Nome real" icon={Users} /><Field label="E-mail corporativo" value={form.email} onChange={(value) => setForm({ ...form, email: value })} placeholder="nome@fotus.com.br" type="email" icon={Mail} /></div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block"><span className="mb-1.5 block text-xs font-bold text-gray-700">Função no organograma</span><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as OrganizationRole, reportsToId: '' })} className="field-input">{ROLE_ORDER.map((role) => <option key={role} value={role}>{role}</option>)}</select></label>
+              {form.role === 'Head' ? <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3"><small className="block text-[9px] font-extrabold uppercase tracking-wide text-violet-600">Topo da estrutura</small><strong className="mt-1 block text-xs text-violet-950">Head não responde a outro card</strong></div> : <label className="block"><span className="mb-1.5 block text-xs font-bold text-gray-700">Responde para ({SUPERVISOR_ROLE[form.role]})</span><select required value={form.reportsToId} onChange={(event) => setForm({ ...form, reportsToId: event.target.value })} className="field-input"><option value="">Selecione o responsável direto</option>{supervisorOptions.map((person) => <option key={person.id} value={person.id}>{person.name} · {person.email}</option>)}</select>{!supervisorOptions.length && <small className="mt-1.5 block text-[9px] text-amber-700">Cadastre primeiro um {SUPERVISOR_ROLE[form.role]?.toLocaleLowerCase('pt-BR')} ativo.</small>}</label>}
             </div>
-
-            <div className="space-y-5 p-6">
-              {errorMessage && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{errorMessage}</p>}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Setor" value={form.department} onChange={(value) => setForm({ ...form, department: value })} placeholder="Ex.: Logística" icon={Building2} />
-                <Field label="Nome do time" value={form.teamName} onChange={(value) => setForm({ ...form, teamName: value })} placeholder="Ex.: Pós-vendas" icon={Users} />
-              </div>
-              <div>
-                <Field label="Regional" value={form.regional} onChange={(value) => setForm({ ...form, regional: value })} placeholder="Digite ou selecione uma regional" icon={MapPinned} list="regional-options" />
-                <datalist id="regional-options">{REGIONAL_SUGGESTIONS.map((regional) => <option key={regional} value={regional} />)}</datalist>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
-                <p className="mb-3 text-xs font-extrabold uppercase tracking-wider text-gray-500">Gerente do time</p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Nome completo" value={form.managerName} onChange={(value) => setForm({ ...form, managerName: value })} placeholder="Nome real" />
-                  <Field label="E-mail corporativo" value={form.managerEmail} onChange={(value) => setForm({ ...form, managerEmail: value })} placeholder="nome@fotus.com.br" type="email" icon={Mail} />
-                </div>
-              </div>
-              <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
-                <p className="mb-3 text-xs font-extrabold uppercase tracking-wider text-amber-800">Liderança do gerente</p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Nome completo" value={form.leaderName} onChange={(value) => setForm({ ...form, leaderName: value })} placeholder="Nome real" />
-                  <Field label="E-mail corporativo" value={form.leaderEmail} onChange={(value) => setForm({ ...form, leaderEmail: value })} placeholder="nome@fotus.com.br" type="email" icon={Mail} />
-                </div>
-              </div>
-              <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-4">
-                <p className="mb-3 text-xs font-extrabold uppercase tracking-wider text-violet-800">Coordenação do setor</p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Nome completo" value={form.coordinatorName} onChange={(value) => setForm({ ...form, coordinatorName: value })} placeholder="Nome real" />
-                  <Field label="E-mail corporativo" value={form.coordinatorEmail} onChange={(value) => setForm({ ...form, coordinatorEmail: value })} placeholder="nome@fotus.com.br" type="email" icon={Mail} />
-                </div>
-              </div>
-              <label className="flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-sm font-semibold text-gray-700">
-                <input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} className="h-4 w-4 accent-[#385041]" />
-                Disponível para novos direcionamentos
-              </label>
-            </div>
-
-            <div className="sticky bottom-0 flex justify-end gap-2 border-t border-gray-100 bg-white px-6 py-4">
-              <button type="button" onClick={() => setIsFormOpen(false)} className="rounded-xl px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100">Cancelar</button>
-              <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-[#385041] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar estrutura'}</button>
-            </div>
-          </form>
-        </div>
-      )}
+            <div className="grid gap-4 sm:grid-cols-2"><Field label="Setor" value={form.department} onChange={(value) => setForm({ ...form, department: value })} placeholder="Ex.: CX" icon={Building2} required={false} /><div><Field label="Regional" value={form.regional} onChange={(value) => setForm({ ...form, regional: value })} placeholder="Nacional ou regional" icon={MapPinned} list="organization-regional-options" required={false} /><datalist id="organization-regional-options">{REGIONAL_SUGGESTIONS.map((regional) => <option key={regional} value={regional} />)}</datalist></div></div>
+            <label className="flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-sm font-semibold text-gray-700"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} className="h-4 w-4 accent-[#385041]" />Pessoa ativa na estrutura</label>
+          </div>
+          <div className="sticky bottom-0 flex justify-end gap-2 border-t border-gray-100 bg-white px-6 py-4"><button type="button" onClick={() => setIsFormOpen(false)} className="rounded-xl px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100">Cancelar</button><button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-[#385041] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar card'}</button></div>
+        </form>
+      </div>}
     </div>
   );
 }
@@ -296,16 +267,9 @@ interface FieldProps {
   type?: string;
   icon?: typeof Building2;
   list?: string;
+  required?: boolean;
 }
 
-function Field({ label, value, onChange, placeholder, type = 'text', icon: Icon, list }: FieldProps) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs font-bold text-gray-700">{label}</span>
-      <span className="relative block">
-        {Icon && <Icon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />}
-        <input required type={type} list={list} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className={`w-full rounded-xl border border-gray-200 bg-white py-2.5 pr-3 text-sm outline-none focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 ${Icon ? 'pl-9' : 'pl-3'}`} />
-      </span>
-    </label>
-  );
+function Field({ label, value, onChange, placeholder, type = 'text', icon: Icon, list, required = true }: FieldProps) {
+  return <label className="block"><span className="mb-1.5 block text-xs font-bold text-gray-700">{label}</span><span className="relative block">{Icon && <Icon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />}<input required={required} type={type} list={list} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className={`w-full rounded-xl border border-gray-200 bg-white py-2.5 pr-3 text-sm outline-none focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 ${Icon ? 'pl-9' : 'pl-3'}`} /></span></label>;
 }

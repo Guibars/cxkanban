@@ -2,7 +2,7 @@
 
 Aplicação React conectada ao Firebase Authentication e ao banco Firestore nomeado `ai-studio-752453f7-ae97-40d3-ab96-17738cb30cc2`.
 
-## Acesso Google na Vercel
+## Acesso na Vercel
 
 O código autoriza:
 
@@ -13,10 +13,12 @@ Para o login funcionar na Vercel, o domínio publicado precisa ser autorizado no
 
 1. Abra o Firebase Console do projeto `gen-lang-client-0929275981`.
 2. Entre em **Authentication**.
-3. Confirme que o provedor **Google** está habilitado.
+3. Confirme que os provedores **Google** e **E-mail/senha** estão habilitados.
 4. Abra **Settings > Authorized domains**.
 5. Adicione apenas o domínio, sem `https://` e sem caminhos. Exemplo: `nome-do-projeto.vercel.app`.
 6. Se houver domínio próprio, adicione-o também.
+
+O formulário de e-mail e senha não cria contas novas. Cadastre os usuários autorizados em **Firebase Authentication > Users** e use somente endereços `@fotus.com.br` ou a conta de desenvolvimento liberada.
 
 ## Publicar as regras do Firestore
 
@@ -53,6 +55,7 @@ Não execute esses comandos se houver dados reais misturados. Nesse caso, exclua
 ## Novas coleções
 
 - `organization_units`: setor, time, regional, gerente, liderança e coordenação;
+- `organization_people`: organograma em cadeia com Head, Gerente, Coordenador, Líder e o vínculo de responsável direto;
 - `occurrences`: controle operacional de ocorrências;
 - `extra_costs`: custos não previstos por pedido, regional, origem, responsabilidade e motivo;
 - `cx_cases`: casos CX e seus direcionamentos;
@@ -61,7 +64,7 @@ Não execute esses comandos se houver dados reais misturados. Nesse caso, exclua
 - `app_settings/occurrence_agents`: lista editável de agentes disponíveis no controle de ocorrências.
 - `user_access`: função, agente vinculada, times acompanhados e abas liberadas para cada e-mail.
 
-Nenhuma pessoa ou ocorrência é criada automaticamente. A nova estrutura deve ser cadastrada na aba **Estrutura** antes de direcionar os cards.
+Nenhuma pessoa ou ocorrência é criada automaticamente. Na aba **Estrutura**, cadastre primeiro o Head, depois os Gerentes, Coordenadores e Líderes. Cada card posterior seleciona a pessoa para quem responde. Os registros do modelo anterior continuam visíveis em uma área separada até o administrador excluí-los.
 
 ## Importar o histórico de ocorrências
 

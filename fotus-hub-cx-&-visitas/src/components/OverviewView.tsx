@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Activity, ArrowUpRight, CheckCircle2, CircleDollarSign, ClipboardList, Star, Truck } from 'lucide-react';
 import { AppSection, ExtraCost, IntegratorVisit, Occurrence, RACase } from '../types';
+import PillBarChart from './PillBarChart';
 
 interface OverviewViewProps {
   occurrences: Occurrence[];
@@ -57,7 +58,6 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
     const items = occurrences.filter((item) => item.date?.startsWith(key));
     return { key, label, total: items.length, closed: items.filter((item) => item.stage === 'Finalizada').length };
   }), [occurrences, now.getFullYear()]);
-  const maxMonth = Math.max(...monthlyTrend.map((item) => item.total), 1);
   const currentTrend = monthlyTrend.find((item) => item.key === currentMonth);
 
   return (
@@ -82,19 +82,7 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
       <div className="grid gap-5 xl:grid-cols-[1.55fr_1fr]">
         <section className="rounded-3xl border border-white/90 bg-white/85 p-5 shadow-sm sm:p-6">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"><div><h3 className="text-sm font-extrabold text-gray-950">Ritmo mensal das ocorrências</h3><p className="mt-1 text-[11px] text-gray-500">Cada coluna é um mês; a faixa verde representa o que já foi finalizado.</p></div><span className="mt-2 w-fit rounded-full bg-[#eef5eb] px-3 py-1 text-[10px] font-extrabold text-[#385041] sm:mt-0">{currentTrend?.total || 0} cards neste mês</span></div>
-          <div className="mt-5 overflow-x-auto">
-            <div className="grid min-w-[700px] grid-cols-12 gap-2 rounded-2xl bg-[#f7f9f7] p-4">
-              {monthlyTrend.map((item) => {
-                const totalHeight = Math.max(item.total ? 16 : 3, Math.round((item.total / maxMonth) * 150));
-                const closedHeight = item.total ? Math.round((item.closed / item.total) * totalHeight) : 0;
-                return <button key={item.key} type="button" title={`${item.label}: ${item.total} ocorrências, ${item.closed} finalizadas`} className="group flex h-[205px] flex-col items-center justify-end rounded-xl px-1 py-2 transition-colors hover:bg-white">
-                  <span className="mb-2 text-[10px] font-extrabold text-gray-700 opacity-0 transition-opacity group-hover:opacity-100">{item.total}</span>
-                  <span className="relative flex w-full max-w-9 items-end overflow-hidden rounded-xl bg-[#dfe6e1]" style={{ height: `${totalHeight}px` }}><span className="block w-full rounded-xl bg-[#5f8c70] transition-all group-hover:bg-[#385041]" style={{ height: `${closedHeight}px` }} /></span>
-                  <span className="mt-2 text-[9px] font-extrabold uppercase text-gray-400">{item.label}</span>
-                </button>;
-              })}
-            </div>
-          </div>
+          <div className="mt-5"><PillBarChart data={monthlyTrend.map((item) => ({ key: item.key, label: item.label, value: item.total, secondaryValue: item.closed, tooltip: `${item.label}: ${item.total} ocorrências, ${item.closed} finalizadas` }))} ariaLabel={`Ritmo mensal das ocorrências em ${now.getFullYear()}`} valueFormatter={(value) => `${value} cards`} primaryLabel="Ocorrências" secondaryLabel="Finalizadas" emptyMessage="Ainda não há ocorrências cadastradas neste ano." /></div>
         </section>
 
         <section className="rounded-3xl border border-white/90 bg-white/85 p-5 shadow-sm sm:p-6">

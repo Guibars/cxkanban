@@ -5,7 +5,6 @@ service cloud.firestore {
     function isAuthorizedUser() {
       return request.auth != null
         && request.auth.token.email is string
-        && request.auth.token.email_verified == true
         && (
           request.auth.token.email == 'guilhermebarbosars@gmail.com'
           || request.auth.token.email.matches('^[^@]+@fotus[.]com[.]br$')
@@ -106,6 +105,32 @@ service cloud.firestore {
         && request.resource.data.active is bool
         && request.resource.data.updatedAt is int;
       allow delete: if isDeveloper();
+    }
+
+    match /organization_people/{personId} {
+      allow read: if isAuthorizedUser();
+      allow create: if canManagePeople()
+        && request.resource.data.name is string
+        && request.resource.data.email is string
+        && request.resource.data.role in ['Head', 'Gerente', 'Coordenador', 'Líder']
+        && (!request.resource.data.keys().hasAny(['reportsToId']) || request.resource.data.reportsToId == null || request.resource.data.reportsToId is string)
+        && (!request.resource.data.keys().hasAny(['reportsToName']) || request.resource.data.reportsToName == null || request.resource.data.reportsToName is string)
+        && request.resource.data.department is string
+        && request.resource.data.regional is string
+        && request.resource.data.active is bool
+        && request.resource.data.createdByEmail == request.auth.token.email
+        && hasNumericTimestamps(request.resource.data);
+      allow update: if canManagePeople()
+        && request.resource.data.name is string
+        && request.resource.data.email is string
+        && request.resource.data.role in ['Head', 'Gerente', 'Coordenador', 'Líder']
+        && (!request.resource.data.keys().hasAny(['reportsToId']) || request.resource.data.reportsToId == null || request.resource.data.reportsToId is string)
+        && (!request.resource.data.keys().hasAny(['reportsToName']) || request.resource.data.reportsToName == null || request.resource.data.reportsToName is string)
+        && request.resource.data.department is string
+        && request.resource.data.regional is string
+        && request.resource.data.active is bool
+        && request.resource.data.updatedAt is int;
+      allow delete: if canManagePeople();
     }
 
     match /occurrences/{occurrenceId} {
