@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { AlertCircle, ArrowRight, Headphones, LoaderCircle, LockKeyhole, Mail } from 'lucide-react';
+import { AlertCircle, ArrowRight, LoaderCircle, LockKeyhole, Mail } from 'lucide-react';
 import {
   auth,
   browserLocalPersistence,
@@ -87,9 +87,6 @@ export default function Auth() {
         <div className="w-full max-w-md rounded-[32px] border border-white bg-white/80 p-6 shadow-[0_28px_80px_rgba(41,61,48,0.12)] backdrop-blur-xl sm:p-8">
           <div className="text-center">
             <img src={LOGIN_LOGO} alt="Fotus" className="mx-auto h-24 w-auto object-contain" />
-            <span className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full border border-[#385041]/10 bg-[#eef5eb] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#385041]"><Headphones className="h-3.5 w-3.5" />CX</span>
-            <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-gray-950 sm:text-3xl">Entre para uma nova experiência CX</h1>
-            <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-gray-500">Acesse sua rotina, seus controles e os insights do time em um só lugar.</p>
           </div>
 
           {errorMessage && <div className="mt-5 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><p>{errorMessage}</p></div>}
