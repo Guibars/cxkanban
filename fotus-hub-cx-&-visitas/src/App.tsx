@@ -257,14 +257,15 @@ export default function App() {
 
   if (!user) return <Auth />;
 
-  const tabs: Array<{ id: MainTab; label: string; icon: typeof ClipboardList; alert?: boolean }> = [
+  const allNavigationTabs: Array<{ id: MainTab; label: string; icon: typeof ClipboardList; alert?: boolean }> = [
     { id: 'visao-geral', label: 'Visão Geral', icon: LayoutDashboard },
     { id: 'ocorrencias', label: 'Ocorrências', icon: ClipboardList, alert: visibleOccurrences.some((item) => item.stage !== 'Finalizada') },
     { id: 'custos', label: 'Custo Extra', icon: CircleDollarSign, alert: visibleCosts.some((item) => item.totalCost > 1000) },
     { id: 'ra', label: 'Reclame Aqui', icon: ArchiveRestore, alert: visibleRaCases.some((item) => item.status === 'Aberto') },
     { id: 'visitas', label: 'Visitas', icon: Building2, alert: visits.some((item) => item.status === 'Agendada') },
     { id: 'estrutura', label: 'Estrutura', icon: Network, alert: organizationPeople.length === 0 },
-  ].filter((tab) => canView(tab.id));
+  ];
+  const tabs = allNavigationTabs.filter((tab) => canView(tab.id));
 
   const scoreCases = visibleRaCases.filter((item) => typeof item.finalScore === 'number');
   const averageRaScore = scoreCases.length ? (scoreCases.reduce((sum, item) => sum + raScoreOnTen(item.finalScore || 0), 0) / scoreCases.length).toFixed(1) : null;

@@ -72,9 +72,9 @@ function shell(title: string, subtitle: string, body: string) {
     .chart-title { color: #182434; font-size: 10.5px; font-weight: 800; }
     .chart-legend { align-items: center; color: #68758a; display: flex; font-size: 7.5px; font-weight: 700; gap: 11px; }
     .legend-bar, .legend-line, .legend-target { display: inline-block; margin-right: 4px; vertical-align: middle; }
-    .legend-bar { background: #ef9200; border-radius: 2px 2px 0 0; height: 7px; width: 7px; }
-    .legend-line { background: #ef9200; height: 2px; width: 12px; }
-    .legend-target { border-top: 2px dashed #596cff; height: 1px; width: 12px; }
+    .legend-bar { background: #35bfae; border-radius: 50%; height: 7px; width: 7px; }
+    .legend-line { background: #348ed4; height: 2px; width: 12px; }
+    .legend-target { border-top: 2px dashed #ef9200; height: 1px; width: 12px; }
     .report-chart-svg { display: block; height: 155px; overflow: visible; width: 100%; }
     .chart-summary-grid { display: grid; gap: 5px; grid-template-columns: repeat(6, 1fr); margin-top: 8px; }
     .chart-summary-card { background: #fff; border: 1px solid #e5eaf0; border-radius: 7px; padding: 6px 7px; }
@@ -109,20 +109,18 @@ function modernReportChart(title: string, data: ReportChartDatum[], target?: { l
   const bottom = 132;
   const max = Math.max(...data.map((item) => item.value), target?.value || 0, 1);
   const step = width / data.length;
-  const barWidth = Math.min(22, step * .34);
   const points = data.map((item, index) => ({ x: step * index + step / 2, y: bottom - (item.value / max) * (bottom - top) }));
+  const linePath = reportSmoothPath(points);
+  const areaPath = `${linePath} L ${points[points.length - 1].x} ${bottom} L ${points[0].x} ${bottom} Z`;
+  const chartId = `chart-${[...title].reduce((hash, character) => ((hash * 31) + character.charCodeAt(0)) >>> 0, 7).toString(16)}`;
   const targetY = target ? bottom - (target.value / max) * (bottom - top) : null;
   const grid = [0, 1, 2, 3].map((line) => {
     const y = top + line * ((bottom - top) / 3);
     return `<line x1="0" y1="${y}" x2="${width}" y2="${y}" stroke="#dfe5ec" stroke-width="1" stroke-dasharray="3 5" />`;
   }).join('');
-  const bars = data.map((item, index) => {
-    const height = item.value ? Math.max(2, (item.value / max) * (bottom - top)) : 0;
-    return `<rect x="${points[index].x - barWidth / 2}" y="${bottom - height}" width="${barWidth}" height="${height}" rx="5" fill="#ef9200" opacity=".95" />`;
-  }).join('');
   const labels = data.map((item, index) => `<text x="${points[index].x}" y="151" text-anchor="middle" fill="#617087" font-size="7" font-weight="700">${escapeHtml(item.label)}</text>`).join('');
   const cards = data.map((item) => `<div class="chart-summary-card"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.display)}</strong></div>`).join('');
-  return `<div class="report-chart"><div class="chart-heading"><div class="chart-title">${escapeHtml(title)}</div><div class="chart-legend"><span><i class="legend-bar"></i>Realizado</span><span><i class="legend-line"></i>Tendência</span>${target ? `<span><i class="legend-target"></i>${escapeHtml(target.label)}</span>` : ''}</div></div><svg class="report-chart-svg" viewBox="0 0 ${width} 158" preserveAspectRatio="none" aria-label="${escapeHtml(title)}">${grid}${bars}<path d="${reportSmoothPath(points)}" fill="none" stroke="#ef9200" stroke-width="3" stroke-linecap="round" />${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.5" fill="#fff" stroke="#ef9200" stroke-width="2.5" />`).join('')}${targetY !== null ? `<line x1="0" y1="${targetY}" x2="${width}" y2="${targetY}" stroke="#596cff" stroke-width="2" stroke-dasharray="7 6" />` : ''}${labels}</svg><div class="chart-summary-grid">${cards}</div></div>`;
+  return `<div class="report-chart"><div class="chart-heading"><div class="chart-title">${escapeHtml(title)}</div><div class="chart-legend"><span><i class="legend-bar"></i>Valor real</span><span><i class="legend-line"></i>Tendência</span>${target ? `<span><i class="legend-target"></i>${escapeHtml(target.label)}</span>` : ''}</div></div><svg class="report-chart-svg" viewBox="0 0 ${width} 158" preserveAspectRatio="none" aria-label="${escapeHtml(title)}"><defs><linearGradient id="${chartId}-line" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#347ed1"/><stop offset="55%" stop-color="#35b9c5"/><stop offset="100%" stop-color="#35c997"/></linearGradient><linearGradient id="${chartId}-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#438bd3" stop-opacity=".28"/><stop offset="100%" stop-color="#35c997" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${areaPath}" fill="url(#${chartId}-area)"/><path d="${linePath}" fill="none" stroke="url(#${chartId}-line)" stroke-width="3" stroke-linecap="round" />${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.5" fill="#fff" stroke="#35b9ad" stroke-width="2.5" />`).join('')}${targetY !== null ? `<line x1="0" y1="${targetY}" x2="${width}" y2="${targetY}" stroke="#ef9200" stroke-width="2" stroke-dasharray="7 6" />` : ''}${labels}</svg><div class="chart-summary-grid">${cards}</div></div>`;
 }
 
 function topValues(items: ExtraCost[], selector: (item: ExtraCost) => string, limit = 8) {
