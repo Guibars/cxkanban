@@ -82,18 +82,18 @@ Os cards podem ser filtrados por hoje, últimos 7 dias, últimos 15 dias, mês a
 
 Ao abrir uma nova ocorrência, marque **Avaria com custo** para informar valor, transportadora, cidade e UF. Esses campos alimentam os rankings financeiros por transportadora e região.
 
-## Controle de visibilidade
+## Acesso às telas
 
 A conta `guilhermebarbosars@gmail.com` é a administradora do MVP. Depois de publicar o código e as regras:
 
 1. Entre com a conta de desenvolvimento.
 2. Clique na foto de perfil.
 3. Abra **Gerenciar visibilidade**.
-4. Cadastre o e-mail, a função, o nome da agente usado nos cards, o time e as abas liberadas.
+4. Cadastre o e-mail, a função, o nome da agente usado nos cards e o time.
 
-Por padrão, agentes acessam Visão Geral, Ocorrências e Visitas. **Custo Extra**, **Reclame Aqui** e **Estrutura** só aparecem quando forem liberados. Uma agente vê apenas os próprios cards e indicadores; gerente, líder e coordenador veem os cards das agentes vinculadas aos times que acompanham. O desenvolvedor continua vendo toda a empresa.
+Todas as pessoas autenticadas e autorizadas visualizam novamente todas as abas e todos os dados do Hub, incluindo **Visão Geral**, **Ocorrências**, **Custo Extra**, **Reclame Aqui**, **Visitas** e **Estrutura**. Os perfis continuam disponíveis para registrar função, agente e equipe, mas não ocultam telas.
 
-A nova aba **Visão Geral** respeita esse mesmo escopo e mostra somente os indicadores autorizados para cada perfil.
+A nova aba **Visão Geral** apresenta o consolidado completo da empresa para qualquer usuário autenticado.
 
 ## Importar a planilha de custos extras
 

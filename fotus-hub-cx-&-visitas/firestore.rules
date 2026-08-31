@@ -25,15 +25,6 @@ service cloud.firestore {
         );
     }
 
-    function canViewTab(tabId) {
-      return isDeveloper()
-        || (
-          exists(/databases/$(database)/documents/user_access/$(request.auth.token.email))
-          && get(/databases/$(database)/documents/user_access/$(request.auth.token.email)).data.active == true
-          && tabId in get(/databases/$(database)/documents/user_access/$(request.auth.token.email)).data.visibleTabs
-        );
-    }
-
     function hasNumericTimestamps(data) {
       return data.createdAt is int && data.updatedAt is int;
     }
@@ -57,20 +48,20 @@ service cloud.firestore {
     }
 
     match /ra_cases/{caseId} {
-      allow read: if isAuthorizedUser() && canViewTab('ra');
-      allow create: if isAuthorizedUser() && canViewTab('ra')
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser()
         && request.resource.data.raNumber is string
         && request.resource.data.customerName is string
         && request.resource.data.status is string
         && request.resource.data.createdByEmail == request.auth.token.email
         && hasNumericTimestamps(request.resource.data);
-      allow update: if isAuthorizedUser() && canViewTab('ra')
+      allow update: if isAuthorizedUser()
         && request.resource.data.raNumber is string
         && request.resource.data.customerName is string
         && request.resource.data.status is string
         && request.resource.data.createdByEmail == request.auth.token.email
         && request.resource.data.updatedAt is int;
-      allow delete: if isAuthorizedUser() && canViewTab('ra');
+      allow delete: if isAuthorizedUser();
     }
 
     match /integrator_visits/{visitId} {
@@ -152,8 +143,8 @@ service cloud.firestore {
     }
 
     match /extra_costs/{costId} {
-      allow read: if isAuthorizedUser() && canViewTab('custos');
-      allow create: if isAuthorizedUser() && canViewTab('custos')
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser()
         && request.resource.data.date is string
         && request.resource.data.orderNumber is string
         && request.resource.data.regional is string
@@ -168,14 +159,14 @@ service cloud.firestore {
         && request.resource.data.reasonCategory is string
         && request.resource.data.detailedReason is string
         && hasNumericTimestamps(request.resource.data);
-      allow update: if isAuthorizedUser() && canViewTab('custos')
+      allow update: if isAuthorizedUser()
         && request.resource.data.date is string
         && request.resource.data.orderNumber is string
         && request.resource.data.quantity is int
         && request.resource.data.totalCost is number
         && request.resource.data.responsible is string
         && request.resource.data.updatedAt is int;
-      allow delete: if isAuthorizedUser() && canViewTab('custos');
+      allow delete: if isAuthorizedUser();
     }
 
     match /app_settings/{settingId} {

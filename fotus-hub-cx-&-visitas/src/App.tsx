@@ -218,46 +218,26 @@ export default function App() {
       setCases([]);
     }
 
-    if (access.active && access.tabs.includes('ra')) {
-      unsubscribers.push(onSnapshot(query(collection(db, 'ra_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
-        const stored = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as RACase[];
-        setRaCases(stored.filter((item) => Boolean(item.createdByEmail)));
-      }, handleRestrictedError));
-    } else {
-      setRaCases([]);
-    }
+    unsubscribers.push(onSnapshot(query(collection(db, 'ra_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
+      const stored = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as RACase[];
+      setRaCases(stored.filter((item) => Boolean(item.createdByEmail)));
+    }, handleRestrictedError));
 
-    if (access.active && access.tabs.includes('custos')) {
-      unsubscribers.push(onSnapshot(query(collection(db, 'extra_costs'), orderBy('createdAt', 'desc')), (snapshot) => {
-        setExtraCosts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as ExtraCost[]);
-      }, handleRestrictedError));
-    } else {
-      setExtraCosts([]);
-    }
+    unsubscribers.push(onSnapshot(query(collection(db, 'extra_costs'), orderBy('createdAt', 'desc')), (snapshot) => {
+      setExtraCosts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as ExtraCost[]);
+    }, handleRestrictedError));
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [access.active, access.isDeveloper, access.tabs.join('|'), user]);
+  }, [access.isDeveloper, user]);
 
-  const accessibleAgentNames = useMemo(() => accessProfiles
-    .filter((profile) => profile.active && profile.role === 'Agente' && (profile.organizationUnitIds || []).some((unitId) => access.unitIds.includes(unitId)))
-    .map((profile) => profile.agentName || profile.displayName)
-    .filter(Boolean), [access.unitIds, accessProfiles]);
-
-  const visibleOccurrences = useMemo(() => {
-    if (!access.active) return [];
-    if (access.isDeveloper || access.role === 'Administrador') return occurrences;
-    const email = (user?.email || '').toLowerCase();
-    if (access.role === 'Agente') return occurrences.filter((item) => item.createdByEmail?.toLowerCase() === email || item.agentName?.localeCompare(access.agentName, 'pt-BR', { sensitivity: 'base' }) === 0);
-    return occurrences.filter((item) => (item.organizationUnitId && access.unitIds.includes(item.organizationUnitId)) || accessibleAgentNames.some((name) => item.agentName?.localeCompare(name, 'pt-BR', { sensitivity: 'base' }) === 0));
-  }, [access, accessibleAgentNames, occurrences, user?.email]);
-
-  const visibleTabs = access.active ? access.tabs : ['visao-geral'] as MainTab[];
+  const visibleOccurrences = occurrences;
+  const visibleTabs = ALL_TABS;
   const canView = (tab: MainTab) => visibleTabs.includes(tab);
-  const visibleCosts = canView('custos') ? extraCosts : [];
-  const visibleRaCases = canView('ra') ? raCases : [];
-  const visibleOrganizationUnits = access.isDeveloper || access.role === 'Administrador' ? organizationUnits : organizationUnits.filter((unit) => access.unitIds.includes(unit.id));
+  const visibleCosts = extraCosts;
+  const visibleRaCases = raCases;
+  const visibleOrganizationUnits = organizationUnits;
   const canManageAgents = access.isDeveloper || ['Administrador', 'Coordenador', 'Líder'].includes(access.role);
-  const scopeLabel = access.isDeveloper || access.role === 'Administrador' ? 'toda a empresa' : access.role === 'Agente' ? `somente ${access.agentName || 'seus próprios cards'}` : `times sob responsabilidade (${access.unitIds.length})`;
+  const scopeLabel = 'toda a empresa · acesso liberado para usuários autenticados';
 
   useEffect(() => {
     if (user && !visibleTabs.includes(activeTab)) setActiveTab(visibleTabs[0] || 'visao-geral');
@@ -307,7 +287,7 @@ export default function App() {
                 </button>
                 {isProfileMenuOpen && <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-72 rounded-2xl border border-gray-200 bg-white p-3 shadow-xl">
                   <div className="rounded-xl bg-[#f4f8f2] p-3"><p className="text-xs font-extrabold text-gray-900">{user.displayName || user.email}</p><p className="mt-0.5 truncate text-[10px] text-gray-500">{user.email}</p><div className="mt-2 flex flex-wrap gap-1"><span className="rounded-full bg-[#385041] px-2 py-1 text-[8px] font-extrabold uppercase tracking-wide text-white">{access.role}</span><span className="rounded-full bg-white px-2 py-1 text-[8px] font-bold text-gray-500">{scopeLabel}</span></div></div>
-                  {access.isDeveloper && <button type="button" onClick={() => { setIsProfileMenuOpen(false); setIsAccessControlOpen(true); }} className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-[#385041] hover:bg-[#eef5eb]"><Settings2 className="h-4 w-4" /><span>Gerenciar visibilidade<small className="mt-0.5 block text-[9px] font-normal text-gray-500">Abas, funções, agentes e equipes</small></span></button>}
+                  {access.isDeveloper && <button type="button" onClick={() => { setIsProfileMenuOpen(false); setIsAccessControlOpen(true); }} className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-[#385041] hover:bg-[#eef5eb]"><Settings2 className="h-4 w-4" /><span>Gerenciar perfis<small className="mt-0.5 block text-[9px] font-normal text-gray-500">Funções, agentes e equipes</small></span></button>}
                   <button type="button" onClick={() => signOut(auth)} className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-red-600 hover:bg-red-50"><LogOut className="h-4 w-4" />Sair da conta</button>
                 </div>}
               </div>
@@ -322,9 +302,9 @@ export default function App() {
         <main className="mx-auto w-full max-w-[1560px] flex-1 px-4 py-5 sm:px-8 sm:py-6">
           {dataError && <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800">{dataError}</div>}
 
-          {activeTab === 'visao-geral' && <OverviewView occurrences={visibleOccurrences} costs={visibleCosts} raCases={visibleRaCases} visits={access.active ? visits : []} scopeLabel={scopeLabel} canViewCosts={canView('custos')} canViewRa={canView('ra')} onNavigate={setActiveTab} />}
+          {activeTab === 'visao-geral' && <OverviewView occurrences={visibleOccurrences} costs={visibleCosts} raCases={visibleRaCases} visits={visits} scopeLabel={scopeLabel} canViewCosts={canView('custos')} canViewRa={canView('ra')} onNavigate={setActiveTab} />}
 
-          {activeTab === 'ocorrencias' && <OccurrencesView occurrences={visibleOccurrences} organizationUnits={visibleOrganizationUnits} currentUser={user} agents={access.role === 'Agente' && access.agentName ? [access.agentName] : occurrenceAgents} canManageAgents={canManageAgents} onEditAgents={() => setIsAgentManagerOpen(true)} />}
+          {activeTab === 'ocorrencias' && <OccurrencesView occurrences={visibleOccurrences} organizationUnits={visibleOrganizationUnits} currentUser={user} agents={occurrenceAgents} canManageAgents={canManageAgents} onEditAgents={() => setIsAgentManagerOpen(true)} />}
 
           {activeTab === 'custos' && <ExtraCostsView costs={visibleCosts} currentUser={user} />}
 
@@ -336,7 +316,7 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'visitas' && <VisitsView visits={access.active ? visits : []} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} />}
+          {activeTab === 'visitas' && <VisitsView visits={visits} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} />}
           {activeTab === 'estrutura' && <OrganizationView units={organizationUnits} currentUser={user} />}
         </main>
 
@@ -344,7 +324,7 @@ export default function App() {
         <VisitModal isOpen={isVisitModalOpen} onClose={() => setIsVisitModalOpen(false)} visitToEdit={visitToEdit} currentUser={user} />
         <AgentManagerModal isOpen={isAgentManagerOpen} onClose={() => setIsAgentManagerOpen(false)} agents={occurrenceAgents} currentUser={user} />
         <AccessControlModal isOpen={isAccessControlOpen} onClose={() => setIsAccessControlOpen(false)} profiles={accessProfiles} units={organizationUnits} agents={occurrenceAgents} currentUser={user} />
-        <IsaChatModal isOpen={isIsaChatOpen} onClose={() => setIsIsaChatOpen(false)} cases={access.isDeveloper ? cases : []} raCases={visibleRaCases} visits={access.active ? visits : []} occurrences={visibleOccurrences} extraCosts={visibleCosts} organizationUnits={visibleOrganizationUnits} />
+        <IsaChatModal isOpen={isIsaChatOpen} onClose={() => setIsIsaChatOpen(false)} cases={access.isDeveloper ? cases : []} raCases={visibleRaCases} visits={visits} occurrences={visibleOccurrences} extraCosts={visibleCosts} organizationUnits={visibleOrganizationUnits} />
       </div>
     </div>
   );

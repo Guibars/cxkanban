@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { User } from 'firebase/auth';
-import { Check, Eye, Mail, Save, ShieldCheck, UserCog, X } from 'lucide-react';
+import { Check, Mail, Save, ShieldCheck, UserCog, X } from 'lucide-react';
 import { db, doc, setDoc } from '../lib/firebase';
 import { AppSection, OrganizationUnit, UserAccessProfile, UserAccessRole } from '../types';
 
@@ -24,10 +24,8 @@ const TAB_OPTIONS: Array<{ id: AppSection; label: string; restricted?: boolean }
 ];
 
 function defaultTabs(role: UserAccessRole): AppSection[] {
-  if (role === 'Administrador') return TAB_OPTIONS.map((tab) => tab.id);
-  if (role === 'Líder' || role === 'Coordenador') return ['visao-geral', 'ocorrencias', 'visitas', 'estrutura'];
-  if (role === 'Gerente') return ['visao-geral', 'ocorrencias', 'visitas'];
-  return ['visao-geral', 'ocorrencias', 'visitas'];
+  void role;
+  return TAB_OPTIONS.map((tab) => tab.id);
 }
 
 const EMPTY_FORM = {
@@ -64,7 +62,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       role: profile.role,
       agentName: profile.agentName || '',
       organizationUnitIds: profile.organizationUnitIds || [],
-      visibleTabs: profile.visibleTabs || defaultTabs(profile.role),
+      visibleTabs: defaultTabs(profile.role),
       active: profile.active,
     });
     setMessage('');
@@ -80,11 +78,6 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
     setForm((current) => ({ ...current, role, visibleTabs: defaultTabs(role), agentName: role === 'Agente' ? current.agentName : '' }));
   };
 
-  const toggleTab = (tab: AppSection) => setForm((current) => ({
-    ...current,
-    visibleTabs: current.visibleTabs.includes(tab) ? current.visibleTabs.filter((item) => item !== tab) : [...current.visibleTabs, tab],
-  }));
-
   const toggleUnit = (unitId: string) => setForm((current) => ({
     ...current,
     organizationUnitIds: current.organizationUnitIds.includes(unitId)
@@ -95,8 +88,8 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const email = form.email.trim().toLowerCase();
-    if (!email || !form.displayName.trim() || !form.visibleTabs.length) {
-      setMessage('Preencha nome, e-mail e escolha ao menos uma aba visível.');
+    if (!email || !form.displayName.trim()) {
+      setMessage('Preencha nome e e-mail.');
       return;
     }
     if (form.role === 'Agente' && !form.agentName) {
@@ -115,7 +108,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
         role: form.role,
         agentName: form.role === 'Agente' ? form.agentName : '',
         organizationUnitIds: form.organizationUnitIds,
-        visibleTabs: form.visibleTabs,
+        visibleTabs: defaultTabs(form.role),
         active: form.active,
         createdAt: existing?.createdAt || now,
         updatedAt: now,
@@ -137,10 +130,10 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       <div className="grid max-h-[94vh] w-full max-w-6xl overflow-hidden rounded-3xl border border-white bg-white shadow-2xl lg:grid-cols-[320px_1fr]">
         <aside className="max-h-[38vh] overflow-y-auto border-b border-gray-100 bg-[#f5f8f4] p-4 lg:max-h-[94vh] lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-2">
-            <div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#385041]">Administração</p><h2 className="mt-1 text-base font-extrabold text-gray-950">Visibilidade dos usuários</h2></div>
+            <div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#385041]">Administração</p><h2 className="mt-1 text-base font-extrabold text-gray-950">Perfis e equipes</h2></div>
             <button type="button" onClick={newProfile} className="rounded-xl bg-[#385041] px-3 py-2 text-[10px] font-extrabold text-white">Novo</button>
           </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-gray-500">Somente seu e-mail de desenvolvedor pode alterar estas permissões.</p>
+          <p className="mt-2 text-[11px] leading-relaxed text-gray-500">Todas as telas estão liberadas. Aqui você organiza somente a função, a agente e a equipe de cada pessoa.</p>
           <div className="mt-4 space-y-2">
             {sortedProfiles.map((profile) => (
               <button key={profile.id} type="button" onClick={() => selectProfile(profile)} className={`w-full rounded-2xl border p-3 text-left transition-all ${editingId === profile.id ? 'border-[#385041] bg-white shadow-sm' : 'border-transparent bg-white/60 hover:border-[#385041]/20'}`}>
@@ -168,15 +161,9 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
               {form.role === 'Agente' && <Field label="Nome usado nos cards"><select required value={form.agentName} onChange={(event) => setForm({ ...form, agentName: event.target.value })} className="field-input"><option value="">Vincular agente</option>{agents.map((agent) => <option key={agent}>{agent}</option>)}</select></Field>}
             </div>
 
-            <section>
-              <h4 className="flex items-center gap-2 text-xs font-extrabold text-gray-900"><Eye className="h-4 w-4 text-[#385041]" />Abas que esta pessoa pode acessar</h4>
-              <p className="mt-1 text-[10px] text-gray-500">Custo Extra e Reclame Aqui ficam ocultos até você liberar explicitamente.</p>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {TAB_OPTIONS.map((tab) => {
-                  const checked = form.visibleTabs.includes(tab.id);
-                  return <button key={tab.id} type="button" onClick={() => toggleTab(tab.id)} className={`flex items-center justify-between rounded-xl border p-3 text-left text-xs font-bold transition-all ${checked ? 'border-[#385041] bg-[#eef5eb] text-[#385041]' : 'border-gray-200 bg-white text-gray-500'}`}><span>{tab.label}{tab.restricted && <small className="mt-0.5 block text-[8px] font-bold uppercase tracking-wide text-amber-600">Acesso restrito</small>}</span><span className={`flex h-5 w-5 items-center justify-center rounded-md ${checked ? 'bg-[#385041] text-white' : 'bg-gray-100 text-transparent'}`}><Check className="h-3.5 w-3.5" /></span></button>;
-                })}
-              </div>
+            <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <h4 className="flex items-center gap-2 text-xs font-extrabold text-emerald-900"><ShieldCheck className="h-4 w-4" />Acesso geral liberado</h4>
+              <p className="mt-1 text-[10px] leading-relaxed text-emerald-800">Usuários autenticados visualizam Visão Geral, Ocorrências, Custo Extra, Reclame Aqui, Visitas e Estrutura.</p>
             </section>
 
             <section>
@@ -192,7 +179,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
               </section>
 
             <label className="flex items-center justify-between gap-4 rounded-2xl border border-gray-200 p-4">
-              <span><strong className="block text-xs text-gray-900">Acesso ativo</strong><small className="mt-0.5 block text-[10px] text-gray-500">Desative para retirar a visibilidade sem apagar a configuração.</small></span>
+              <span><strong className="block text-xs text-gray-900">Perfil ativo</strong><small className="mt-0.5 block text-[10px] text-gray-500">Use apenas para organizar vínculos de função e equipe; isso não bloqueia as telas.</small></span>
               <input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} className="h-5 w-5 accent-[#385041]" />
             </label>
           </div>
