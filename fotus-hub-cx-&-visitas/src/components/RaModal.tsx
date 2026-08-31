@@ -33,8 +33,10 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
   const [indicatorIN, setIndicatorIN] = useState<number | ''>('');
 
   const [loading, setLoading] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
+    setSaveError('');
     if (caseToEdit) {
       setRaNumber(caseToEdit.raNumber || '');
       setCustomerName(caseToEdit.customerName || '');
@@ -64,6 +66,7 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaveError('');
     setLoading(true);
 
     try {
@@ -110,7 +113,10 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
       onClose();
     } catch (error) {
       console.error("Error saving RA case: ", error);
-      alert('Erro ao salvar o caso RA.');
+      const errorCode = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+      setSaveError(errorCode.includes('permission-denied')
+        ? 'Sua conta não tem permissão para editar este registro. Publique as regras atualizadas do Firestore e tente novamente.'
+        : 'Não foi possível salvar o caso. Confira sua conexão e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -320,6 +326,12 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
 
           </form>
         </div>
+
+        {saveError && (
+          <div className="mx-6 mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700" role="alert">
+            {saveError}
+          </div>
+        )}
         
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/80 flex justify-end gap-3 shrink-0">

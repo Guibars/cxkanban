@@ -110,8 +110,10 @@ function modernReportChart(title: string, data: ReportChartDatum[], target?: { l
   const max = Math.max(...data.map((item) => item.value), target?.value || 0, 1);
   const step = width / data.length;
   const points = data.map((item, index) => ({ x: step * index + step / 2, y: bottom - (item.value / max) * (bottom - top) }));
-  const linePath = reportSmoothPath(points);
-  const areaPath = `${linePath} L ${points[points.length - 1].x} ${bottom} L ${points[0].x} ${bottom} Z`;
+  const hasTrend = points.length > 1;
+  const linePath = hasTrend ? reportSmoothPath(points) : '';
+  const areaPath = hasTrend ? `${linePath} L ${points[points.length - 1].x} ${bottom} L ${points[0].x} ${bottom} Z` : '';
+  const barWidth = Math.min(58, Math.max(24, step * 0.34));
   const chartId = `chart-${[...title].reduce((hash, character) => ((hash * 31) + character.charCodeAt(0)) >>> 0, 7).toString(16)}`;
   const targetY = target ? bottom - (target.value / max) * (bottom - top) : null;
   const grid = [0, 1, 2, 3].map((line) => {
@@ -119,8 +121,14 @@ function modernReportChart(title: string, data: ReportChartDatum[], target?: { l
     return `<line x1="0" y1="${y}" x2="${width}" y2="${y}" stroke="#dfe5ec" stroke-width="1" stroke-dasharray="3 5" />`;
   }).join('');
   const labels = data.map((item, index) => `<text x="${points[index].x}" y="151" text-anchor="middle" fill="#617087" font-size="7" font-weight="700">${escapeHtml(item.label)}</text>`).join('');
+  const bars = data.map((item, index) => {
+    const point = points[index];
+    const barY = item.value > 0 ? point.y : bottom - 4;
+    const barHeight = Math.max(4, bottom - point.y);
+    return `<rect x="${point.x - (barWidth / 2)}" y="${barY}" width="${barWidth}" height="${barHeight}" rx="${Math.min(10, barWidth / 3)}" fill="url(#${chartId}-bar)" opacity=".92" />`;
+  }).join('');
   const cards = data.map((item) => `<div class="chart-summary-card"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.display)}</strong></div>`).join('');
-  return `<div class="report-chart"><div class="chart-heading"><div class="chart-title">${escapeHtml(title)}</div><div class="chart-legend"><span><i class="legend-bar"></i>Valor real</span><span><i class="legend-line"></i>Tendência</span>${target ? `<span><i class="legend-target"></i>${escapeHtml(target.label)}</span>` : ''}</div></div><svg class="report-chart-svg" viewBox="0 0 ${width} 158" preserveAspectRatio="none" aria-label="${escapeHtml(title)}"><defs><linearGradient id="${chartId}-line" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#347ed1"/><stop offset="55%" stop-color="#35b9c5"/><stop offset="100%" stop-color="#35c997"/></linearGradient><linearGradient id="${chartId}-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#438bd3" stop-opacity=".28"/><stop offset="100%" stop-color="#35c997" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${areaPath}" fill="url(#${chartId}-area)"/><path d="${linePath}" fill="none" stroke="url(#${chartId}-line)" stroke-width="3" stroke-linecap="round" />${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3.5" fill="#fff" stroke="#35b9ad" stroke-width="2.5" />`).join('')}${targetY !== null ? `<line x1="0" y1="${targetY}" x2="${width}" y2="${targetY}" stroke="#ef9200" stroke-width="2" stroke-dasharray="7 6" />` : ''}${labels}</svg><div class="chart-summary-grid">${cards}</div></div>`;
+  return `<div class="report-chart"><div class="chart-heading"><div class="chart-title">${escapeHtml(title)}</div><div class="chart-legend"><span><i class="legend-bar"></i>Realizado</span>${hasTrend ? '<span><i class="legend-line"></i>Tendência</span>' : '<span>1 mês selecionado</span>'}${target ? `<span><i class="legend-target"></i>${escapeHtml(target.label)}</span>` : ''}</div></div><svg class="report-chart-svg" viewBox="0 0 ${width} 158" preserveAspectRatio="none" aria-label="${escapeHtml(title)}"><defs><linearGradient id="${chartId}-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2ec7b7"/><stop offset="100%" stop-color="#367fd1"/></linearGradient><linearGradient id="${chartId}-line" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#347ed1"/><stop offset="55%" stop-color="#35b9c5"/><stop offset="100%" stop-color="#35c997"/></linearGradient><linearGradient id="${chartId}-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#438bd3" stop-opacity=".22"/><stop offset="100%" stop-color="#35c997" stop-opacity="0"/></linearGradient></defs>${grid}${bars}${hasTrend ? `<path d="${areaPath}" fill="url(#${chartId}-area)"/><path d="${linePath}" fill="none" stroke="url(#${chartId}-line)" stroke-width="3" stroke-linecap="round" />` : ''}${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#fff" stroke="#20aa9d" stroke-width="2.5" />`).join('')}${targetY !== null ? `<line x1="0" y1="${targetY}" x2="${width}" y2="${targetY}" stroke="#ef9200" stroke-width="2" stroke-dasharray="7 6" />` : ''}${labels}</svg><div class="chart-summary-grid">${cards}</div></div>`;
 }
 
 function topValues(items: ExtraCost[], selector: (item: ExtraCost) => string, limit = 8) {

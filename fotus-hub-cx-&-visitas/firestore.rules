@@ -58,7 +58,11 @@ service cloud.firestore {
         && request.resource.data.raNumber is string
         && request.resource.data.customerName is string
         && request.resource.data.status is string
-        && request.resource.data.createdByEmail == request.auth.token.email
+        && request.resource.data.createdByEmail is string
+        && (
+          !resource.data.keys().hasAny(['createdByEmail'])
+          || request.resource.data.createdByEmail == resource.data.createdByEmail
+        )
         && request.resource.data.updatedAt is int;
       allow delete: if isAuthorizedUser();
     }
