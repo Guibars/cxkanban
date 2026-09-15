@@ -1,7 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth, UserRecord } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
 
 type AdminAction = 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile';
 
@@ -51,8 +50,72 @@ function getAdminAuth() {
   return getAuth(getAdminApp());
 }
 
-function getAdminDb() {
-  return getFirestore(getAdminApp(), FIRESTORE_DATABASE_ID);
+async function getAdminAccessToken() {
+  const credential = getAdminApp().options.credential;
+  if (!credential) throw new Error('admin-not-configured');
+  const token = await credential.getAccessToken();
+  return token.access_token;
+}
+
+function firestoreCollectionUrl() {
+  return `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/${FIRESTORE_DATABASE_ID}/documents/user_access`;
+}
+
+function decodeFirestoreValue(value: Record<string, unknown> | undefined): unknown {
+  if (!value) return undefined;
+  if ('stringValue' in value) return value.stringValue;
+  if ('booleanValue' in value) return value.booleanValue;
+  if ('integerValue' in value) return Number(value.integerValue);
+  if ('doubleValue' in value) return Number(value.doubleValue);
+  if ('nullValue' in value) return null;
+  if ('arrayValue' in value) {
+    const arrayValue = value.arrayValue as { values?: Record<string, unknown>[] };
+    return (arrayValue.values || []).map((item) => decodeFirestoreValue(item));
+  }
+  return undefined;
+}
+
+function decodeAccessProfile(document: { name?: string; fields?: Record<string, Record<string, unknown>> }) {
+  const fields = document.fields || {};
+  const decoded = Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, decodeFirestoreValue(value)]));
+  return { id: decodeURIComponent((document.name || '').split('/').pop() || ''), ...decoded };
+}
+
+async function listAccessProfiles() {
+  const accessToken = await getAdminAccessToken();
+  const profiles: Record<string, unknown>[] = [];
+  let pageToken = '';
+  do {
+    const url = new URL(firestoreCollectionUrl());
+    url.searchParams.set('pageSize', '1000');
+    if (pageToken) url.searchParams.set('pageToken', pageToken);
+    const result = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!result.ok) throw new Error(`firestore-list-${result.status}`);
+    const body = await result.json() as { documents?: Array<{ name?: string; fields?: Record<string, Record<string, unknown>> }>; nextPageToken?: string };
+    profiles.push(...(body.documents || []).map(decodeAccessProfile));
+    pageToken = body.nextPageToken || '';
+  } while (pageToken && profiles.length < 5000);
+  return profiles;
+}
+
+function encodeFirestoreValue(value: unknown): Record<string, unknown> {
+  if (typeof value === 'string') return { stringValue: value };
+  if (typeof value === 'boolean') return { booleanValue: value };
+  if (typeof value === 'number' && Number.isInteger(value)) return { integerValue: String(value) };
+  if (typeof value === 'number') return { doubleValue: value };
+  if (Array.isArray(value)) return { arrayValue: { values: value.map(encodeFirestoreValue) } };
+  return { nullValue: null };
+}
+
+async function saveAccessProfile(email: string, profile: Record<string, unknown>) {
+  const accessToken = await getAdminAccessToken();
+  const fields = Object.fromEntries(Object.entries(profile).map(([key, value]) => [key, encodeFirestoreValue(value)]));
+  const result = await fetch(`${firestoreCollectionUrl()}/${encodeURIComponent(email)}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields }),
+  });
+  if (!result.ok) throw new Error(`firestore-save-${result.status}`);
 }
 
 function accountSummary(user: UserRecord) {
@@ -118,9 +181,15 @@ export default async function handler(request: ApiRequest, response: ApiResponse
         users.push(...page.users.filter((item) => Boolean(item.email)).map(accountSummary));
         pageToken = page.pageToken;
       } while (pageToken && users.length < 5000);
-      const profileSnapshot = await getAdminDb().collection('user_access').get();
-      const profiles = profileSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-      response.status(200).json({ users, profiles });
+      let profiles: Record<string, unknown>[] = [];
+      let profileWarning = '';
+      try {
+        profiles = await listAccessProfiles();
+      } catch (profileError) {
+        console.error('Erro ao listar perfis de acesso:', profileError);
+        profileWarning = 'As contas foram carregadas, mas os perfis do painel não puderam ser consultados pelo servidor.';
+      }
+      response.status(200).json({ users, profiles, profileWarning });
       return;
     }
 
@@ -168,7 +237,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
         updatedAt: data.updatedAt,
         ...(typeof data.createdByEmail === 'string' ? { createdByEmail: data.createdByEmail } : {}),
       };
-      await getAdminDb().collection('user_access').doc(email).set(cleanProfile, { merge: true });
+      await saveAccessProfile(email, cleanProfile);
       response.status(200).json({ profile: { id: email, ...cleanProfile } });
       return;
     }
@@ -222,6 +291,10 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     }
     if (code.includes('email-already-exists')) {
       response.status(409).json({ error: 'Já existe uma conta com este e-mail.' });
+      return;
+    }
+    if (error instanceof Error && error.message.startsWith('firestore-')) {
+      response.status(503).json({ error: 'A conta existe, mas o servidor não conseguiu acessar os perfis do Firestore. Confira as permissões da conta de serviço na Vercel.' });
       return;
     }
     response.status(500).json({ error: 'Não foi possível administrar esta conta agora.' });

@@ -55,6 +55,7 @@ interface AuthAccountStatus {
 interface AuthAccountList {
   users: AuthAccountStatus[];
   profiles?: UserAccessProfile[];
+  profileWarning?: string;
 }
 
 interface ManagedUser {
@@ -71,8 +72,19 @@ async function requestMasterAction<T = AuthAccountStatus>(currentUser: User, act
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
     body: JSON.stringify({ action, email, displayName, ...(profile ? { profile } : {}) }),
   });
-  const result = await response.json().catch(() => ({})) as T & { error?: string };
-  if (!response.ok) throw new Error(result.error || 'Não foi possível administrar esta conta.');
+  const responseText = await response.text();
+  let result = {} as T & { error?: string };
+  try {
+    result = responseText ? JSON.parse(responseText) as T & { error?: string } : result;
+  } catch {
+    // A Vercel devolve texto simples quando a função falha antes de iniciar.
+  }
+  if (!response.ok) {
+    const fallback = response.status >= 500
+      ? 'O serviço de usuários da Vercel não iniciou corretamente. Publique novamente o código atualizado.'
+      : 'Não foi possível administrar esta conta.';
+    throw new Error(result.error || fallback);
+  }
   return result;
 }
 
@@ -126,6 +138,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       const result = await requestMasterAction<AuthAccountList>(currentUser, 'list-users');
       setAuthAccounts(result.users || []);
       setServerProfiles(result.profiles || []);
+      setAccountsError(result.profileWarning || '');
     } catch (error) {
       setAccountsError(error instanceof Error ? error.message : 'Não foi possível carregar as contas do Firebase.');
     } finally {
