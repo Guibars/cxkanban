@@ -113,9 +113,9 @@ A conta `guilhermebarbosars@gmail.com` é a administradora do MVP. Depois de pub
 3. Abra **Gerenciar visibilidade**.
 4. Cadastre o e-mail, a função, o nome da agente usado nos cards e o time.
 
-Todas as pessoas autenticadas e autorizadas visualizam novamente todas as abas e todos os dados do Hub, incluindo **Visão Geral**, **Ocorrências**, **Custo Extra**, **Reclame Aqui**, **Visitas** e **Estrutura**. Os perfis continuam disponíveis para registrar função, agente e equipe, mas não ocultam telas.
+Os operadores mestres escolhem, em **Gerenciar usuários > Abas liberadas**, quais áreas cada pessoa pode acessar: **Visão Geral**, **Ocorrências**, **Custo Extra**, **Reclame Aqui**, **Visitas** e **Estrutura**. A barra de navegação mostra somente as áreas marcadas no perfil.
 
-A nova aba **Visão Geral** apresenta o consolidado completo da empresa para qualquer usuário autenticado.
+As permissões também são aplicadas às leituras do Firestore. Dados de áreas não liberadas não são carregados para o usuário e não são enviados para o contexto da ISA. Perfis sem cadastro personalizado começam somente com **Visão Geral**, **Ocorrências** e **Visitas** para manter compatibilidade com usuários antigos. Ao desativar um perfil, o acesso aos dados é interrompido até que um operador mestre o reative.
 
 ## Importar a planilha de custos extras
 

@@ -132,50 +132,23 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    setDataError('');
-    const handleSnapshotError = (error: unknown) => {
-      console.error('Erro ao ler dados do Firestore:', error);
-      setDataError('Não foi possível ler todos os dados. Publique as regras atualizadas do Firestore e recarregue a página.');
+    if (!user?.email) {
+      setAccessProfiles([]);
+      return;
+    }
+    const email = user.email.trim().toLowerCase();
+    const handleAccessError = (error: unknown) => {
+      console.error('Erro ao ler perfil de acesso:', error);
+      setDataError('Não foi possível conferir as permissões deste usuário. Publique as regras atualizadas do Firestore.');
     };
-
-    const unsubVisits = onSnapshot(query(collection(db, 'integrator_visits'), orderBy('createdAt', 'desc')), (snapshot) => {
-      const stored = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as IntegratorVisit[];
-      setVisits(stored.filter((item) => Boolean(item.createdByEmail)));
-    }, handleSnapshotError);
-
-    const unsubOccurrences = onSnapshot(query(collection(db, 'occurrences'), orderBy('createdAt', 'desc')), (snapshot) => {
-      setOccurrences(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as Occurrence[]);
-    }, handleSnapshotError);
-
-    const unsubOrganization = onSnapshot(query(collection(db, 'organization_units'), orderBy('createdAt', 'desc')), (snapshot) => {
-      setOrganizationUnits(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationUnit[]);
-    }, handleSnapshotError);
-
-    const unsubOrganizationPeople = onSnapshot(query(collection(db, 'organization_people'), orderBy('createdAt', 'asc')), (snapshot) => {
-      setOrganizationPeople(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationPerson[]);
-    }, handleSnapshotError);
-
-    const unsubAgents = onSnapshot(doc(db, 'app_settings', 'occurrence_agents'), (snapshot) => {
-      const names = snapshot.exists() ? snapshot.data().names : null;
-      const cleanNames = Array.isArray(names)
-        ? names.map((name) => String(name).replace(/\s+/g, ' ').trim()).filter(Boolean)
-        : [];
-      setOccurrenceAgents(cleanNames.length ? [...new Set(cleanNames)] : DEFAULT_OCCURRENCE_AGENTS);
-    }, handleSnapshotError);
-
-    const unsubAccess = onSnapshot(collection(db, 'user_access'), (snapshot) => {
-      setAccessProfiles(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as UserAccessProfile[]);
-    }, handleSnapshotError);
-
-    return () => {
-      unsubVisits();
-      unsubOccurrences();
-      unsubOrganization();
-      unsubOrganizationPeople();
-      unsubAgents();
-      unsubAccess();
-    };
+    if (isMasterOperatorEmail(email)) {
+      return onSnapshot(collection(db, 'user_access'), (snapshot) => {
+        setAccessProfiles(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as UserAccessProfile[]);
+      }, handleAccessError);
+    }
+    return onSnapshot(doc(db, 'user_access', email), (snapshot) => {
+      setAccessProfiles(snapshot.exists() ? [{ id: snapshot.id, ...snapshot.data() } as UserAccessProfile] : []);
+    }, handleAccessError);
   }, [user]);
 
   const access = useMemo(() => {
@@ -204,7 +177,7 @@ export default function App() {
       role,
       agentName: profile?.agentName || user?.displayName || '',
       unitIds,
-      tabs: profile?.visibleTabs?.length ? profile.visibleTabs : defaultTabs,
+      tabs: profile && Array.isArray(profile.visibleTabs) ? profile.visibleTabs : defaultTabs,
       active: profile?.active ?? true,
       isDeveloper,
       isMasterOperator,
@@ -212,7 +185,66 @@ export default function App() {
   }, [accessProfiles, organizationPeople, organizationUnits, user]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !access.active) {
+      setVisits([]);
+      setOccurrences([]);
+      setOrganizationUnits([]);
+      setOrganizationPeople([]);
+      setOccurrenceAgents(DEFAULT_OCCURRENCE_AGENTS);
+      return;
+    }
+    const allowedTabs = access.isMasterOperator ? ALL_TABS : access.tabs;
+    const canAccess = (tab: MainTab) => allowedTabs.includes(tab);
+    const unsubscribers: Array<() => void> = [];
+    const handleSnapshotError = (error: unknown) => {
+      console.error('Erro ao ler dados liberados:', error);
+      setDataError('Não foi possível ler uma área liberada. Publique as regras atualizadas do Firestore e recarregue a página.');
+    };
+
+    if (canAccess('visitas')) {
+      unsubscribers.push(onSnapshot(query(collection(db, 'integrator_visits'), orderBy('createdAt', 'desc')), (snapshot) => {
+        const stored = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as IntegratorVisit[];
+        setVisits(stored.filter((item) => Boolean(item.createdByEmail)));
+      }, handleSnapshotError));
+    } else setVisits([]);
+
+    if (canAccess('ocorrencias')) {
+      unsubscribers.push(onSnapshot(query(collection(db, 'occurrences'), orderBy('createdAt', 'desc')), (snapshot) => {
+        setOccurrences(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as Occurrence[]);
+      }, handleSnapshotError));
+      unsubscribers.push(onSnapshot(doc(db, 'app_settings', 'occurrence_agents'), (snapshot) => {
+        const names = snapshot.exists() ? snapshot.data().names : null;
+        const cleanNames = Array.isArray(names) ? names.map((name) => String(name).replace(/\s+/g, ' ').trim()).filter(Boolean) : [];
+        setOccurrenceAgents(cleanNames.length ? [...new Set(cleanNames)] : DEFAULT_OCCURRENCE_AGENTS);
+      }, handleSnapshotError));
+    } else {
+      setOccurrences([]);
+      setOccurrenceAgents(DEFAULT_OCCURRENCE_AGENTS);
+    }
+
+    if (canAccess('estrutura') || canAccess('ocorrencias')) {
+      unsubscribers.push(onSnapshot(query(collection(db, 'organization_units'), orderBy('createdAt', 'desc')), (snapshot) => {
+        setOrganizationUnits(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationUnit[]);
+      }, handleSnapshotError));
+      unsubscribers.push(onSnapshot(query(collection(db, 'organization_people'), orderBy('createdAt', 'asc')), (snapshot) => {
+        setOrganizationPeople(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationPerson[]);
+      }, handleSnapshotError));
+    } else {
+      setOrganizationUnits([]);
+      setOrganizationPeople([]);
+    }
+
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [access.active, access.isMasterOperator, access.tabs.join('|'), user]);
+
+  useEffect(() => {
+    if (!user || !access.active) {
+      setCases([]);
+      setRaCases([]);
+      setExtraCosts([]);
+      return;
+    }
+    const allowedTabs = access.isMasterOperator ? ALL_TABS : access.tabs;
     const unsubscribers: Array<() => void> = [];
     const handleRestrictedError = (error: unknown) => {
       console.error('Erro ao ler área restrita:', error);
@@ -228,26 +260,30 @@ export default function App() {
       setCases([]);
     }
 
-    unsubscribers.push(onSnapshot(query(collection(db, 'ra_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
-      const stored = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as RACase[];
-      setRaCases(stored.filter((item) => Boolean(item.createdByEmail)));
-    }, handleRestrictedError));
+    if (allowedTabs.includes('ra')) {
+      unsubscribers.push(onSnapshot(query(collection(db, 'ra_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
+        const stored = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as RACase[];
+        setRaCases(stored.filter((item) => Boolean(item.createdByEmail)));
+      }, handleRestrictedError));
+    } else setRaCases([]);
 
-    unsubscribers.push(onSnapshot(query(collection(db, 'extra_costs'), orderBy('createdAt', 'desc')), (snapshot) => {
-      setExtraCosts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as ExtraCost[]);
-    }, handleRestrictedError));
+    if (allowedTabs.includes('custos')) {
+      unsubscribers.push(onSnapshot(query(collection(db, 'extra_costs'), orderBy('createdAt', 'desc')), (snapshot) => {
+        setExtraCosts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as ExtraCost[]);
+      }, handleRestrictedError));
+    } else setExtraCosts([]);
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [access.isDeveloper, user]);
+  }, [access.active, access.isDeveloper, access.isMasterOperator, access.tabs.join('|'), user]);
 
   const visibleOccurrences = occurrences;
-  const visibleTabs = ALL_TABS;
+  const visibleTabs = access.isMasterOperator ? ALL_TABS : access.tabs;
   const canView = (tab: MainTab) => visibleTabs.includes(tab);
   const visibleCosts = extraCosts;
   const visibleRaCases = raCases;
   const visibleOrganizationUnits = organizationUnits;
   const canManageAgents = access.isDeveloper || ['Administrador', 'Coordenador', 'Líder'].includes(access.role);
-  const scopeLabel = 'toda a empresa · acesso liberado para usuários autenticados';
+  const scopeLabel = access.isMasterOperator ? 'operador mestre · todas as áreas' : `${visibleTabs.length} ${visibleTabs.length === 1 ? 'área liberada' : 'áreas liberadas'}`;
 
   useEffect(() => {
     if (user && !visibleTabs.includes(activeTab)) setActiveTab(visibleTabs[0] || 'visao-geral');
@@ -258,6 +294,9 @@ export default function App() {
   }
 
   if (!user) return <Auth />;
+  if (!access.active || visibleTabs.length === 0) {
+    return <div className="flex min-h-screen items-center justify-center bg-[#f4f7f6] p-6"><div className="w-full max-w-md rounded-3xl border border-white bg-white p-8 text-center shadow-xl"><img src={FOTUS_LOGO} alt="Fotus" className="mx-auto h-14 w-auto object-contain" /><h1 className="mt-6 text-xl font-extrabold text-gray-950">Acesso temporariamente indisponível</h1><p className="mt-2 text-sm leading-relaxed text-gray-500">Seu perfil está desativado ou ainda não possui nenhuma aba liberada. Procure um operador mestre.</p><button type="button" onClick={() => signOut(auth)} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#385041] px-5 py-3 text-xs font-bold text-white"><LogOut className="h-4 w-4" />Sair da conta</button></div></div>;
+  }
 
   const allNavigationTabs: Array<{ id: MainTab; label: string; icon: typeof ClipboardList; alert?: boolean }> = [
     { id: 'visao-geral', label: 'Visão Geral', icon: LayoutDashboard },
@@ -274,16 +313,21 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-[#f8fbf8] via-[#f2f6f3] to-[#e8efe9] font-sans text-gray-900">
-      <aside className="hidden w-24 shrink-0 flex-col items-center gap-2 border-r border-gray-200/80 bg-white/90 px-2 py-5 shadow-[6px_0_30px_rgba(44,64,51,0.04)] backdrop-blur-xl sm:flex">
-        <img src={FOTUS_LOGO} alt="Fotus" className="mb-4 h-auto w-14 object-contain" />
-        {tabs.map(({ id, label, icon: Icon, alert }) => (
-          <button key={id} onClick={() => setActiveTab(id)} title={label} className={cn('relative flex w-full flex-col items-center gap-1 rounded-2xl px-1 py-2.5 transition-all', activeTab === id ? 'bg-[#e8efe0] text-[#385041] shadow-sm ring-1 ring-[#385041]/10' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700')}>
-            {id === 'ra' ? <img src={RA_LOGO} alt="Reclame Aqui" className="h-6 w-6 object-contain" /> : <Icon className="h-6 w-6" />}
-            <span className="max-w-full truncate text-[8px] font-extrabold">{label}</span>
-            {alert && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-500" />}
-          </button>
-        ))}
-        <button onClick={() => setIsIsaChatOpen(true)} title="Abrir ISA" className="mt-auto flex h-12 w-12 items-center justify-center rounded-2xl transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#385041]/20"><img src={ISA_LOGO} alt="ISA" className="h-12 w-12 object-contain drop-shadow-md" /></button>
+      <aside className="sticky top-0 hidden h-screen w-28 shrink-0 flex-col border-r border-[#dfe7e0] bg-[#f8faf7]/95 px-3 py-4 shadow-[8px_0_32px_rgba(44,64,51,0.05)] backdrop-blur-xl sm:flex">
+        <div className="flex h-14 items-center justify-center rounded-2xl border border-white bg-white shadow-sm"><img src={FOTUS_LOGO} alt="Fotus" className="h-auto w-14 object-contain" /></div>
+        <nav className="mt-5 flex flex-col gap-2 rounded-[28px] border border-white bg-white/75 p-2 shadow-sm" aria-label="Navegação principal">
+          {tabs.map(({ id, label, icon: Icon, alert }) => {
+            const selected = activeTab === id;
+            return <button key={id} onClick={() => setActiveTab(id)} title={label} aria-current={selected ? 'page' : undefined} className={cn('group relative flex min-h-[66px] w-full flex-col items-center justify-center gap-1.5 rounded-2xl px-1.5 py-2 transition-all duration-200', selected ? 'bg-[#385041] text-white shadow-[0_10px_22px_rgba(56,80,65,0.24)]' : 'text-[#879188] hover:bg-[#eef4eb] hover:text-[#385041]')}>
+              <span className={cn('flex h-8 w-8 items-center justify-center rounded-xl transition-colors', selected ? 'bg-white/12' : 'bg-[#f4f7f3] group-hover:bg-white')}>
+                {id === 'ra' ? <img src={RA_LOGO} alt="" className="h-6 w-6 rounded-md object-contain" /> : <Icon className="h-5 w-5" />}
+              </span>
+              <span className="max-w-full truncate text-[9px] font-extrabold leading-tight">{label}</span>
+              {alert && <span className={cn('absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2', selected ? 'border-[#385041] bg-amber-300' : 'border-white bg-amber-500')} aria-label="Há itens que precisam de atenção" />}
+            </button>;
+          })}
+        </nav>
+        <button onClick={() => setIsIsaChatOpen(true)} title="Abrir ISA" className="mt-auto flex h-14 w-full items-center justify-center rounded-2xl transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#385041]/20"><img src={ISA_LOGO} alt="ISA" className="h-13 w-13 object-contain drop-shadow-md" /></button>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -306,15 +350,17 @@ export default function App() {
             </div>
           </div>
 
-          <nav className="mt-3 flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 sm:hidden">
-            {tabs.map(({ id, label }) => <button key={id} onClick={() => setActiveTab(id)} className={cn('shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-bold', activeTab === id ? 'bg-white text-[#385041] shadow-sm' : 'text-gray-500')}>{label}</button>)}
+          <nav className="mt-3 flex gap-1.5 overflow-x-auto rounded-2xl border border-gray-200/70 bg-[#f4f7f3] p-1.5 sm:hidden" aria-label="Navegação principal">
+            {tabs.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => setActiveTab(id)} aria-current={activeTab === id ? 'page' : undefined} className={cn('flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all', activeTab === id ? 'bg-[#385041] text-white shadow-sm' : 'text-gray-500')}>
+              {id === 'ra' ? <img src={RA_LOGO} alt="" className="h-4 w-4 rounded object-contain" /> : <Icon className="h-3.5 w-3.5" />}{label}
+            </button>)}
           </nav>
         </header>
 
         <main className="mx-auto w-full max-w-[1560px] flex-1 px-4 py-5 sm:px-8 sm:py-6">
           {dataError && <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800">{dataError}</div>}
 
-          {activeTab === 'visao-geral' && <OverviewView occurrences={visibleOccurrences} costs={visibleCosts} raCases={visibleRaCases} visits={visits} scopeLabel={scopeLabel} canViewCosts={canView('custos')} canViewRa={canView('ra')} onNavigate={setActiveTab} />}
+          {activeTab === 'visao-geral' && <OverviewView occurrences={visibleOccurrences} costs={visibleCosts} raCases={visibleRaCases} visits={visits} scopeLabel={scopeLabel} canViewOccurrences={canView('ocorrencias')} canViewCosts={canView('custos')} canViewRa={canView('ra')} canViewVisits={canView('visitas')} onNavigate={setActiveTab} />}
 
           {activeTab === 'ocorrencias' && <OccurrencesView occurrences={visibleOccurrences} organizationUnits={visibleOrganizationUnits} currentUser={user} agents={occurrenceAgents} canManageAgents={canManageAgents} onEditAgents={() => setIsAgentManagerOpen(true)} />}
 

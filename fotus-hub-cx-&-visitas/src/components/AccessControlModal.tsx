@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { User } from 'firebase/auth';
-import { Check, Copy, KeyRound, LoaderCircle, Mail, Save, SearchCheck, ShieldCheck, UserCog, UserPlus, X } from 'lucide-react';
+import { ArchiveRestore, Building2, Check, CircleDollarSign, ClipboardList, Copy, KeyRound, LayoutDashboard, LoaderCircle, Mail, Network, Save, SearchCheck, ShieldCheck, UserCog, UserPlus, X } from 'lucide-react';
 import { db, doc, setDoc } from '../lib/firebase';
 import { AppSection, OrganizationUnit, UserAccessProfile, UserAccessRole } from '../types';
 
@@ -14,18 +14,19 @@ interface AccessControlModalProps {
 }
 
 const ROLE_OPTIONS: UserAccessRole[] = ['Agente', 'Gerente', 'Líder', 'Coordenador', 'Administrador'];
-const TAB_OPTIONS: Array<{ id: AppSection; label: string; restricted?: boolean }> = [
-  { id: 'visao-geral', label: 'Visão Geral' },
-  { id: 'ocorrencias', label: 'Controle de Ocorrências' },
-  { id: 'custos', label: 'Custo Extra', restricted: true },
-  { id: 'ra', label: 'Painel Reclame Aqui', restricted: true },
-  { id: 'visitas', label: 'Visitas' },
-  { id: 'estrutura', label: 'Estrutura Organizacional', restricted: true },
+const TAB_OPTIONS: Array<{ id: AppSection; label: string; description: string; icon: typeof LayoutDashboard }> = [
+  { id: 'visao-geral', label: 'Visão Geral', description: 'Resumo executivo', icon: LayoutDashboard },
+  { id: 'ocorrencias', label: 'Ocorrências', description: 'Cards e produtividade', icon: ClipboardList },
+  { id: 'custos', label: 'Custo Extra', description: 'Valores e relatórios', icon: CircleDollarSign },
+  { id: 'ra', label: 'Reclame Aqui', description: 'Casos e indicadores', icon: ArchiveRestore },
+  { id: 'visitas', label: 'Visitas', description: 'Agenda de integradores', icon: Building2 },
+  { id: 'estrutura', label: 'Estrutura', description: 'Times e lideranças', icon: Network },
 ];
 
 function defaultTabs(role: UserAccessRole): AppSection[] {
-  void role;
-  return TAB_OPTIONS.map((tab) => tab.id);
+  if (role === 'Administrador') return TAB_OPTIONS.map((tab) => tab.id);
+  if (['Gerente', 'Líder', 'Coordenador'].includes(role)) return ['visao-geral', 'ocorrencias', 'visitas', 'estrutura'];
+  return ['visao-geral', 'ocorrencias', 'visitas'];
 }
 
 const EMPTY_FORM = {
@@ -94,7 +95,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       role: profile.role,
       agentName: profile.agentName || '',
       organizationUnitIds: profile.organizationUnitIds || [],
-      visibleTabs: defaultTabs(profile.role),
+      visibleTabs: profile.visibleTabs?.length ? profile.visibleTabs : defaultTabs(profile.role),
       active: profile.active,
     });
     setMessage('');
@@ -113,7 +114,22 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
   };
 
   const changeRole = (role: UserAccessRole) => {
-    setForm((current) => ({ ...current, role, visibleTabs: defaultTabs(role), agentName: role === 'Agente' ? current.agentName : '' }));
+    setForm((current) => ({ ...current, role, agentName: role === 'Agente' ? current.agentName : '' }));
+  };
+
+  const toggleTab = (tabId: AppSection) => {
+    setMessage('');
+    const selected = form.visibleTabs.includes(tabId);
+    if (selected && form.visibleTabs.length === 1) {
+      setMessage('Mantenha pelo menos uma aba liberada para este usuário.');
+      return;
+    }
+    setForm((current) => ({
+      ...current,
+      visibleTabs: selected
+        ? current.visibleTabs.filter((item) => item !== tabId)
+        : [...current.visibleTabs, tabId],
+    }));
   };
 
   const toggleUnit = (unitId: string) => setForm((current) => ({
@@ -170,6 +186,10 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       setMessage('Vincule o e-mail ao nome da agente usado nos cards.');
       return;
     }
+    if (!form.visibleTabs.length) {
+      setMessage('Selecione pelo menos uma aba para este usuário.');
+      return;
+    }
 
     setSaving(true);
     setMessage('');
@@ -186,7 +206,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
         role: form.role,
         agentName: form.role === 'Agente' ? form.agentName : '',
         organizationUnitIds: form.organizationUnitIds,
-        visibleTabs: defaultTabs(form.role),
+        visibleTabs: form.visibleTabs,
         active: form.active,
         createdAt: existing?.createdAt || now,
         updatedAt: now,
@@ -217,7 +237,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
             <div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#385041]">Administração</p><h2 className="mt-1 text-base font-extrabold text-gray-950">Perfis e equipes</h2></div>
             <button type="button" onClick={newProfile} className="rounded-xl bg-[#385041] px-3 py-2 text-[10px] font-extrabold text-white">Novo</button>
           </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-gray-500">Todas as telas estão liberadas. Aqui você organiza somente a função, a agente e a equipe de cada pessoa.</p>
+          <p className="mt-2 text-[11px] leading-relaxed text-gray-500">Crie o login e escolha exatamente quais áreas cada pessoa poderá acessar.</p>
           <div className="mt-4 space-y-2">
             {sortedProfiles.map((profile) => (
               <button key={profile.id} type="button" onClick={() => selectProfile(profile)} className={`w-full rounded-2xl border p-3 text-left transition-all ${editingId === profile.id ? 'border-[#385041] bg-white shadow-sm' : 'border-transparent bg-white/60 hover:border-[#385041]/20'}`}>
@@ -245,9 +265,14 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
               {form.role === 'Agente' && <Field label="Nome usado nos cards"><select required value={form.agentName} onChange={(event) => setForm({ ...form, agentName: event.target.value })} className="field-input"><option value="">Vincular agente</option>{agents.map((agent) => <option key={agent}>{agent}</option>)}</select></Field>}
             </div>
 
-            <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-              <h4 className="flex items-center gap-2 text-xs font-extrabold text-emerald-900"><ShieldCheck className="h-4 w-4" />Acesso geral liberado</h4>
-              <p className="mt-1 text-[10px] leading-relaxed text-emerald-800">Usuários autenticados visualizam Visão Geral, Ocorrências, Custo Extra, Reclame Aqui, Visitas e Estrutura.</p>
+            <section>
+              <div className="flex items-end justify-between gap-3"><div><h4 className="flex items-center gap-2 text-xs font-extrabold text-gray-950"><ShieldCheck className="h-4 w-4 text-[#385041]" />Abas liberadas</h4><p className="mt-1 text-[10px] text-gray-500">Ative somente as áreas necessárias para esta pessoa.</p></div><span className="rounded-full bg-[#e8efe0] px-2.5 py-1 text-[9px] font-extrabold text-[#385041]">{form.visibleTabs.length} de {TAB_OPTIONS.length}</span></div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {TAB_OPTIONS.map(({ id, label, description, icon: Icon }) => {
+                  const selected = form.visibleTabs.includes(id);
+                  return <button key={id} type="button" aria-pressed={selected} onClick={() => toggleTab(id)} className={`group relative flex min-h-20 items-center gap-3 rounded-2xl border p-3 text-left transition-all ${selected ? 'border-[#385041]/25 bg-[#eef5eb] shadow-sm ring-1 ring-[#385041]/5' : 'border-gray-200 bg-white hover:border-[#385041]/25 hover:bg-gray-50'}`}><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${selected ? 'bg-[#385041] text-white' : 'bg-gray-100 text-gray-400 group-hover:text-[#385041]'}`}><Icon className="h-5 w-5" /></span><span className="min-w-0"><strong className="block truncate text-xs text-gray-900">{label}</strong><small className="mt-0.5 block truncate text-[9px] text-gray-500">{description}</small></span><span className={`absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full border ${selected ? 'border-[#385041] bg-[#385041] text-white' : 'border-gray-300 bg-white text-transparent'}`}><Check className="h-3 w-3" /></span></button>;
+                })}
+              </div>
             </section>
 
             <section className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4">
@@ -282,7 +307,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
               </section>
 
             <label className="flex items-center justify-between gap-4 rounded-2xl border border-gray-200 p-4">
-              <span><strong className="block text-xs text-gray-900">Perfil ativo</strong><small className="mt-0.5 block text-[10px] text-gray-500">Use apenas para organizar vínculos de função e equipe; isso não bloqueia as telas.</small></span>
+              <span><strong className="block text-xs text-gray-900">Perfil ativo</strong><small className="mt-0.5 block text-[10px] text-gray-500">Ao desativar, a pessoa continua com o login existente, mas perde o acesso aos dados do sistema.</small></span>
               <input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} className="h-5 w-5 accent-[#385041]" />
             </label>
           </div>
