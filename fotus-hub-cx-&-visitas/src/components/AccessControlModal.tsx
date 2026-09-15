@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { User } from 'firebase/auth';
-import { ArchiveRestore, Building2, Check, CircleDollarSign, ClipboardList, Copy, KeyRound, LayoutDashboard, LoaderCircle, Mail, Network, Save, SearchCheck, Send, ShieldCheck, UserCog, UserPlus, X } from 'lucide-react';
+import { ArchiveRestore, Building2, Check, CircleDollarSign, ClipboardList, Copy, KeyRound, LayoutDashboard, LoaderCircle, Mail, Network, RefreshCw, Save, Search, SearchCheck, Send, ShieldCheck, UserCog, UserPlus, X } from 'lucide-react';
 import { auth, db, doc, sendPasswordResetEmail, setDoc } from '../lib/firebase';
 import { AppSection, OrganizationUnit, UserAccessProfile, UserAccessRole } from '../types';
 
@@ -52,14 +52,25 @@ interface AuthAccountStatus {
   resetLink?: string;
 }
 
-async function requestMasterAction(currentUser: User, action: 'ensure-user' | 'inspect' | 'reset-link', email: string, displayName = '') {
+interface AuthAccountList {
+  users: AuthAccountStatus[];
+}
+
+interface ManagedUser {
+  email: string;
+  displayName: string;
+  profile?: UserAccessProfile;
+  account?: AuthAccountStatus;
+}
+
+async function requestMasterAction<T = AuthAccountStatus>(currentUser: User, action: 'ensure-user' | 'inspect' | 'list-users' | 'reset-link', email = '', displayName = '') {
   const idToken = await currentUser.getIdToken();
   const response = await fetch('/api/admin-users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
     body: JSON.stringify({ action, email, displayName }),
   });
-  const result = await response.json().catch(() => ({})) as AuthAccountStatus & { error?: string };
+  const result = await response.json().catch(() => ({})) as T & { error?: string };
   if (!response.ok) throw new Error(result.error || 'Não foi possível administrar esta conta.');
   return result;
 }
@@ -72,8 +83,46 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
   const [authBusy, setAuthBusy] = useState(false);
   const [authMessage, setAuthMessage] = useState('');
   const [authStatus, setAuthStatus] = useState<AuthAccountStatus | null>(null);
+  const [authAccounts, setAuthAccounts] = useState<AuthAccountStatus[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsError, setAccountsError] = useState('');
+  const [userSearch, setUserSearch] = useState('');
   const [resetLink, setResetLink] = useState('');
-  const sortedProfiles = useMemo(() => [...profiles].sort((a, b) => a.displayName.localeCompare(b.displayName, 'pt-BR')), [profiles]);
+  const managedUsers = useMemo(() => {
+    const byEmail = new Map<string, ManagedUser>();
+    authAccounts.forEach((account) => {
+      const email = account.email.trim().toLowerCase();
+      if (!email) return;
+      byEmail.set(email, { email, displayName: account.displayName?.trim() || email.split('@')[0], account });
+    });
+    profiles.forEach((profile) => {
+      const email = profile.email.trim().toLowerCase();
+      const current = byEmail.get(email);
+      byEmail.set(email, {
+        email,
+        displayName: profile.displayName || current?.displayName || email.split('@')[0],
+        account: current?.account,
+        profile,
+      });
+    });
+    const term = userSearch.trim().toLocaleLowerCase('pt-BR');
+    return [...byEmail.values()]
+      .filter((item) => !term || `${item.displayName} ${item.email} ${item.profile?.role || ''}`.toLocaleLowerCase('pt-BR').includes(term))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName, 'pt-BR'));
+  }, [authAccounts, profiles, userSearch]);
+
+  const loadAuthAccounts = async () => {
+    setAccountsLoading(true);
+    setAccountsError('');
+    try {
+      const result = await requestMasterAction<AuthAccountList>(currentUser, 'list-users');
+      setAuthAccounts(result.users || []);
+    } catch (error) {
+      setAccountsError(error instanceof Error ? error.message : 'Não foi possível carregar as contas do Firebase.');
+    } finally {
+      setAccountsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -83,7 +132,9 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
     setAuthMessage('');
     setAuthStatus(null);
     setResetLink('');
-  }, [isOpen]);
+    setUserSearch('');
+    void loadAuthAccounts();
+  }, [isOpen, currentUser]);
 
   if (!isOpen) return null;
 
@@ -101,6 +152,25 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
     setMessage('');
     setAuthMessage('');
     setAuthStatus(null);
+    setResetLink('');
+  };
+
+  const selectManagedUser = (item: ManagedUser) => {
+    if (item.profile) {
+      selectProfile(item.profile);
+      setAuthStatus(item.account || null);
+      return;
+    }
+    setEditingId(item.email);
+    setForm({
+      ...EMPTY_FORM,
+      email: item.email,
+      displayName: item.displayName,
+      active: !item.account?.disabled,
+    });
+    setMessage('Esta conta já existe no Firebase, mas ainda não possui permissões configuradas no painel. Escolha as abas e salve.');
+    setAuthMessage('Conta de login encontrada. Falta configurar o perfil de acesso.');
+    setAuthStatus(item.account || null);
     setResetLink('');
   };
 
@@ -151,6 +221,9 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
     try {
       const account = await requestMasterAction(currentUser, action, email, form.displayName.trim());
       setAuthStatus(account);
+      if (account.exists) {
+        setAuthAccounts((current) => [account, ...current.filter((item) => item.email.toLowerCase() !== account.email.toLowerCase())]);
+      }
       if (account.resetLink) setResetLink(account.resetLink);
       if (action === 'inspect') {
         setAuthMessage(account.exists ? 'Conta de login encontrada no Firebase.' : 'Este perfil ainda não possui uma conta de login.');
@@ -177,6 +250,9 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
     try {
       const account = await requestMasterAction(currentUser, 'inspect', email, form.displayName.trim());
       setAuthStatus(account);
+      if (account.exists) {
+        setAuthAccounts((current) => [account, ...current.filter((item) => item.email.toLowerCase() !== account.email.toLowerCase())]);
+      }
       if (!account.exists) {
         setAuthMessage('A conta ainda não existe no Firebase. Clique primeiro em “Criar ou liberar login”.');
         return;
@@ -231,12 +307,15 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       let automaticEmailRequested = false;
       if (!existing) {
         account = await requestMasterAction(currentUser, 'ensure-user', email, form.displayName.trim());
-        try {
-          auth.languageCode = 'pt-BR';
-          await sendPasswordResetEmail(auth, email);
-          automaticEmailRequested = true;
-        } catch (emailError) {
-          console.error('Erro ao solicitar e-mail inicial de senha:', emailError);
+        setAuthAccounts((current) => [account!, ...current.filter((item) => item.email.toLowerCase() !== email)]);
+        if (account.created) {
+          try {
+            auth.languageCode = 'pt-BR';
+            await sendPasswordResetEmail(auth, email);
+            automaticEmailRequested = true;
+          } catch (emailError) {
+            console.error('Erro ao solicitar e-mail inicial de senha:', emailError);
+          }
         }
       }
       const payload = {
@@ -258,7 +337,9 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       }
       setMessage(account?.created
         ? `Usuário e perfil criados. ${automaticEmailRequested ? 'O envio automático foi solicitado ao Firebase.' : 'O envio automático não foi confirmado.'} Para garantir o acesso, copie o link de criação de senha exibido abaixo e encaminhe à pessoa.`
-        : 'Acesso salvo. A pessoa verá a nova configuração no próximo acesso.');
+        : account
+          ? 'Perfil de acesso criado para uma conta que já existia no Firebase. As permissões estão salvas.'
+          : 'Acesso salvo. A pessoa verá a nova configuração no próximo acesso.');
       setEditingId(email);
     } catch (error) {
       console.error('Erro ao salvar acesso:', error);
@@ -270,22 +351,27 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-6">
-      <div className="grid max-h-[94vh] w-full max-w-6xl overflow-hidden rounded-3xl border border-white bg-white shadow-2xl lg:grid-cols-[320px_1fr]">
-        <aside className="max-h-[38vh] overflow-y-auto border-b border-gray-100 bg-[#f5f8f4] p-4 lg:max-h-[94vh] lg:border-b-0 lg:border-r">
+      <div className="grid max-h-[94vh] w-full max-w-6xl overflow-hidden rounded-3xl border border-white bg-white shadow-2xl lg:grid-cols-[340px_1fr]">
+        <aside className="flex max-h-[40vh] flex-col border-b border-gray-100 bg-[#f5f8f4] p-4 lg:max-h-[94vh] lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-2">
-            <div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#385041]">Administração</p><h2 className="mt-1 text-base font-extrabold text-gray-950">Perfis e equipes</h2></div>
-            <button type="button" onClick={newProfile} className="rounded-xl bg-[#385041] px-3 py-2 text-[10px] font-extrabold text-white">Novo</button>
+            <div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#385041]">Administração</p><h2 className="mt-1 text-base font-extrabold text-gray-950">Todos os usuários</h2></div>
+            <div className="flex gap-1.5"><button type="button" onClick={() => void loadAuthAccounts()} disabled={accountsLoading} title="Atualizar usuários" className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition-colors hover:text-[#385041] disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${accountsLoading ? 'animate-spin' : ''}`} /></button><button type="button" onClick={newProfile} className="rounded-xl bg-[#385041] px-3 py-2 text-[10px] font-extrabold text-white">Novo</button></div>
           </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-gray-500">Crie o login e escolha exatamente quais áreas cada pessoa poderá acessar.</p>
-          <div className="mt-4 space-y-2">
-            {sortedProfiles.map((profile) => (
-              <button key={profile.id} type="button" onClick={() => selectProfile(profile)} className={`w-full rounded-2xl border p-3 text-left transition-all ${editingId === profile.id ? 'border-[#385041] bg-white shadow-sm' : 'border-transparent bg-white/60 hover:border-[#385041]/20'}`}>
-                <span className="flex items-start justify-between gap-2"><strong className="truncate text-xs text-gray-900">{profile.displayName}</strong><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${profile.active ? 'bg-emerald-500' : 'bg-gray-300'}`} /></span>
-                <span className="mt-1 block truncate text-[10px] text-gray-500">{profile.email}</span>
-                <span className="mt-2 inline-flex rounded-full bg-[#e8efe0] px-2 py-0.5 text-[9px] font-extrabold text-[#385041]">{profile.role}</span>
-              </button>
-            ))}
-            {!sortedProfiles.length && <p className="rounded-2xl border border-dashed border-gray-300 p-5 text-center text-xs text-gray-500">Nenhum acesso personalizado cadastrado.</p>}
+          <p className="mt-2 text-[11px] leading-relaxed text-gray-500">Contas do Firebase e perfis do painel reunidos no mesmo lugar.</p>
+          <div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-xl border border-white bg-white/75 p-2.5"><strong className="block text-sm text-gray-950">{authAccounts.length}</strong><span className="text-[9px] font-bold uppercase tracking-wide text-gray-400">Contas de login</span></div><div className="rounded-xl border border-white bg-white/75 p-2.5"><strong className="block text-sm text-gray-950">{profiles.length}</strong><span className="text-[9px] font-bold uppercase tracking-wide text-gray-400">Com permissões</span></div></div>
+          <label className="relative mt-3 block"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder="Buscar nome ou e-mail" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#385041]" /></label>
+          {accountsError && <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-semibold leading-relaxed text-amber-800">{accountsError} Os perfis já salvos no painel continuam listados abaixo.</p>}
+          <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            {accountsLoading && !managedUsers.length && <div className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-300 p-5 text-xs text-gray-500"><LoaderCircle className="h-4 w-4 animate-spin" />Carregando usuários...</div>}
+            {managedUsers.map((item) => {
+              const active = item.profile ? item.profile.active : !item.account?.disabled;
+              const selected = editingId === item.email;
+              return <button key={item.email} type="button" onClick={() => selectManagedUser(item)} className={`w-full rounded-2xl border p-3 text-left transition-all ${selected ? 'border-[#385041] bg-white shadow-sm ring-1 ring-[#385041]/10' : 'border-transparent bg-white/65 hover:border-[#385041]/20 hover:bg-white'}`}>
+                <span className="flex items-start justify-between gap-2"><span className="flex min-w-0 items-center gap-2"><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[10px] font-extrabold ${item.profile ? 'bg-[#e8efe0] text-[#385041]' : 'bg-amber-50 text-amber-700'}`}>{item.displayName.slice(0, 2).toUpperCase()}</span><span className="min-w-0"><strong className="block truncate text-xs text-gray-900">{item.displayName}</strong><span className="mt-0.5 block truncate text-[9px] text-gray-500">{item.email}</span></span></span><span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${active ? 'bg-emerald-500' : 'bg-gray-300'}`} /></span>
+                <span className="mt-2 flex flex-wrap gap-1.5">{item.profile ? <><span className="rounded-full bg-[#e8efe0] px-2 py-0.5 text-[8px] font-extrabold text-[#385041]">{item.profile.role}</span><span className="rounded-full bg-gray-100 px-2 py-0.5 text-[8px] font-bold text-gray-500">{item.profile.visibleTabs?.length || 0} abas</span></> : <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[8px] font-extrabold text-amber-700">Configurar permissões</span>}{item.account && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[8px] font-bold text-blue-700">Login Firebase</span>}</span>
+              </button>;
+            })}
+            {!accountsLoading && !managedUsers.length && <p className="rounded-2xl border border-dashed border-gray-300 p-5 text-center text-xs text-gray-500">Nenhum usuário encontrado.</p>}
           </div>
         </aside>
 

@@ -313,21 +313,19 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-[#f8fbf8] via-[#f2f6f3] to-[#e8efe9] font-sans text-gray-900">
-      <aside className="sticky top-0 hidden h-screen w-28 shrink-0 flex-col border-r border-[#dfe7e0] bg-[#f8faf7]/95 px-3 py-4 shadow-[8px_0_32px_rgba(44,64,51,0.05)] backdrop-blur-xl sm:flex">
-        <div className="flex h-14 items-center justify-center rounded-2xl border border-white bg-white shadow-sm"><img src={FOTUS_LOGO} alt="Fotus" className="h-auto w-14 object-contain" /></div>
-        <nav className="mt-5 flex flex-col gap-2 rounded-[28px] border border-white bg-white/75 p-2 shadow-sm" aria-label="Navegação principal">
+      <aside className="sticky top-0 hidden h-screen w-[72px] shrink-0 flex-col border-r border-[#e2e8e3] bg-white/90 px-2 py-3 shadow-[4px_0_24px_rgba(44,64,51,0.035)] backdrop-blur-xl sm:flex">
+        <div className="flex h-11 items-center justify-center"><img src={FOTUS_LOGO} alt="Fotus" className="h-auto w-10 object-contain" /></div>
+        <nav className="mt-4 flex flex-col items-center gap-1.5" aria-label="Navegação principal">
           {tabs.map(({ id, label, icon: Icon, alert }) => {
             const selected = activeTab === id;
-            return <button key={id} onClick={() => setActiveTab(id)} title={label} aria-current={selected ? 'page' : undefined} className={cn('group relative flex min-h-[66px] w-full flex-col items-center justify-center gap-1.5 rounded-2xl px-1.5 py-2 transition-all duration-200', selected ? 'bg-[#385041] text-white shadow-[0_10px_22px_rgba(56,80,65,0.24)]' : 'text-[#879188] hover:bg-[#eef4eb] hover:text-[#385041]')}>
-              <span className={cn('flex h-8 w-8 items-center justify-center rounded-xl transition-colors', selected ? 'bg-white/12' : 'bg-[#f4f7f3] group-hover:bg-white')}>
-                {id === 'ra' ? <img src={RA_LOGO} alt="" className="h-6 w-6 rounded-md object-contain" /> : <Icon className="h-5 w-5" />}
-              </span>
-              <span className="max-w-full truncate text-[9px] font-extrabold leading-tight">{label}</span>
-              {alert && <span className={cn('absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2', selected ? 'border-[#385041] bg-amber-300' : 'border-white bg-amber-500')} aria-label="Há itens que precisam de atenção" />}
+            return <button key={id} onClick={() => setActiveTab(id)} title={label} aria-label={label} aria-current={selected ? 'page' : undefined} className={cn('group relative flex h-12 w-12 items-center justify-center rounded-[15px] transition-all duration-200', selected ? 'bg-[#385041] text-white shadow-[0_8px_18px_rgba(56,80,65,0.22)]' : 'text-[#8a958c] hover:bg-[#eef4eb] hover:text-[#385041]')}>
+              {id === 'ra' ? <img src={RA_LOGO} alt="" className={cn('h-7 w-7 rounded-lg object-contain', selected && 'ring-2 ring-white/70')} /> : <Icon className="h-[22px] w-[22px]" strokeWidth={selected ? 2.25 : 2} />}
+              <span className="sr-only">{label}</span>
+              {alert && <span className={cn('absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full border-2', selected ? 'border-[#385041] bg-amber-300' : 'border-white bg-amber-500')} aria-label="Há itens que precisam de atenção" />}
             </button>;
           })}
         </nav>
-        <button onClick={() => setIsIsaChatOpen(true)} title="Abrir ISA" className="mt-auto flex h-14 w-full items-center justify-center rounded-2xl transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#385041]/20"><img src={ISA_LOGO} alt="ISA" className="h-13 w-13 object-contain drop-shadow-md" /></button>
+        <button onClick={() => setIsIsaChatOpen(true)} title="Abrir ISA" aria-label="Abrir ISA" className="mt-auto flex h-11 w-full items-center justify-center rounded-xl transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#385041]/20"><img src={ISA_LOGO} alt="ISA" className="h-10 w-10 object-contain drop-shadow-sm" /></button>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

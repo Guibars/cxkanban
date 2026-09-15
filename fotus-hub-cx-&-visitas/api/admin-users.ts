@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth, UserRecord } from 'firebase-admin/auth';
 
-type AdminAction = 'ensure-user' | 'inspect' | 'reset-link';
+type AdminAction = 'ensure-user' | 'inspect' | 'list-users' | 'reset-link';
 
 type ApiRequest = {
   method?: string;
@@ -95,10 +95,23 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     const action = request.body?.action as AdminAction;
     const email = typeof request.body?.email === 'string' ? request.body.email.trim().toLowerCase() : '';
     const displayName = typeof request.body?.displayName === 'string' ? request.body.displayName.trim() : '';
-    if (!['ensure-user', 'inspect', 'reset-link'].includes(action)) {
+    if (!['ensure-user', 'inspect', 'list-users', 'reset-link'].includes(action)) {
       response.status(400).json({ error: 'Ação inválida.' });
       return;
     }
+
+    if (action === 'list-users') {
+      const users: ReturnType<typeof accountSummary>[] = [];
+      let pageToken: string | undefined;
+      do {
+        const page = await adminAuth.listUsers(1000, pageToken);
+        users.push(...page.users.filter((item) => Boolean(item.email)).map(accountSummary));
+        pageToken = page.pageToken;
+      } while (pageToken && users.length < 5000);
+      response.status(200).json({ users });
+      return;
+    }
+
     if (!/^[^@\s]+@fotus[.]com[.]br$/i.test(email) && email !== 'guilhermebarbosars@gmail.com') {
       response.status(400).json({ error: 'Use um e-mail corporativo @fotus.com.br.' });
       return;
