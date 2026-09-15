@@ -6,6 +6,7 @@ import {
   googleProvider,
   getRedirectResult,
   setPersistence,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
@@ -31,8 +32,9 @@ function getLoginErrorMessage(error: unknown) {
 export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loadingMethod, setLoadingMethod] = useState<'email' | 'google' | null>(null);
+  const [loadingMethod, setLoadingMethod] = useState<'email' | 'google' | 'reset' | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     getRedirectResult(auth).catch((error) => setErrorMessage(getLoginErrorMessage(error)));
@@ -49,6 +51,7 @@ export default function Auth() {
     event.preventDefault();
     setLoadingMethod('email');
     setErrorMessage('');
+    setSuccessMessage('');
     try {
       await setPersistence(auth, browserLocalPersistence);
       const result = await signInWithEmailAndPassword(auth, email.trim(), password);
@@ -64,6 +67,7 @@ export default function Auth() {
   const handleGoogleLogin = async () => {
     setLoadingMethod('google');
     setErrorMessage('');
+    setSuccessMessage('');
     try {
       await setPersistence(auth, browserLocalPersistence);
       const result = await signInWithPopup(auth, googleProvider);
@@ -81,6 +85,31 @@ export default function Auth() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    const targetEmail = email.trim().toLowerCase();
+    setErrorMessage('');
+    setSuccessMessage('');
+    if (!targetEmail) {
+      setErrorMessage('Digite seu e-mail no campo acima para solicitar a redefinição.');
+      return;
+    }
+
+    setLoadingMethod('reset');
+    try {
+      auth.languageCode = 'pt-BR';
+      await sendPasswordResetEmail(auth, targetEmail);
+      setSuccessMessage('Solicitação enviada. Confira a caixa de entrada e o spam. Se não chegar, peça a um operador mestre para gerar o link manual.');
+    } catch (error) {
+      console.error('Erro ao solicitar redefinição de senha:', error);
+      const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+      setErrorMessage(code.includes('user-not-found')
+        ? 'Este e-mail ainda não possui uma conta de login. Peça o cadastro a um operador mestre.'
+        : getLoginErrorMessage(error));
+    } finally {
+      setLoadingMethod(null);
+    }
+  };
+
   return (
     <div className="min-h-screen w-full bg-[#f4f7f4] font-sans text-gray-900 lg:grid lg:grid-cols-[minmax(460px,47%)_1fr]">
       <section className="relative z-10 flex min-h-screen items-center justify-center px-6 py-10 sm:px-10 lg:px-16">
@@ -90,10 +119,12 @@ export default function Auth() {
           </div>
 
           {errorMessage && <div className="mt-5 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><p>{errorMessage}</p></div>}
+          {successMessage && <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold leading-relaxed text-emerald-800">{successMessage}</div>}
 
           <form onSubmit={handleEmailLogin} className="mt-7 space-y-4">
             <label className="block"><span className="mb-1.5 block text-xs font-bold text-gray-700">E-mail</span><span className="relative block"><Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nome@fotus.com.br" className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition-all focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10" /></span></label>
             <label className="block"><span className="mb-1.5 block text-xs font-bold text-gray-700">Senha</span><span className="relative block"><LockKeyhole className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input required type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Digite sua senha" className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition-all focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10" /></span></label>
+            <div className="flex justify-end"><button type="button" onClick={handlePasswordReset} disabled={loadingMethod !== null} className="flex items-center gap-1.5 text-xs font-bold text-[#385041] hover:underline disabled:opacity-60">{loadingMethod === 'reset' && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}Esqueci minha senha</button></div>
             <button type="submit" disabled={loadingMethod !== null} className="flex w-full items-center justify-between rounded-2xl bg-[#385041] px-5 py-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(56,80,65,0.22)] transition-all hover:bg-[#2c4033] disabled:cursor-wait disabled:opacity-65"><span className="flex items-center gap-2">{loadingMethod === 'email' && <LoaderCircle className="h-4 w-4 animate-spin" />}{loadingMethod === 'email' ? 'Entrando...' : 'Entrar'}</span><ArrowRight className="h-5 w-5" /></button>
           </form>
 

@@ -15,8 +15,16 @@ service cloud.firestore {
       return isAuthorizedUser() && request.auth.token.email == 'guilhermebarbosars@gmail.com';
     }
 
+    function isMasterOperator() {
+      return isAuthorizedUser()
+        && request.auth.token.email in [
+          'guilhermebarbosars@gmail.com',
+          'matheus.gaspar@fotus.com.br'
+        ];
+    }
+
     function canManagePeople() {
-      return isDeveloper()
+      return isMasterOperator()
         || (
           exists(/databases/$(database)/documents/user_access/$(request.auth.token.email))
           && get(/databases/$(database)/documents/user_access/$(request.auth.token.email)).data.active == true
@@ -209,7 +217,7 @@ service cloud.firestore {
 
     match /user_access/{userEmail} {
       allow read: if isAuthorizedUser();
-      allow create, update: if isDeveloper()
+      allow create, update: if isMasterOperator()
         && request.resource.data.email == userEmail
         && request.resource.data.displayName is string
         && request.resource.data.role is string

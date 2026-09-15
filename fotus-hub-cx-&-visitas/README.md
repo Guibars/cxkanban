@@ -9,6 +9,11 @@ O código autoriza:
 - contas `@fotus.com.br`;
 - a conta de desenvolvimento `guilhermebarbosars@gmail.com`.
 
+Os operadores mestres são:
+
+- `guilhermebarbosars@gmail.com`;
+- `matheus.gaspar@fotus.com.br`.
+
 Para o login funcionar na Vercel, o domínio publicado precisa ser autorizado no Firebase:
 
 1. Abra o Firebase Console do projeto `gen-lang-client-0929275981`.
@@ -18,7 +23,21 @@ Para o login funcionar na Vercel, o domínio publicado precisa ser autorizado no
 5. Adicione apenas o domínio, sem `https://` e sem caminhos. Exemplo: `nome-do-projeto.vercel.app`.
 6. Se houver domínio próprio, adicione-o também.
 
-O formulário de e-mail e senha não cria contas novas. Cadastre os usuários autorizados em **Firebase Authentication > Users** e use somente endereços `@fotus.com.br` ou a conta de desenvolvimento liberada.
+O formulário público continua sendo somente para login. A criação de contas é feita com segurança pelos operadores mestres em **Foto do perfil > Gerenciar usuários**. Ao salvar uma pessoa nova, o sistema cria a conta no Firebase Authentication, salva o perfil e gera um link para a pessoa definir a própria senha.
+
+### Configurar o cadastro interno de usuários na Vercel
+
+A criação de contas usa o Firebase Admin somente na função segura da Vercel. Nunca coloque a chave privada no código ou envie essa chave para outras pessoas.
+
+1. No Firebase Console do projeto `gen-lang-client-0929275981`, abra **Configurações do projeto > Contas de serviço**.
+2. Clique em **Gerar nova chave privada** e guarde o arquivo JSON com segurança.
+3. Na Vercel, abra **Settings > Environment Variables** e crie:
+   - `FIREBASE_ADMIN_PROJECT_ID`: valor do campo `project_id`;
+   - `FIREBASE_ADMIN_CLIENT_EMAIL`: valor do campo `client_email`;
+   - `FIREBASE_ADMIN_PRIVATE_KEY`: valor completo do campo `private_key`, incluindo `BEGIN PRIVATE KEY` e `END PRIVATE KEY`.
+4. Marque Production, Preview e Development e faça um novo deploy.
+
+Depois da publicação, o operador mestre pode verificar se uma conta existe, criar ou liberar o login e gerar um link manual de redefinição. Esse link deve ser enviado somente para o dono da conta.
 
 ## Publicar as regras do Firestore
 

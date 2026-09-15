@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { User } from 'firebase/auth';
-import { Check, Mail, Save, ShieldCheck, UserCog, X } from 'lucide-react';
+import { Check, Copy, KeyRound, LoaderCircle, Mail, Save, SearchCheck, ShieldCheck, UserCog, UserPlus, X } from 'lucide-react';
 import { db, doc, setDoc } from '../lib/firebase';
 import { AppSection, OrganizationUnit, UserAccessProfile, UserAccessRole } from '../types';
 
@@ -38,11 +38,40 @@ const EMPTY_FORM = {
   active: true,
 };
 
+interface AuthAccountStatus {
+  exists: boolean;
+  email: string;
+  displayName?: string;
+  disabled?: boolean;
+  emailVerified?: boolean;
+  providers?: string[];
+  createdAt?: string;
+  lastSignInAt?: string | null;
+  created?: boolean;
+  resetLink?: string;
+}
+
+async function requestMasterAction(currentUser: User, action: 'ensure-user' | 'inspect' | 'reset-link', email: string, displayName = '') {
+  const idToken = await currentUser.getIdToken();
+  const response = await fetch('/api/admin-users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({ action, email, displayName }),
+  });
+  const result = await response.json().catch(() => ({})) as AuthAccountStatus & { error?: string };
+  if (!response.ok) throw new Error(result.error || 'Não foi possível administrar esta conta.');
+  return result;
+}
+
 export default function AccessControlModal({ isOpen, onClose, profiles, units, agents, currentUser }: AccessControlModalProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authMessage, setAuthMessage] = useState('');
+  const [authStatus, setAuthStatus] = useState<AuthAccountStatus | null>(null);
+  const [resetLink, setResetLink] = useState('');
   const sortedProfiles = useMemo(() => [...profiles].sort((a, b) => a.displayName.localeCompare(b.displayName, 'pt-BR')), [profiles]);
 
   useEffect(() => {
@@ -50,6 +79,9 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
     setEditingId(null);
     setForm(EMPTY_FORM);
     setMessage('');
+    setAuthMessage('');
+    setAuthStatus(null);
+    setResetLink('');
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -66,12 +98,18 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       active: profile.active,
     });
     setMessage('');
+    setAuthMessage('');
+    setAuthStatus(null);
+    setResetLink('');
   };
 
   const newProfile = () => {
     setEditingId(null);
     setForm(EMPTY_FORM);
     setMessage('');
+    setAuthMessage('');
+    setAuthStatus(null);
+    setResetLink('');
   };
 
   const changeRole = (role: UserAccessRole) => {
@@ -84,6 +122,42 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       ? current.organizationUnitIds.filter((item) => item !== unitId)
       : [...current.organizationUnitIds, unitId],
   }));
+
+  const manageLogin = async (action: 'ensure-user' | 'inspect' | 'reset-link') => {
+    const email = form.email.trim().toLowerCase();
+    if (!email) {
+      setAuthMessage('Informe o e-mail antes de verificar a conta.');
+      return;
+    }
+    setAuthBusy(true);
+    setAuthMessage('');
+    setResetLink('');
+    try {
+      const account = await requestMasterAction(currentUser, action, email, form.displayName.trim());
+      setAuthStatus(account);
+      if (account.resetLink) setResetLink(account.resetLink);
+      if (action === 'inspect') {
+        setAuthMessage(account.exists ? 'Conta de login encontrada no Firebase.' : 'Este perfil ainda não possui uma conta de login.');
+      } else if (action === 'ensure-user') {
+        setAuthMessage(account.created ? 'Conta criada. Envie o link abaixo para a pessoa definir a senha.' : 'Conta localizada e liberada. Use o link abaixo para definir uma nova senha.');
+      } else {
+        setAuthMessage('Link de redefinição gerado. Ele pode ser enviado diretamente para a pessoa.');
+      }
+    } catch (error) {
+      setAuthMessage(error instanceof Error ? error.message : 'Não foi possível administrar esta conta.');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const copyResetLink = async () => {
+    try {
+      await navigator.clipboard.writeText(resetLink);
+      setAuthMessage('Link copiado. Agora envie-o somente para o dono desta conta.');
+    } catch {
+      setAuthMessage('Não foi possível copiar automaticamente. Selecione o link e copie manualmente.');
+    }
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -102,6 +176,10 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
     const now = Date.now();
     const existing = profiles.find((profile) => profile.id === editingId);
     try {
+      let account: AuthAccountStatus | null = null;
+      if (!existing) {
+        account = await requestMasterAction(currentUser, 'ensure-user', email, form.displayName.trim());
+      }
       const payload = {
         email,
         displayName: form.displayName.trim(),
@@ -115,11 +193,17 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
         ...(!existing ? { createdByEmail: currentUser.email || '' } : {}),
       };
       await setDoc(doc(db, 'user_access', email), payload, { merge: true });
-      setMessage('Acesso salvo. A pessoa verá a nova configuração no próximo acesso.');
+      if (account) {
+        setAuthStatus(account);
+        setResetLink(account.resetLink || '');
+      }
+      setMessage(account?.created
+        ? 'Usuário e perfil criados. Envie o link de definição de senha exibido abaixo.'
+        : 'Acesso salvo. A pessoa verá a nova configuração no próximo acesso.');
       setEditingId(email);
     } catch (error) {
       console.error('Erro ao salvar acesso:', error);
-      setMessage('Não foi possível salvar. Publique as regras atualizadas do Firestore.');
+      setMessage(error instanceof Error ? error.message : 'Não foi possível salvar o usuário.');
     } finally {
       setSaving(false);
     }
@@ -164,6 +248,25 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
             <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
               <h4 className="flex items-center gap-2 text-xs font-extrabold text-emerald-900"><ShieldCheck className="h-4 w-4" />Acesso geral liberado</h4>
               <p className="mt-1 text-[10px] leading-relaxed text-emerald-800">Usuários autenticados visualizam Visão Geral, Ocorrências, Custo Extra, Reclame Aqui, Visitas e Estrutura.</p>
+            </section>
+
+            <section className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div><h4 className="flex items-center gap-2 text-xs font-extrabold text-blue-950"><KeyRound className="h-4 w-4" />Conta de login Firebase</h4><p className="mt-1 max-w-xl text-[10px] leading-relaxed text-blue-800">{editingId ? 'Verifique se o perfil possui login, crie a conta se estiver faltando ou gere um link direto para trocar a senha.' : 'Ao salvar um novo usuário, a conta de login será criada junto com o perfil.'}</p></div>
+                {authBusy && <LoaderCircle className="h-5 w-5 shrink-0 animate-spin text-blue-700" />}
+              </div>
+
+              {editingId && <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" disabled={authBusy} onClick={() => manageLogin('inspect')} className="flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-3 py-2 text-[10px] font-extrabold text-blue-800 disabled:opacity-50"><SearchCheck className="h-4 w-4" />Verificar conta</button>
+                <button type="button" disabled={authBusy} onClick={() => manageLogin('ensure-user')} className="flex items-center gap-2 rounded-xl bg-blue-700 px-3 py-2 text-[10px] font-extrabold text-white disabled:opacity-50"><UserPlus className="h-4 w-4" />Criar ou liberar login</button>
+                <button type="button" disabled={authBusy} onClick={() => manageLogin('reset-link')} className="flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-3 py-2 text-[10px] font-extrabold text-blue-800 disabled:opacity-50"><KeyRound className="h-4 w-4" />Gerar link de senha</button>
+              </div>}
+
+              {authStatus && <div className={`mt-3 rounded-xl border px-3 py-2.5 text-[10px] font-semibold ${authStatus.exists && !authStatus.disabled ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                {authStatus.exists ? <><strong className="block">{authStatus.disabled ? 'Conta desativada' : 'Conta ativa'}</strong><span>{authStatus.providers?.length ? `Métodos: ${authStatus.providers.map((provider) => provider === 'password' ? 'e-mail e senha' : provider === 'google.com' ? 'Google' : provider).join(', ')}` : 'Senha ainda não definida'}{authStatus.lastSignInAt ? ` · Último acesso: ${new Date(authStatus.lastSignInAt).toLocaleString('pt-BR')}` : ' · Nunca acessou'}</span></> : <strong>Conta de login não encontrada.</strong>}
+              </div>}
+              {authMessage && <p className="mt-3 rounded-xl bg-white px-3 py-2.5 text-[10px] font-semibold text-blue-900">{authMessage}</p>}
+              {resetLink && <div className="mt-3 flex gap-2"><input readOnly value={resetLink} onFocus={(event) => event.currentTarget.select()} className="min-w-0 flex-1 rounded-xl border border-blue-200 bg-white px-3 py-2 text-[10px] text-gray-600 outline-none" aria-label="Link de redefinição de senha" /><button type="button" onClick={copyResetLink} className="flex shrink-0 items-center gap-1.5 rounded-xl bg-[#385041] px-3 py-2 text-[10px] font-extrabold text-white"><Copy className="h-3.5 w-3.5" />Copiar</button></div>}
             </section>
 
             <section>

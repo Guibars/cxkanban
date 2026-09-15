@@ -24,7 +24,7 @@ import {
   query,
   signOut,
 } from './lib/firebase';
-import { isAuthorizedEmail } from './lib/auth';
+import { isAuthorizedEmail, isMasterOperatorEmail } from './lib/auth';
 import { cn } from './lib/utils';
 import { DEFAULT_OCCURRENCE_AGENTS } from './lib/occurrences';
 import { buildRaReport, openA4PrintWindow } from './lib/reportPrint';
@@ -181,7 +181,8 @@ export default function App() {
   const access = useMemo(() => {
     const email = (user?.email || '').toLowerCase();
     const isDeveloper = email === DEVELOPER_EMAIL;
-    if (isDeveloper) return { role: 'Administrador' as const, agentName: '', unitIds: organizationUnits.map((unit) => unit.id), tabs: ALL_TABS, active: true, isDeveloper };
+    const isMasterOperator = isMasterOperatorEmail(email);
+    if (isMasterOperator) return { role: 'Administrador' as const, agentName: '', unitIds: organizationUnits.map((unit) => unit.id), tabs: ALL_TABS, active: true, isDeveloper, isMasterOperator };
 
     const profile = accessProfiles.find((item) => item.email.toLowerCase() === email);
     const inferredUnits = organizationUnits.filter((unit) => [unit.managerEmail, unit.leaderEmail, unit.coordinatorEmail || ''].some((value) => value.toLowerCase() === email));
@@ -206,6 +207,7 @@ export default function App() {
       tabs: profile?.visibleTabs?.length ? profile.visibleTabs : defaultTabs,
       active: profile?.active ?? true,
       isDeveloper,
+      isMasterOperator,
     };
   }, [accessProfiles, organizationPeople, organizationUnits, user]);
 
@@ -297,7 +299,7 @@ export default function App() {
                 </button>
                 {isProfileMenuOpen && <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-72 rounded-2xl border border-gray-200 bg-white p-3 shadow-xl">
                   <div className="rounded-xl bg-[#f4f8f2] p-3"><p className="text-xs font-extrabold text-gray-900">{user.displayName || user.email}</p><p className="mt-0.5 truncate text-[10px] text-gray-500">{user.email}</p><div className="mt-2 flex flex-wrap gap-1"><span className="rounded-full bg-[#385041] px-2 py-1 text-[8px] font-extrabold uppercase tracking-wide text-white">{access.role}</span><span className="rounded-full bg-white px-2 py-1 text-[8px] font-bold text-gray-500">{scopeLabel}</span></div></div>
-                  {access.isDeveloper && <button type="button" onClick={() => { setIsProfileMenuOpen(false); setIsAccessControlOpen(true); }} className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-[#385041] hover:bg-[#eef5eb]"><Settings2 className="h-4 w-4" /><span>Gerenciar perfis<small className="mt-0.5 block text-[9px] font-normal text-gray-500">Funções, agentes e equipes</small></span></button>}
+                  {access.isMasterOperator && <button type="button" onClick={() => { setIsProfileMenuOpen(false); setIsAccessControlOpen(true); }} className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-[#385041] hover:bg-[#eef5eb]"><Settings2 className="h-4 w-4" /><span>Gerenciar usuários<small className="mt-0.5 block text-[9px] font-normal text-gray-500">Logins, senhas, funções e equipes</small></span></button>}
                   <button type="button" onClick={() => signOut(auth)} className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-red-600 hover:bg-red-50"><LogOut className="h-4 w-4" />Sair da conta</button>
                 </div>}
               </div>
