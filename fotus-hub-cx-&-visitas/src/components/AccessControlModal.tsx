@@ -1,7 +1,7 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { User } from 'firebase/auth';
 import { ArchiveRestore, Building2, Check, CircleDollarSign, ClipboardList, Copy, KeyRound, LayoutDashboard, LoaderCircle, Mail, Network, RefreshCw, Save, Search, SearchCheck, Send, ShieldCheck, UserCog, UserPlus, X } from 'lucide-react';
-import { auth, db, doc, sendPasswordResetEmail, setDoc } from '../lib/firebase';
+import { auth, sendPasswordResetEmail } from '../lib/firebase';
 import { AppSection, OrganizationUnit, UserAccessProfile, UserAccessRole } from '../types';
 
 interface AccessControlModalProps {
@@ -54,6 +54,7 @@ interface AuthAccountStatus {
 
 interface AuthAccountList {
   users: AuthAccountStatus[];
+  profiles?: UserAccessProfile[];
 }
 
 interface ManagedUser {
@@ -63,12 +64,12 @@ interface ManagedUser {
   account?: AuthAccountStatus;
 }
 
-async function requestMasterAction<T = AuthAccountStatus>(currentUser: User, action: 'ensure-user' | 'inspect' | 'list-users' | 'reset-link', email = '', displayName = '') {
+async function requestMasterAction<T = AuthAccountStatus>(currentUser: User, action: 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile', email = '', displayName = '', profile?: Record<string, unknown>) {
   const idToken = await currentUser.getIdToken();
   const response = await fetch('/api/admin-users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-    body: JSON.stringify({ action, email, displayName }),
+    body: JSON.stringify({ action, email, displayName, ...(profile ? { profile } : {}) }),
   });
   const result = await response.json().catch(() => ({})) as T & { error?: string };
   if (!response.ok) throw new Error(result.error || 'Não foi possível administrar esta conta.');
@@ -84,10 +85,17 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
   const [authMessage, setAuthMessage] = useState('');
   const [authStatus, setAuthStatus] = useState<AuthAccountStatus | null>(null);
   const [authAccounts, setAuthAccounts] = useState<AuthAccountStatus[]>([]);
+  const [serverProfiles, setServerProfiles] = useState<UserAccessProfile[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [accountsError, setAccountsError] = useState('');
   const [userSearch, setUserSearch] = useState('');
   const [resetLink, setResetLink] = useState('');
+  const allProfiles = useMemo(() => {
+    const byEmail = new Map<string, UserAccessProfile>();
+    serverProfiles.forEach((profile) => byEmail.set(profile.email.trim().toLowerCase(), profile));
+    profiles.forEach((profile) => byEmail.set(profile.email.trim().toLowerCase(), profile));
+    return [...byEmail.values()];
+  }, [profiles, serverProfiles]);
   const managedUsers = useMemo(() => {
     const byEmail = new Map<string, ManagedUser>();
     authAccounts.forEach((account) => {
@@ -95,7 +103,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       if (!email) return;
       byEmail.set(email, { email, displayName: account.displayName?.trim() || email.split('@')[0], account });
     });
-    profiles.forEach((profile) => {
+    allProfiles.forEach((profile) => {
       const email = profile.email.trim().toLowerCase();
       const current = byEmail.get(email);
       byEmail.set(email, {
@@ -109,7 +117,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
     return [...byEmail.values()]
       .filter((item) => !term || `${item.displayName} ${item.email} ${item.profile?.role || ''}`.toLocaleLowerCase('pt-BR').includes(term))
       .sort((a, b) => a.displayName.localeCompare(b.displayName, 'pt-BR'));
-  }, [authAccounts, profiles, userSearch]);
+  }, [allProfiles, authAccounts, userSearch]);
 
   const loadAuthAccounts = async () => {
     setAccountsLoading(true);
@@ -117,6 +125,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
     try {
       const result = await requestMasterAction<AuthAccountList>(currentUser, 'list-users');
       setAuthAccounts(result.users || []);
+      setServerProfiles(result.profiles || []);
     } catch (error) {
       setAccountsError(error instanceof Error ? error.message : 'Não foi possível carregar as contas do Firebase.');
     } finally {
@@ -301,7 +310,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
     setSaving(true);
     setMessage('');
     const now = Date.now();
-    const existing = profiles.find((profile) => profile.id === editingId);
+    const existing = allProfiles.find((profile) => profile.id === editingId || profile.email.toLowerCase() === editingId?.toLowerCase());
     try {
       let account: AuthAccountStatus | null = null;
       let automaticEmailRequested = false;
@@ -330,7 +339,8 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
         updatedAt: now,
         ...(!existing ? { createdByEmail: currentUser.email || '' } : {}),
       };
-      await setDoc(doc(db, 'user_access', email), payload, { merge: true });
+      const saved = await requestMasterAction<{ profile: UserAccessProfile }>(currentUser, 'save-profile', email, form.displayName.trim(), payload);
+      setServerProfiles((current) => [saved.profile, ...current.filter((profile) => profile.email.toLowerCase() !== email)]);
       if (account) {
         setAuthStatus(account);
         setResetLink(account.resetLink || '');
@@ -358,7 +368,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
             <div className="flex gap-1.5"><button type="button" onClick={() => void loadAuthAccounts()} disabled={accountsLoading} title="Atualizar usuários" className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition-colors hover:text-[#385041] disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${accountsLoading ? 'animate-spin' : ''}`} /></button><button type="button" onClick={newProfile} className="rounded-xl bg-[#385041] px-3 py-2 text-[10px] font-extrabold text-white">Novo</button></div>
           </div>
           <p className="mt-2 text-[11px] leading-relaxed text-gray-500">Contas do Firebase e perfis do painel reunidos no mesmo lugar.</p>
-          <div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-xl border border-white bg-white/75 p-2.5"><strong className="block text-sm text-gray-950">{authAccounts.length}</strong><span className="text-[9px] font-bold uppercase tracking-wide text-gray-400">Contas de login</span></div><div className="rounded-xl border border-white bg-white/75 p-2.5"><strong className="block text-sm text-gray-950">{profiles.length}</strong><span className="text-[9px] font-bold uppercase tracking-wide text-gray-400">Com permissões</span></div></div>
+          <div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-xl border border-white bg-white/75 p-2.5"><strong className="block text-sm text-gray-950">{authAccounts.length}</strong><span className="text-[9px] font-bold uppercase tracking-wide text-gray-400">Contas de login</span></div><div className="rounded-xl border border-white bg-white/75 p-2.5"><strong className="block text-sm text-gray-950">{allProfiles.length}</strong><span className="text-[9px] font-bold uppercase tracking-wide text-gray-400">Com permissões</span></div></div>
           <label className="relative mt-3 block"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder="Buscar nome ou e-mail" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#385041]" /></label>
           {accountsError && <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-semibold leading-relaxed text-amber-800">{accountsError} Os perfis já salvos no painel continuam listados abaixo.</p>}
           <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">

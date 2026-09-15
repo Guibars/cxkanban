@@ -106,6 +106,7 @@ export default function App() {
   const [organizationPeople, setOrganizationPeople] = useState<OrganizationPerson[]>([]);
   const [occurrenceAgents, setOccurrenceAgents] = useState<string[]>(DEFAULT_OCCURRENCE_AGENTS);
   const [accessProfiles, setAccessProfiles] = useState<UserAccessProfile[]>([]);
+  const [accessProfileLoading, setAccessProfileLoading] = useState(true);
   const [dataError, setDataError] = useState('');
 
   const [isRaModalOpen, setIsRaModalOpen] = useState(false);
@@ -134,20 +135,25 @@ export default function App() {
   useEffect(() => {
     if (!user?.email) {
       setAccessProfiles([]);
+      setAccessProfileLoading(false);
       return;
     }
+    setAccessProfileLoading(true);
     const email = user.email.trim().toLowerCase();
     const handleAccessError = (error: unknown) => {
       console.error('Erro ao ler perfil de acesso:', error);
       setDataError('Não foi possível conferir as permissões deste usuário. Publique as regras atualizadas do Firestore.');
+      setAccessProfileLoading(false);
     };
     if (isMasterOperatorEmail(email)) {
       return onSnapshot(collection(db, 'user_access'), (snapshot) => {
         setAccessProfiles(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as UserAccessProfile[]);
+        setAccessProfileLoading(false);
       }, handleAccessError);
     }
     return onSnapshot(doc(db, 'user_access', email), (snapshot) => {
       setAccessProfiles(snapshot.exists() ? [{ id: snapshot.id, ...snapshot.data() } as UserAccessProfile] : []);
+      setAccessProfileLoading(false);
     }, handleAccessError);
   }, [user]);
 
@@ -185,7 +191,7 @@ export default function App() {
   }, [accessProfiles, organizationPeople, organizationUnits, user]);
 
   useEffect(() => {
-    if (!user || !access.active) {
+    if (!user || accessProfileLoading || !access.active) {
       setVisits([]);
       setOccurrences([]);
       setOrganizationUnits([]);
@@ -196,27 +202,27 @@ export default function App() {
     const allowedTabs = access.isMasterOperator ? ALL_TABS : access.tabs;
     const canAccess = (tab: MainTab) => allowedTabs.includes(tab);
     const unsubscribers: Array<() => void> = [];
-    const handleSnapshotError = (error: unknown) => {
+    const handleSnapshotError = (area: string) => (error: unknown) => {
       console.error('Erro ao ler dados liberados:', error);
-      setDataError('Não foi possível ler uma área liberada. Publique as regras atualizadas do Firestore e recarregue a página.');
+      setDataError(`Seu perfil permite acessar ${area}, mas o Firestore bloqueou a leitura. Peça a um operador mestre para conferir e salvar novamente suas permissões.`);
     };
 
     if (canAccess('visitas')) {
       unsubscribers.push(onSnapshot(query(collection(db, 'integrator_visits'), orderBy('createdAt', 'desc')), (snapshot) => {
         const stored = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as IntegratorVisit[];
         setVisits(stored.filter((item) => Boolean(item.createdByEmail)));
-      }, handleSnapshotError));
+      }, handleSnapshotError('Visitas')));
     } else setVisits([]);
 
     if (canAccess('ocorrencias')) {
       unsubscribers.push(onSnapshot(query(collection(db, 'occurrences'), orderBy('createdAt', 'desc')), (snapshot) => {
         setOccurrences(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as Occurrence[]);
-      }, handleSnapshotError));
+      }, handleSnapshotError('Ocorrências')));
       unsubscribers.push(onSnapshot(doc(db, 'app_settings', 'occurrence_agents'), (snapshot) => {
         const names = snapshot.exists() ? snapshot.data().names : null;
         const cleanNames = Array.isArray(names) ? names.map((name) => String(name).replace(/\s+/g, ' ').trim()).filter(Boolean) : [];
         setOccurrenceAgents(cleanNames.length ? [...new Set(cleanNames)] : DEFAULT_OCCURRENCE_AGENTS);
-      }, handleSnapshotError));
+      }, handleSnapshotError('a lista de agentes')));
     } else {
       setOccurrences([]);
       setOccurrenceAgents(DEFAULT_OCCURRENCE_AGENTS);
@@ -225,20 +231,20 @@ export default function App() {
     if (canAccess('estrutura') || canAccess('ocorrencias')) {
       unsubscribers.push(onSnapshot(query(collection(db, 'organization_units'), orderBy('createdAt', 'desc')), (snapshot) => {
         setOrganizationUnits(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationUnit[]);
-      }, handleSnapshotError));
+      }, handleSnapshotError('a estrutura de times')));
       unsubscribers.push(onSnapshot(query(collection(db, 'organization_people'), orderBy('createdAt', 'asc')), (snapshot) => {
         setOrganizationPeople(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationPerson[]);
-      }, handleSnapshotError));
+      }, handleSnapshotError('a estrutura de pessoas')));
     } else {
       setOrganizationUnits([]);
       setOrganizationPeople([]);
     }
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [access.active, access.isMasterOperator, access.tabs.join('|'), user]);
+  }, [access.active, access.isMasterOperator, access.tabs.join('|'), accessProfileLoading, user]);
 
   useEffect(() => {
-    if (!user || !access.active) {
+    if (!user || accessProfileLoading || !access.active) {
       setCases([]);
       setRaCases([]);
       setExtraCosts([]);
@@ -246,16 +252,16 @@ export default function App() {
     }
     const allowedTabs = access.isMasterOperator ? ALL_TABS : access.tabs;
     const unsubscribers: Array<() => void> = [];
-    const handleRestrictedError = (error: unknown) => {
+    const handleRestrictedError = (area: string) => (error: unknown) => {
       console.error('Erro ao ler área restrita:', error);
-      setDataError('Não foi possível ler uma área liberada. Publique as regras atualizadas do Firestore e recarregue a página.');
+      setDataError(`Seu perfil permite acessar ${area}, mas o Firestore bloqueou a leitura. Peça a um operador mestre para conferir e salvar novamente suas permissões.`);
     };
 
     if (access.isDeveloper) {
       unsubscribers.push(onSnapshot(query(collection(db, 'cx_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
         const storedCases = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as CXCase[];
         setCases(storedCases.filter((caseItem) => !isLegacyDemoCase(caseItem)));
-      }, handleRestrictedError));
+      }, handleRestrictedError('Casos CX')));
     } else {
       setCases([]);
     }
@@ -264,17 +270,17 @@ export default function App() {
       unsubscribers.push(onSnapshot(query(collection(db, 'ra_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
         const stored = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as RACase[];
         setRaCases(stored.filter((item) => Boolean(item.createdByEmail)));
-      }, handleRestrictedError));
+      }, handleRestrictedError('Reclame Aqui')));
     } else setRaCases([]);
 
     if (allowedTabs.includes('custos')) {
       unsubscribers.push(onSnapshot(query(collection(db, 'extra_costs'), orderBy('createdAt', 'desc')), (snapshot) => {
         setExtraCosts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as ExtraCost[]);
-      }, handleRestrictedError));
+      }, handleRestrictedError('Custo Extra')));
     } else setExtraCosts([]);
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [access.active, access.isDeveloper, access.isMasterOperator, access.tabs.join('|'), user]);
+  }, [access.active, access.isDeveloper, access.isMasterOperator, access.tabs.join('|'), accessProfileLoading, user]);
 
   const visibleOccurrences = occurrences;
   const visibleTabs = access.isMasterOperator ? ALL_TABS : access.tabs;
@@ -289,7 +295,7 @@ export default function App() {
     if (user && !visibleTabs.includes(activeTab)) setActiveTab(visibleTabs[0] || 'visao-geral');
   }, [activeTab, user, visibleTabs.join('|')]);
 
-  if (authLoading) {
+  if (authLoading || (user && accessProfileLoading)) {
     return <div className="flex min-h-screen items-center justify-center bg-[#f4f7f6]"><RefreshCw className="h-8 w-8 animate-spin text-[#385041]" /></div>;
   }
 

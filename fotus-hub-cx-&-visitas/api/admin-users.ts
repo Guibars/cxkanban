@@ -1,8 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth, UserRecord } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
-type AdminAction = 'ensure-user' | 'inspect' | 'list-users' | 'reset-link';
+type AdminAction = 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile';
 
 type ApiRequest = {
   method?: string;
@@ -11,6 +12,7 @@ type ApiRequest = {
     action?: unknown;
     email?: unknown;
     displayName?: unknown;
+    profile?: unknown;
   };
 };
 
@@ -21,6 +23,7 @@ type ApiResponse = {
 };
 
 const PROJECT_ID = 'gen-lang-client-0929275981';
+const FIRESTORE_DATABASE_ID = 'ai-studio-752453f7-ae97-40d3-ab96-17738cb30cc2';
 const MASTER_EMAILS = new Set([
   'guilhermebarbosars@gmail.com',
   'matheus.gaspar@fotus.com.br',
@@ -30,7 +33,7 @@ function errorCode(error: unknown) {
   return typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
 }
 
-function getAdminAuth() {
+function getAdminApp() {
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
   const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || PROJECT_ID;
@@ -38,11 +41,18 @@ function getAdminAuth() {
     throw new Error('admin-not-configured');
   }
 
-  const app = getApps()[0] || initializeApp({
+  return getApps()[0] || initializeApp({
     credential: cert({ projectId, clientEmail, privateKey }),
     projectId,
   });
-  return getAuth(app);
+}
+
+function getAdminAuth() {
+  return getAuth(getAdminApp());
+}
+
+function getAdminDb() {
+  return getFirestore(getAdminApp(), FIRESTORE_DATABASE_ID);
 }
 
 function accountSummary(user: UserRecord) {
@@ -95,7 +105,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     const action = request.body?.action as AdminAction;
     const email = typeof request.body?.email === 'string' ? request.body.email.trim().toLowerCase() : '';
     const displayName = typeof request.body?.displayName === 'string' ? request.body.displayName.trim() : '';
-    if (!['ensure-user', 'inspect', 'list-users', 'reset-link'].includes(action)) {
+    if (!['ensure-user', 'inspect', 'list-users', 'reset-link', 'save-profile'].includes(action)) {
       response.status(400).json({ error: 'Ação inválida.' });
       return;
     }
@@ -108,12 +118,58 @@ export default async function handler(request: ApiRequest, response: ApiResponse
         users.push(...page.users.filter((item) => Boolean(item.email)).map(accountSummary));
         pageToken = page.pageToken;
       } while (pageToken && users.length < 5000);
-      response.status(200).json({ users });
+      const profileSnapshot = await getAdminDb().collection('user_access').get();
+      const profiles = profileSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+      response.status(200).json({ users, profiles });
       return;
     }
 
     if (!/^[^@\s]+@fotus[.]com[.]br$/i.test(email) && email !== 'guilhermebarbosars@gmail.com') {
       response.status(400).json({ error: 'Use um e-mail corporativo @fotus.com.br.' });
+      return;
+    }
+
+    if (action === 'save-profile') {
+      const profile = request.body?.profile;
+      if (!profile || typeof profile !== 'object') {
+        response.status(400).json({ error: 'Perfil de acesso inválido.' });
+        return;
+      }
+      const data = profile as Record<string, unknown>;
+      const validRoles = ['Agente', 'Gerente', 'Líder', 'Coordenador', 'Administrador'];
+      const validTabs = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura'];
+      const visibleTabs = Array.isArray(data.visibleTabs) ? data.visibleTabs : [];
+      const organizationUnitIds = Array.isArray(data.organizationUnitIds) ? data.organizationUnitIds : [];
+      if (
+        data.email !== email
+        || typeof data.displayName !== 'string'
+        || !data.displayName.trim()
+        || typeof data.role !== 'string'
+        || !validRoles.includes(data.role)
+        || !visibleTabs.length
+        || visibleTabs.some((item) => typeof item !== 'string' || !validTabs.includes(item))
+        || organizationUnitIds.some((item) => typeof item !== 'string')
+        || typeof data.active !== 'boolean'
+        || typeof data.createdAt !== 'number'
+        || typeof data.updatedAt !== 'number'
+      ) {
+        response.status(400).json({ error: 'Confira os dados e as permissões selecionadas para este usuário.' });
+        return;
+      }
+      const cleanProfile = {
+        email,
+        displayName: data.displayName.trim(),
+        role: data.role,
+        agentName: typeof data.agentName === 'string' ? data.agentName : '',
+        organizationUnitIds,
+        visibleTabs: [...new Set(visibleTabs)],
+        active: data.active,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        ...(typeof data.createdByEmail === 'string' ? { createdByEmail: data.createdByEmail } : {}),
+      };
+      await getAdminDb().collection('user_access').doc(email).set(cleanProfile, { merge: true });
+      response.status(200).json({ profile: { id: email, ...cleanProfile } });
       return;
     }
 
