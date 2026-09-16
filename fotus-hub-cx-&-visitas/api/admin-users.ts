@@ -181,6 +181,16 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       return;
     }
 
+    if (action === 'ensure-user') {
+      const access = await getPool().query<{ allowed: boolean }>(`
+        select exists(
+          select 1 from public.app_users
+          where lower(email::text)=lower($1) and active=true
+        ) as allowed
+      `, [email]);
+      if (!access.rows[0]?.allowed) return response.status(409).json({ error: 'Salve primeiro o perfil e as abas liberadas antes de gerar o primeiro acesso.' });
+    }
+
     const account = (await listAuthAccounts(email))[0];
     if (action === 'inspect') {
       response.status(200).json(account || { exists: false, email, displayName });

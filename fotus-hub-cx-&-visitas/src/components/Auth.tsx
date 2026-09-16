@@ -10,11 +10,11 @@ function authErrorMessage(error: unknown) {
   const raw = error instanceof Error ? error.message : typeof error === 'object' && error && 'message' in error ? String(error.message) : '';
   const text = raw.toLowerCase();
   if (text.includes('invalid') && (text.includes('password') || text.includes('credential'))) return 'E-mail ou senha incorretos.';
-  if (text.includes('not found') || text.includes('user_not_found')) return 'Conta não encontrada. Use “Primeiro acesso” se você já foi liberado.';
+  if (text.includes('not found') || text.includes('user_not_found')) return 'Conta não encontrada. Use “Primeiro acesso” para criar sua conta corporativa.';
   if (text.includes('already') || text.includes('exists')) return 'Este e-mail já possui uma conta. Entre normalmente ou redefina a senha.';
-  if (text.includes('not allowed') || text.includes('não foi liberado') || text.includes('sign up')) return 'Este e-mail ainda não foi liberado por um operador mestre.';
+  if (text.includes('not allowed') || text.includes('não foi liberado') || text.includes('sign up')) return 'Use seu e-mail corporativo @fotus.com.br ou procure um operador mestre.';
   if (text.includes('origin')) return 'Este endereço ainda não está autorizado no Neon Auth.';
-  if (text.includes('request failed') || text.includes('reason:')) return 'O Neon recusou a criação da conta. Confirme se o e-mail foi liberado e tente novamente.';
+  if (text.includes('request failed') || text.includes('reason:')) return 'O Neon recusou a criação da conta. Confira o e-mail e tente novamente.';
   return raw || 'Não foi possível concluir. Confira os dados e tente novamente.';
 }
 
@@ -80,11 +80,11 @@ export default function Auth() {
       const accessResponse = await fetch('/api/registration-access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: normalizedEmail }),
+        body: JSON.stringify({ email: normalizedEmail, name: name.trim() }),
       });
       const access = await accessResponse.json().catch(() => ({})) as { allowed?: boolean; error?: string };
       if (!accessResponse.ok) throw new Error(access.error || 'Não foi possível confirmar a liberação deste e-mail.');
-      if (!access.allowed) throw new Error('Este e-mail ainda não foi liberado por um operador mestre.');
+      if (!access.allowed) throw new Error(access.error || 'Use seu e-mail corporativo @fotus.com.br.');
       const result = await neonAuth.signUp.email({
         email: normalizedEmail,
         name: name.trim(),
@@ -163,9 +163,9 @@ export default function Auth() {
           </>}
 
           {mode === 'register' && <form onSubmit={handleRegister} className="mt-5 space-y-4">
-            <Intro title="Criar minha senha" text="Disponível somente para e-mails previamente liberados por um operador mestre." />
+            <Intro title="Criar minha senha" text="Disponível para todos os colaboradores com e-mail corporativo @fotus.com.br." />
             <Input icon={UserRound} label="Nome completo"><input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Seu nome" className="auth-input" /></Input>
-            <Input icon={Mail} label="E-mail liberado"><input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nome@fotus.com.br" className="auth-input" /></Input>
+            <Input icon={Mail} label="E-mail corporativo"><input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nome@fotus.com.br" className="auth-input" /></Input>
             <PasswordPair password={password} confirmPassword={confirmPassword} setPassword={setPassword} setConfirmPassword={setConfirmPassword} />
             <PrimaryButton loading={loading === 'register'} label="Criar senha e entrar" loadingLabel="Criando conta..." />
           </form>}

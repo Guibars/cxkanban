@@ -12,6 +12,7 @@ Execute no SQL Editor do Neon, nesta ordem:
 3. `migrations/003_neon_only_auth.sql` — cadastro controlado e operadores mestres;
 4. `migrations/004_reset_access_profiles.sql` — limpeza dos perfis antigos do painel, preservando todos os registros operacionais e mantendo somente o operador principal;
 5. `migrations/005_fix_neon_auth_registration.sql` — corrige a criação da conta de primeiro acesso no Neon Auth.
+6. `migrations/006_open_corporate_registration.sql` — libera o auto cadastro para colaboradores `@fotus.com.br` e cria o perfil inicial automaticamente.
 
 O Neon Auth cria a identidade e a senha. O acesso aos dados permanece bloqueado
 até que o e-mail tenha um perfil ativo em `public.app_users`. Essa verificação é
@@ -30,12 +31,13 @@ iniciada por `VITE_` nem publique o arquivo `.env`.
 
 ## Primeiro acesso
 
-1. Um operador mestre abre **Gerenciar usuários** e salva nome, e-mail, função,
-   abas e equipes.
-2. O painel gera um link de primeiro acesso.
-3. A pessoa abre o link e cria a própria senha no Neon.
-4. Nos acessos seguintes ela pode entrar com e-mail/senha ou Google, quando o
-   provedor Google estiver ativo no Neon Auth.
+1. Qualquer colaborador com e-mail `@fotus.com.br` abre **Primeiro acesso** e
+   cria a própria senha no Neon.
+2. O sistema cria automaticamente um perfil de Agente com Visão Geral,
+   Ocorrências e Visitas.
+3. Um operador mestre pode alterar função, abas, times ou desativar o perfil.
+4. Nos acessos seguintes a pessoa pode entrar com e-mail/senha ou Google,
+   quando o provedor Google estiver ativo no Neon Auth.
 
 Senhas, tokens e links de redefinição nunca são armazenados nas tabelas públicas
 do sistema.

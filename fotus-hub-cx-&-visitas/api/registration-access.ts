@@ -2,7 +2,7 @@ import { Pool } from 'pg';
 
 type ApiRequest = {
   method?: string;
-  body?: { email?: unknown };
+  body?: { email?: unknown; name?: unknown };
 };
 
 type ApiResponse = {
@@ -28,13 +28,18 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   try {
     const email = typeof request.body?.email === 'string' ? request.body.email.trim().toLowerCase() : '';
     if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return response.status(400).json({ allowed: false });
-    const result = await getPool().query<{ allowed: boolean }>(`
-      select exists(
-        select 1 from public.app_users
-        where lower(email::text)=$1 and active=true
-      ) as allowed
+    const existing = await getPool().query<{ active: boolean }>(`
+      select active from public.app_users where lower(email::text)=$1
     `, [email]);
-    return response.status(200).json({ allowed: Boolean(result.rows[0]?.allowed) });
+    if (existing.rows[0] && !existing.rows[0].active) {
+      return response.status(403).json({ allowed: false, error: 'Este perfil está desativado. Procure um operador mestre.' });
+    }
+    const corporateEmail = email.endsWith('@fotus.com.br');
+    const existingAuthorizedProfile = Boolean(existing.rows[0]?.active);
+    if (!corporateEmail && !existingAuthorizedProfile) {
+      return response.status(403).json({ allowed: false, error: 'Use seu e-mail corporativo @fotus.com.br.' });
+    }
+    return response.status(200).json({ allowed: true, automaticProfile: corporateEmail && !existing.rows[0] });
   } catch (error) {
     console.error('Erro ao verificar liberação de primeiro acesso:', error);
     return response.status(503).json({ allowed: false, error: 'Não foi possível confirmar a liberação deste e-mail.' });

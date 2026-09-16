@@ -237,6 +237,10 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       setAuthMessage('Informe o e-mail antes de verificar a conta.');
       return;
     }
+    if (action === 'ensure-user' && !allProfiles.some((profile) => profile.email.trim().toLowerCase() === email && profile.active)) {
+      setAuthMessage('Salve primeiro o perfil, a função e as abas liberadas. Depois gere o link de primeiro acesso.');
+      return;
+    }
     setAuthBusy(true);
     setAuthMessage('');
     setResetLink('');
@@ -325,11 +329,6 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
     const now = Date.now();
     const existing = allProfiles.find((profile) => profile.id === editingId || profile.email.toLowerCase() === editingId?.toLowerCase());
     try {
-      let account: AuthAccountStatus | null = null;
-      if (!existing) {
-        account = await requestMasterAction(currentUser, 'ensure-user', email, form.displayName.trim());
-        if (account.exists) setAuthAccounts((current) => [account!, ...current.filter((item) => item.email.toLowerCase() !== email)]);
-      }
       const payload = {
         email,
         displayName: form.displayName.trim(),
@@ -345,6 +344,17 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       const saved = await requestMasterAction<{ profile: UserAccessProfile }>(currentUser, 'save-profile', email, form.displayName.trim(), payload);
       setServerProfiles((current) => [saved.profile, ...current.filter((profile) => profile.email.toLowerCase() !== email)]);
       window.dispatchEvent(new Event('fotus:data-changed'));
+      let account: AuthAccountStatus | null = null;
+      if (!existing) {
+        try {
+          account = await requestMasterAction(currentUser, 'ensure-user', email, form.displayName.trim());
+          if (account.exists) setAuthAccounts((current) => [account!, ...current.filter((item) => item.email.toLowerCase() !== email)]);
+        } catch (linkError) {
+          setMessage(`Perfil e abas salvos. ${linkError instanceof Error ? linkError.message : 'Não foi possível gerar o link de primeiro acesso.'}`);
+          setEditingId(email);
+          return;
+        }
+      }
       if (account) {
         setAuthStatus(account);
         setResetLink(account.resetLink || '');
@@ -443,7 +453,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
               </div>
 
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                <div className="rounded-xl border border-blue-100 bg-white/80 p-3"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-700 text-[10px] font-extrabold text-white">1</span><strong className="mt-2 block text-[10px] text-blue-950">Crie o login</strong><p className="mt-0.5 text-[9px] leading-relaxed text-blue-700">Salve o usuário ou use “Criar ou liberar login”.</p></div>
+                <div className="rounded-xl border border-blue-100 bg-white/80 p-3"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-700 text-[10px] font-extrabold text-white">1</span><strong className="mt-2 block text-[10px] text-blue-950">Salve as permissões</strong><p className="mt-0.5 text-[9px] leading-relaxed text-blue-700">O perfil e as abas precisam ser salvos antes da criação da senha.</p></div>
                 <div className="rounded-xl border border-blue-100 bg-white/80 p-3"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-700 text-[10px] font-extrabold text-white">2</span><strong className="mt-2 block text-[10px] text-blue-950">Envie o acesso</strong><p className="mt-0.5 text-[9px] leading-relaxed text-blue-700">Use o e-mail automático ou copie o link direto.</p></div>
                 <div className="rounded-xl border border-blue-100 bg-white/80 p-3"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-700 text-[10px] font-extrabold text-white">3</span><strong className="mt-2 block text-[10px] text-blue-950">A pessoa cria a senha</strong><p className="mt-0.5 text-[9px] leading-relaxed text-blue-700">Ela abre o link, escolhe a senha e entra normalmente.</p></div>
               </div>
