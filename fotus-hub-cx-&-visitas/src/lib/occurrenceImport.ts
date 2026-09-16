@@ -1,6 +1,6 @@
-import type { CurrentUser } from './currentUser';
+import { User } from 'firebase/auth';
 import { readSheet } from 'read-excel-file/browser';
-import { bulkUpsertData } from './dataMutations';
+import { db, doc, writeBatch } from './firebase';
 import { getRegionFromState } from './occurrences';
 import { Occurrence, OccurrenceApproval, OccurrenceStage } from '../types';
 
@@ -96,7 +96,7 @@ function createdAtFromDate(date: string, rowNumber: number) {
   return (Number.isNaN(timestamp) ? Date.UTC(2000, 0, 1, 12) : timestamp) + rowNumber;
 }
 
-export async function readOccurrencesSpreadsheet(file: File, currentUser: CurrentUser) {
+export async function readOccurrencesSpreadsheet(file: File, currentUser: User) {
   const rows = await readSheet(file, SHEET_NAME);
   const header = rows[0] || [];
   if (normalized(text(header[1])) !== 'data' || normalized(text(header[2])) !== 'agente') {
@@ -166,8 +166,22 @@ export async function readOccurrencesSpreadsheet(file: File, currentUser: Curren
 
 export async function saveImportedOccurrences(
   occurrences: ImportedOccurrence[],
-  currentUser: CurrentUser,
   onProgress?: (saved: number, total: number) => void,
 ) {
-  return bulkUpsertData(currentUser, 'occurrences', occurrences, onProgress);
+  let saved = 0;
+
+  for (let start = 0; start < occurrences.length; start += BATCH_SIZE) {
+    const currentBatch = occurrences.slice(start, start + BATCH_SIZE);
+    const batch = writeBatch(db);
+
+    currentBatch.forEach(({ id, ...occurrence }) => {
+      batch.set(doc(db, 'occurrences', id), occurrence, { merge: true });
+    });
+
+    await batch.commit();
+    saved += currentBatch.length;
+    onProgress?.(saved, occurrences.length);
+  }
+
+  return saved;
 }

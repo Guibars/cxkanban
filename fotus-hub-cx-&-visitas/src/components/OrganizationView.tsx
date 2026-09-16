@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react';
-import type { CurrentUser } from '../lib/currentUser';
+import { User } from 'firebase/auth';
 import {
   ArrowDown,
   BriefcaseBusiness,
@@ -17,13 +17,13 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { createData, deleteData, updateData } from '../lib/dataMutations';
+import { addDoc, collection, db, deleteDoc, doc, updateDoc } from '../lib/firebase';
 import { OrganizationPerson, OrganizationRole, OrganizationUnit } from '../types';
 
 interface OrganizationViewProps {
   units: OrganizationUnit[];
   people: OrganizationPerson[];
-  currentUser: CurrentUser;
+  currentUser: User;
   canManage: boolean;
   canDeleteLegacy: boolean;
 }
@@ -125,9 +125,9 @@ export default function OrganizationView({ units, people, currentUser, canManage
 
     try {
       if (editingPerson) {
-        await updateData(currentUser, 'organization_people', editingPerson.id, payload);
+        await updateDoc(doc(db, 'organization_people', editingPerson.id), payload);
       } else {
-        await createData(currentUser, 'organization_people', {
+        await addDoc(collection(db, 'organization_people'), {
           ...payload,
           createdByEmail: currentUser.email || '',
           createdAt: now,
@@ -136,7 +136,7 @@ export default function OrganizationView({ units, people, currentUser, canManage
       setIsFormOpen(false);
     } catch (error) {
       console.error('Erro ao salvar pessoa na estrutura:', error);
-      setErrorMessage('Não foi possível salvar. Confira sua conexão, a hierarquia e suas permissões.');
+      setErrorMessage('Não foi possível salvar. Publique as regras atualizadas do Firestore e tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -144,24 +144,28 @@ export default function OrganizationView({ units, people, currentUser, canManage
 
   const removePerson = async (person: OrganizationPerson) => {
     const dependents = people.filter((item) => item.reportsToId === person.id);
-    if (dependents.length) {
-      window.alert(`${person.name} possui ${dependents.length} pessoa(s) vinculada(s). Reatribua essas pessoas antes de excluir o card.`);
-      return;
-    }
-    if (!window.confirm(`Deseja excluir o card de ${person.name}?`)) return;
+    const warning = dependents.length
+      ? `${person.name} possui ${dependents.length} pessoa(s) vinculada(s). Elas ficarão sem responsável até serem editadas. Deseja excluir mesmo assim?`
+      : `Deseja excluir o card de ${person.name}?`;
+    if (!window.confirm(warning)) return;
 
     try {
-      await deleteData(currentUser, 'organization_people', person.id);
+      await Promise.all(dependents.map((item) => updateDoc(doc(db, 'organization_people', item.id), {
+        reportsToId: null,
+        reportsToName: null,
+        updatedAt: Date.now(),
+      })));
+      await deleteDoc(doc(db, 'organization_people', person.id));
     } catch (error) {
       console.error('Erro ao excluir pessoa:', error);
-      window.alert('Não foi possível excluir este card. Reatribua os vínculos e confira suas permissões.');
+      window.alert('Não foi possível excluir este card. Confira as regras publicadas do Firestore.');
     }
   };
 
   const removeLegacyUnit = async (unit: OrganizationUnit) => {
     if (!window.confirm(`Excluir definitivamente o cadastro antigo “${unit.teamName}”?`)) return;
     try {
-      await deleteData(currentUser, 'organization_units', unit.id);
+      await deleteDoc(doc(db, 'organization_units', unit.id));
     } catch (error) {
       console.error('Erro ao excluir cadastro antigo:', error);
       window.alert('Não foi possível excluir este cadastro. Apenas o administrador principal pode remover cadastros antigos.');
@@ -175,7 +179,7 @@ export default function OrganizationView({ units, people, currentUser, canManage
           <div>
             <p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]"><Network className="h-4 w-4" />Cadeia de liderança</p>
             <h2 className="mt-1 text-xl font-extrabold text-gray-950">Head → Gerente → Coordenador → Líder</h2>
-            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-gray-500">Cada card mostra a função e para quem aquela pessoa responde. O vínculo fica salvo na base central.</p>
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-gray-500">Cada card mostra a função e para quem aquela pessoa responde. O vínculo fica salvo no Firestore.</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <label className="relative min-w-0 sm:w-72">

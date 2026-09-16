@@ -1,5 +1,4 @@
 import { ExtraCost, RACase } from '../types';
-import { calculateRaReputation, customerScoreValue, wouldDoBusinessValue } from './raReputation';
 
 const currency = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -172,30 +171,40 @@ export function buildExtraCostsReport(costs: ExtraCost[]) {
 
 const RA_TARGETS = { indicatorIR: 100, indicatorIS: 90, indicatorMA: 8.5, indicatorIN: 87.5 } as const;
 
+function raAverage(cases: RACase[], field: keyof typeof RA_TARGETS) {
+  const values = cases.map((item) => item[field]).filter((value): value is number => typeof value === 'number').map((value) => field === 'indicatorMA' ? value : value <= 10 ? value * 10 : value);
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+function scoreOnTen(value: number) {
+  return value > 10 ? value / 10 : value;
+}
+
 function raMetric(label: string, weight: string, value: number | null, meta: number, suffix = '%') {
   const achieved = value !== null && value >= meta;
   return `<tr><td>${escapeHtml(label)}</td><td class="center">${escapeHtml(weight)}</td><td class="center">${value === null ? '—' : `${value.toFixed(1)}${suffix}`}</td><td class="center">${meta}${suffix}</td><td class="center"><span class="pill ${value === null ? 'pill-orange' : achieved ? 'pill-green' : 'pill-red'}">${value === null ? 'Sem dado' : achieved ? 'Meta atingida' : 'Abaixo da meta'}</span></td></tr>`;
 }
 
-export function buildRaReport(cases: RACase[], periodLabel = 'Período selecionado') {
-  const reputation = calculateRaReputation(cases);
+export function buildRaReport(cases: RACase[]) {
   const resolved = cases.filter((item) => item.status === 'Resolvido').length;
-  const belowMeta = cases.filter((item) => (customerScoreValue(item) ?? 10) < 7 || wouldDoBusinessValue(item) === false || item.status !== 'Resolvido');
-  const caseRows = belowMeta.slice(0, 14).map((item) => `<tr><td>${escapeHtml(item.raNumber)}</td><td>${escapeHtml(item.customerName)}</td><td>${escapeHtml(item.status)}</td><td>${customerScoreValue(item) === null ? '—' : customerScoreValue(item)?.toFixed(1)}</td><td>${wouldDoBusinessValue(item) === null ? 'Sem resposta' : wouldDoBusinessValue(item) ? 'Sim' : 'Não'}</td><td>${escapeHtml(item.information || 'Sem observação')}</td></tr>`).join('');
+  const belowMeta = cases.filter((item) => (typeof item.finalScore === 'number' && scoreOnTen(item.finalScore) < RA_TARGETS.indicatorMA) || item.status !== 'Resolvido');
+  const scoreValues = cases.map((item) => item.finalScore).filter((value): value is number => typeof value === 'number');
+  const averageScore = scoreValues.length ? scoreValues.reduce((sum, value) => sum + scoreOnTen(value), 0) / scoreValues.length : null;
+  const caseRows = belowMeta.slice(0, 12).map((item) => `<tr><td>${escapeHtml(item.raNumber)}</td><td>${escapeHtml(item.customerName)}</td><td>${escapeHtml(item.status)}</td><td>${item.finalScore === null || item.finalScore === undefined ? '—' : scoreOnTen(item.finalScore).toFixed(1)}</td><td>${escapeHtml(item.information || 'Sem observação')}</td></tr>`).join('');
   const achievedMetrics = [
-    reputation.responseRate >= RA_TARGETS.indicatorIR,
-    reputation.solutionRate >= RA_TARGETS.indicatorIS,
-    reputation.customerScore !== null && reputation.customerScore >= RA_TARGETS.indicatorMA,
-    reputation.wouldDoBusinessRate !== null && reputation.wouldDoBusinessRate >= RA_TARGETS.indicatorIN,
+    raAverage(cases, 'indicatorIR') !== null && (raAverage(cases, 'indicatorIR') || 0) >= RA_TARGETS.indicatorIR,
+    raAverage(cases, 'indicatorIS') !== null && (raAverage(cases, 'indicatorIS') || 0) >= RA_TARGETS.indicatorIS,
+    raAverage(cases, 'indicatorMA') !== null && (raAverage(cases, 'indicatorMA') || 0) >= RA_TARGETS.indicatorMA,
+    raAverage(cases, 'indicatorIN') !== null && (raAverage(cases, 'indicatorIN') || 0) >= RA_TARGETS.indicatorIN,
   ].filter(Boolean).length;
-  const monthGroups = new Map<string, RACase[]>();
+  const monthGroups = new Map<string, number[]>();
   cases.forEach((item) => {
-    if (!item.createdAt) return;
+    if (typeof item.finalScore !== 'number' || !item.createdAt) return;
     const date = new Date(item.createdAt);
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    monthGroups.set(key, [...(monthGroups.get(key) || []), item]);
+    monthGroups.set(key, [...(monthGroups.get(key) || []), scoreOnTen(item.finalScore)]);
   });
-  const scoreMonths = [...monthGroups.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-7).map(([key, values]) => ({ key, value: calculateRaReputation(values).finalScore || 0 }));
+  const scoreMonths = [...monthGroups.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-7).map(([key, values]) => ({ key, value: values.reduce((sum, value) => sum + value, 0) / values.length }));
   const now = new Date();
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).getTime();
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1).getTime();
@@ -205,13 +214,13 @@ export function buildRaReport(cases: RACase[], periodLabel = 'Período seleciona
   const previousResolvedRate = previousWindow.length ? Math.round((previousWindow.filter((item) => item.status === 'Resolvido').length / previousWindow.length) * 100) : 0;
 
   return shell('Relatório Estratégico RA', 'Reclame Aqui · Consolidado dos registros reais', `
-    <header class="plain-header"><h1>Relatório Estratégico RA · ${escapeHtml(periodLabel)}</h1><p class="subtitle">Fotus Distribuidora Solar · Emitido em ${escapeHtml(reportDate())}</p><p style="font-weight:800;margin:7px 0 0">Total de reclamações: ${cases.length} | Resolvidas: ${resolved} | Reputação: ${reputation.finalScore === null ? 'sem avaliações' : `${reputation.finalScore.toFixed(1)} · ${reputation.classification}`}</p></header>
-    <div class="band band-blue">Indicadores e reputação calculada</div><table><thead><tr><th>Índice</th><th class="center">Peso</th><th class="center">Real</th><th class="center">Meta</th><th class="center">Farol</th></tr></thead><tbody>${raMetric('Reclamações respondidas (IR)', '20%', reputation.responseRate, RA_TARGETS.indicatorIR)}${raMetric('Índice de solução (IS)', '30%', reputation.solutionRate, RA_TARGETS.indicatorIS)}${raMetric('Nota do cliente (MA)', '30%', reputation.customerScore, RA_TARGETS.indicatorMA, '')}${raMetric('Voltaria a fazer negócio (IN)', '20%', reputation.wouldDoBusinessRate, RA_TARGETS.indicatorIN)}</tbody></table>
+    <header class="plain-header"><h1>Relatório Estratégico RA · ${escapeHtml(new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(new Date()))}</h1><p class="subtitle">Fotus Distribuidora Solar · Emitido em ${escapeHtml(reportDate())}</p><p style="font-weight:800;margin:7px 0 0">Total de Reclamações: ${cases.length} | Finalizados: ${resolved}</p></header>
+    <div class="band band-blue">Indicadores do Mês</div><table><thead><tr><th>Índice</th><th class="center">Peso</th><th class="center">Real %</th><th class="center">Meta</th><th class="center">Farol</th></tr></thead><tbody>${raMetric('Resposta (IR)', '20%', raAverage(cases, 'indicatorIR'), RA_TARGETS.indicatorIR)}${raMetric('Solução (IS)', '30%', raAverage(cases, 'indicatorIS'), RA_TARGETS.indicatorIS)}${raMetric('Nota do consumidor (MA)', '30%', raAverage(cases, 'indicatorMA'), RA_TARGETS.indicatorMA, '')}${raMetric('Voltaria a negociar (IN)', '20%', raAverage(cases, 'indicatorIN'), RA_TARGETS.indicatorIN)}</tbody></table>
     <p class="positive">${achievedMetrics === 4 ? 'Os 4 índices bateram a meta do período.' : `${achievedMetrics} de 4 índices atingiram a meta do período.`}</p>
-    <div class="band band-orange">Leitura estratégica</div><div class="callout">${cases.length ? `A reputação calculada foi ${reputation.finalScore === null ? 'indisponível por falta de avaliações completas' : `${reputation.finalScore.toFixed(1)} (${reputation.classification})`}. O período tem ${resolved} de ${cases.length} casos resolvidos e ${reputation.evaluatedCases} avaliação(ões) completa(s). Fórmula aplicada: (IR × 2 + MA × 10 × 3 + IS × 3 + IN × 2) ÷ 100.` : 'Ainda não há reclamações reais cadastradas para análise.'}</div>
-    <div class="band band-red">Casos que precisam de atenção</div><table><thead><tr><th>RA</th><th>Cliente</th><th>Status</th><th>Nota</th><th>Voltaria</th><th>Entendimento</th></tr></thead><tbody>${caseRows || '<tr><td colspan="6" class="center muted">Nenhum caso abaixo da meta</td></tr>'}</tbody></table>
+    <div class="band band-orange">Leitura Estratégica</div><div class="callout">${cases.length ? `O período encerra com ${resolved} de ${cases.length} casos finalizados. ${averageScore === null ? 'Ainda faltam avaliações para consolidar a Nota do Consumidor.' : `A média dos registros avaliados ficou em ${averageScore.toFixed(1)}, frente à meta de ${RA_TARGETS.indicatorMA}.`} Os indicadores consideram apenas clientes que responderam à avaliação; casos sem retorno não devem ser interpretados como sucesso.` : 'Ainda não há reclamações reais cadastradas para análise.'}</div>
+    <div class="band band-red">Casos Abaixo da Meta</div><table><thead><tr><th>Pedido / RA</th><th>Cliente</th><th>Status</th><th>Nota</th><th>Entendimento</th></tr></thead><tbody>${caseRows || '<tr><td colspan="5" class="center muted">Nenhum caso abaixo da meta</td></tr>'}</tbody></table>
     <div class="band band-navy">Comparativo: janela anterior vs. janela atual</div>${modernReportChart('Reclame Aqui · Comparativo móvel de 6 meses', [{ label: 'Janela anterior', value: previousWindow.length, display: `${previousWindow.length} · ${previousResolvedRate}% resolvidos` }, { label: 'Janela atual', value: currentWindow.length, display: `${currentWindow.length} · ${currentResolvedRate}% resolvidos` }])}<p class="positive">Taxa de resolução: ${previousResolvedRate}% → ${currentResolvedRate}% (${currentResolvedRate - previousResolvedRate >= 0 ? '+' : ''}${currentResolvedRate - previousResolvedRate} p.p.)</p><p>A leitura compara duas janelas móveis de seis meses para reduzir distorções de um único mês e evidenciar a direção mais recente do atendimento.</p>
-    <div class="page-break"></div>${modernReportChart('Reputação RA · Evolução mês a mês', scoreMonths.map((item) => ({ label: new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date(`${item.key}-01T12:00:00`)).replace('.', ''), value: item.value, display: item.value.toFixed(1) })), { label: 'Faixa ótima 8,0', value: 8 })}<p>A evolução mensal utiliza a mesma fórmula ponderada da calculadora exibida no painel.</p>`);
+    <div class="page-break"></div>${modernReportChart('Nota do Consumidor (MA) · Evolução mês a mês', scoreMonths.map((item) => ({ label: new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date(`${item.key}-01T12:00:00`)).replace('.', ''), value: item.value, display: item.value.toFixed(1) })), { label: `Meta ${RA_TARGETS.indicatorMA}`, value: RA_TARGETS.indicatorMA })}<p>A série mensal evidencia a estabilidade da experiência ao longo do tempo. Meses abaixo da meta devem ser cruzados com os casos listados na primeira página antes da definição das próximas tratativas.</p>`);
 }
 
 export function openA4PrintWindow(title: string, html: string) {

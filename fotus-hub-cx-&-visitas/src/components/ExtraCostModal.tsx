@@ -1,7 +1,7 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
-import type { CurrentUser } from '../lib/currentUser';
+import { User } from 'firebase/auth';
 import { Building2, CalendarDays, FileText, Hash, Package, Receipt, Save, Tag, UserRound, X } from 'lucide-react';
-import { createData, updateData } from '../lib/dataMutations';
+import { addDoc, collection, db, doc, updateDoc } from '../lib/firebase';
 import { EXTRA_COST_ORIGINS, EXTRA_COST_REASON_CATEGORIES, EXTRA_COST_REGIONALS, monthYearFromDate, totalExtraCost } from '../lib/extraCosts';
 import { ExtraCost, ExtraCostResponsible } from '../types';
 
@@ -9,7 +9,7 @@ interface ExtraCostModalProps {
   isOpen: boolean;
   onClose: () => void;
   cost: ExtraCost | null;
-  currentUser: CurrentUser;
+  currentUser: User;
 }
 
 const today = () => {
@@ -81,9 +81,9 @@ export default function ExtraCostModal({ isOpen, onClose, cost, currentUser }: E
 
     try {
       if (cost) {
-        await updateData(currentUser, 'extra_costs', cost.id, payload);
+        await updateDoc(doc(db, 'extra_costs', cost.id), payload);
       } else {
-        await createData(currentUser, 'extra_costs', {
+        await addDoc(collection(db, 'extra_costs'), {
           ...payload,
           createdByEmail: currentUser.email || '',
           createdByName: currentUser.displayName || currentUser.email || '',
@@ -93,7 +93,7 @@ export default function ExtraCostModal({ isOpen, onClose, cost, currentUser }: E
       onClose();
     } catch (error) {
       console.error('Erro ao salvar custo extra:', error);
-      setErrorMessage('Não foi possível salvar. Confira sua conexão e suas permissões.');
+      setErrorMessage('Não foi possível salvar. Publique as novas regras do Firestore e tente novamente.');
     } finally {
       setSaving(false);
     }

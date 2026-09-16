@@ -1,5 +1,5 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
-import type { CurrentUser } from '../lib/currentUser';
+import { User } from 'firebase/auth';
 import {
   BarChart3,
   Building2,
@@ -10,7 +10,6 @@ import {
   CircleDollarSign,
   CircleDot,
   Clock3,
-  FileSpreadsheet,
   FileUp,
   LineChart,
   LoaderCircle,
@@ -24,8 +23,7 @@ import {
   Truck,
   UsersRound,
 } from 'lucide-react';
-import { updateData } from '../lib/dataMutations';
-import { exportOccurrencesExcel } from '../lib/excelExport';
+import { db, doc, updateDoc } from '../lib/firebase';
 import { readOccurrencesSpreadsheet, saveImportedOccurrences } from '../lib/occurrenceImport';
 import { Occurrence, OccurrenceStage, OrganizationUnit } from '../types';
 import OccurrenceModal from './OccurrenceModal';
@@ -34,7 +32,7 @@ import PillBarChart from './PillBarChart';
 interface OccurrencesViewProps {
   occurrences: Occurrence[];
   organizationUnits: OrganizationUnit[];
-  currentUser: CurrentUser;
+  currentUser: User;
   agents: string[];
   canManageAgents: boolean;
   onEditAgents: () => void;
@@ -116,17 +114,6 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
   const spreadsheetInput = useRef<HTMLInputElement>(null);
 
   const periodRange = useMemo(() => dateRangeForPreset(datePreset, customStart, customEnd), [customEnd, customStart, datePreset]);
-  const periodLabel = datePreset === 'all'
-    ? 'Todo o histórico'
-    : datePreset === 'month'
-      ? 'Mês atual'
-      : datePreset === 'today'
-        ? 'Hoje'
-        : datePreset === 'week'
-          ? 'Últimos 7 dias'
-          : datePreset === 'fortnight'
-            ? 'Últimos 15 dias'
-            : `${customStart ? displayDate(customStart) : 'início'} a ${customEnd ? displayDate(customEnd) : 'hoje'}`;
   const periodOccurrences = useMemo(() => occurrences.filter((occurrence) => {
     if (!occurrence.date && (periodRange.start || periodRange.end)) return false;
     if (periodRange.start && occurrence.date < periodRange.start) return false;
@@ -226,7 +213,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
 
   const changeStage = async (occurrence: Occurrence, stage: OccurrenceStage) => {
     try {
-      await updateData(currentUser, 'occurrences', occurrence.id, { ...occurrence, stage, updatedAt: Date.now() });
+      await updateDoc(doc(db, 'occurrences', occurrence.id), { stage, updatedAt: Date.now() });
     } catch (error) {
       console.error('Erro ao atualizar etapa:', error);
     }
@@ -244,7 +231,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
     try {
       const imported = await readOccurrencesSpreadsheet(file, currentUser);
       const confirmed = window.confirm(
-        `Encontramos ${imported.length} ocorrências na planilha. Deseja enviá-las agora para a base central?`,
+        `Encontramos ${imported.length} ocorrências na planilha. Deseja enviá-las agora para o Firestore?`,
       );
 
       if (!confirmed) {
@@ -252,7 +239,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
         return;
       }
 
-      const saved = await saveImportedOccurrences(imported, currentUser, (current, total) => {
+      const saved = await saveImportedOccurrences(imported, (current, total) => {
         setImportMessage(`Importando ${current} de ${total} ocorrências...`);
       });
       setImportMessage(`${saved} ocorrências da planilha foram sincronizadas com sucesso. As datas foram normalizadas no padrão brasileiro.`);
@@ -309,7 +296,6 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
           <button onClick={() => setShowInsights((current) => !current)} className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-extrabold transition-all ${showInsights ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-[#385041]/20 bg-white text-[#385041] hover:bg-[#eef5eb]'}`}>
             <Sparkles className="h-4 w-4" /> Insights Gerais
           </button>
-          <button onClick={() => exportOccurrencesExcel(filtered, periodLabel)} className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-extrabold text-emerald-700 transition-all hover:bg-emerald-50"><FileSpreadsheet className="h-4 w-4" />Exportar Excel</button>
           {canManageAgents && <button onClick={onEditAgents} className="flex items-center justify-center gap-2 rounded-xl border border-[#385041]/20 bg-white px-4 py-2.5 text-xs font-extrabold text-[#385041] transition-all hover:bg-[#eef5eb]" title="Editar agentes disponíveis">
             <UsersRound className="h-4 w-4" /> Editar agentes
           </button>}
@@ -332,7 +318,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
       {showInsights && (
         <section className="rounded-3xl border border-[#385041]/10 bg-gradient-to-br from-[#eef5eb] via-white to-amber-50/50 p-5 shadow-sm sm:p-6">
           <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]">Leitura instantânea</p><h2 className="mt-1 text-xl font-extrabold text-gray-950">Insights gerais das ocorrências</h2><p className="mt-1 text-xs text-gray-500">Calculados em tempo real com os cards salvos no Neon.</p></div>
+            <div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]">Leitura instantânea</p><h2 className="mt-1 text-xl font-extrabold text-gray-950">Insights gerais das ocorrências</h2><p className="mt-1 text-xs text-gray-500">Calculados em tempo real com os cards salvos no Firestore.</p></div>
             <div className="flex gap-2 text-xs"><span className="rounded-full bg-white px-3 py-1.5 font-bold text-gray-700 shadow-sm">{open} abertas</span><span className="rounded-full bg-emerald-100 px-3 py-1.5 font-bold text-emerald-800">{approved} aprovadas</span></div>
           </div>
 

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Activity, ArrowUpRight, CheckCircle2, CircleDollarSign, ClipboardList, Star, Truck } from 'lucide-react';
 import { AppSection, ExtraCost, IntegratorVisit, Occurrence, RACase } from '../types';
-import { calculateRaReputation } from '../lib/raReputation';
 import PillBarChart from './PillBarChart';
 
 interface OverviewViewProps {
@@ -10,10 +9,8 @@ interface OverviewViewProps {
   raCases: RACase[];
   visits: IntegratorVisit[];
   scopeLabel: string;
-  canViewOccurrences: boolean;
   canViewCosts: boolean;
   canViewRa: boolean;
-  canViewVisits: boolean;
   onNavigate: (tab: AppSection) => void;
 }
 
@@ -21,6 +18,10 @@ const currency = (value: number) => value.toLocaleString('pt-BR', { style: 'curr
 
 function monthKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function scoreOnTen(value: number) {
+  return value > 10 ? value / 10 : value;
 }
 
 function groupValues<T>(items: T[], labelFor: (item: T) => string, valueFor: (item: T) => number) {
@@ -34,7 +35,7 @@ function groupValues<T>(items: T[], labelFor: (item: T) => string, valueFor: (it
   return [...grouped.values()].sort((a, b) => b.value - a.value);
 }
 
-export default function OverviewView({ occurrences, costs, raCases, visits, scopeLabel, canViewOccurrences, canViewCosts, canViewRa, canViewVisits, onNavigate }: OverviewViewProps) {
+export default function OverviewView({ occurrences, costs, raCases, visits, scopeLabel, canViewCosts, canViewRa, onNavigate }: OverviewViewProps) {
   const [period, setPeriod] = useState<'month' | 'year'>('month');
   const now = new Date();
   const currentMonth = monthKey(now);
@@ -46,7 +47,8 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
   const extraCostTotal = periodCosts.reduce((sum, item) => sum + item.totalCost, 0);
   const finalized = periodOccurrences.filter((item) => item.stage === 'Finalizada').length;
   const open = periodOccurrences.length - finalized;
-  const raReputation = calculateRaReputation(raCases);
+  const scoredRa = raCases.map((item) => item.finalScore).filter((value): value is number => typeof value === 'number');
+  const averageRa = scoredRa.length ? scoredRa.reduce((sum, value) => sum + scoreOnTen(value), 0) / scoredRa.length : null;
   const damageByCarrier = groupValues(damageOccurrences, (item) => item.carrier, (item) => item.damageAmount || 0).slice(0, 5);
   const maxDamage = damageByCarrier[0]?.value || 1;
 
@@ -70,20 +72,20 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
         </div>
 
         <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4 sm:p-6">
-          {canViewOccurrences ? <OverviewMetric label="Ocorrências no período" value={periodOccurrences.length.toLocaleString('pt-BR')} supporting={`${open} abertas · ${finalized} finalizadas`} icon={ClipboardList} tone="bg-blue-50 text-blue-700" onClick={() => onNavigate('ocorrencias')} /> : <RestrictedMetric label="Ocorrências" />}
-          {canViewOccurrences ? <OverviewMetric label="Custo de avarias" value={currency(damageTotal)} supporting={`${damageOccurrences.length} avarias registradas`} icon={Truck} tone="bg-amber-50 text-amber-700" onClick={() => onNavigate('ocorrencias')} /> : <RestrictedMetric label="Avarias" />}
+          <OverviewMetric label="Ocorrências no período" value={periodOccurrences.length.toLocaleString('pt-BR')} supporting={`${open} abertas · ${finalized} finalizadas`} icon={ClipboardList} tone="bg-blue-50 text-blue-700" onClick={() => onNavigate('ocorrencias')} />
+          <OverviewMetric label="Custo de avarias" value={currency(damageTotal)} supporting={`${damageOccurrences.length} avarias registradas`} icon={Truck} tone="bg-amber-50 text-amber-700" onClick={() => onNavigate('ocorrencias')} />
           {canViewCosts ? <OverviewMetric label="Custos extras" value={currency(extraCostTotal)} supporting={`${periodCosts.length} registros no período`} icon={CircleDollarSign} tone="bg-red-50 text-red-700" onClick={() => onNavigate('custos')} /> : <RestrictedMetric label="Custo Extra" />}
-          {canViewRa ? <OverviewMetric label="Reclame Aqui" value={raReputation.finalScore === null ? 'Sem nota' : `${raReputation.finalScore.toFixed(1)} / 10`} supporting={`${raReputation.classification} · ${raCases.length} reclamações`} icon={Star} tone="bg-emerald-50 text-emerald-700" onClick={() => onNavigate('ra')} /> : <RestrictedMetric label="Reclame Aqui" />}
+          {canViewRa ? <OverviewMetric label="Reclame Aqui" value={averageRa === null ? 'Sem nota' : `${averageRa.toFixed(1)} / 10`} supporting={`${raCases.length} reclamações visíveis`} icon={Star} tone="bg-emerald-50 text-emerald-700" onClick={() => onNavigate('ra')} /> : <RestrictedMetric label="Reclame Aqui" />}
         </div>
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[1.55fr_1fr]">
-        {canViewOccurrences ? <section className="rounded-3xl border border-white/90 bg-white/85 p-5 shadow-sm sm:p-6">
+        <section className="rounded-3xl border border-white/90 bg-white/85 p-5 shadow-sm sm:p-6">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"><div><h3 className="text-sm font-extrabold text-gray-950">Ritmo mensal das ocorrências</h3><p className="mt-1 text-[11px] text-gray-500">Cada coluna é um mês; a faixa verde representa o que já foi finalizado.</p></div><span className="mt-2 w-fit rounded-full bg-[#eef5eb] px-3 py-1 text-[10px] font-extrabold text-[#385041] sm:mt-0">{currentTrend?.total || 0} cards neste mês</span></div>
           <div className="mt-5"><PillBarChart data={monthlyTrend.map((item) => ({ key: item.key, label: item.label, value: item.total, secondaryValue: item.closed, tooltip: `${item.label}: ${item.total} ocorrências, ${item.closed} finalizadas` }))} ariaLabel={`Ritmo mensal das ocorrências em ${now.getFullYear()}`} valueFormatter={(value) => `${value} cards`} primaryLabel="Ocorrências" secondaryLabel="Finalizadas" emptyMessage="Ainda não há ocorrências cadastradas neste ano." /></div>
-        </section> : <RestrictedPanel title="Ritmo mensal das ocorrências" />}
+        </section>
 
-        {canViewOccurrences ? <section className="rounded-3xl border border-white/90 bg-white/85 p-5 shadow-sm sm:p-6">
+        <section className="rounded-3xl border border-white/90 bg-white/85 p-5 shadow-sm sm:p-6">
           <h3 className="text-sm font-extrabold text-gray-950">Impacto financeiro por transportadora</h3>
           <p className="mt-1 text-[11px] text-gray-500">Ranking calculado apenas com ocorrências marcadas como avaria.</p>
           <div className="mt-5 space-y-4">
@@ -91,13 +93,13 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
             {!damageByCarrier.length && <div className="rounded-2xl border border-dashed border-gray-300 p-7 text-center text-xs text-gray-500">Marque os novos registros como avaria e informe o valor para formar este ranking.</div>}
           </div>
           <button onClick={() => onNavigate('ocorrencias')} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[#385041]/20 px-4 py-2.5 text-xs font-extrabold text-[#385041] hover:bg-[#eef5eb]">Abrir análise completa <ArrowUpRight className="h-4 w-4" /></button>
-        </section> : <RestrictedPanel title="Impacto financeiro por transportadora" />}
+        </section>
       </div>
 
       <section className="grid gap-3 sm:grid-cols-3">
-        {canViewOccurrences ? <QuickStatus label="Taxa de conclusão" value={`${periodOccurrences.length ? Math.round((finalized / periodOccurrences.length) * 100) : 0}%`} detail="das ocorrências do período" icon={CheckCircle2} /> : <RestrictedMetric label="Taxa de conclusão" />}
-        {canViewVisits ? <QuickStatus label="Visitas agendadas" value={visits.filter((item) => item.status === 'Agendada').length.toLocaleString('pt-BR')} detail="na agenda visível" icon={Activity} /> : <RestrictedMetric label="Visitas" />}
-        {canViewOccurrences ? <QuickStatus label="Maior causa atual" value={groupValues(periodOccurrences, (item) => item.occurrenceType, () => 1)[0]?.label || 'Sem dados'} detail="tipo mais frequente" icon={ClipboardList} /> : <RestrictedMetric label="Causas das ocorrências" />}
+        <QuickStatus label="Taxa de conclusão" value={`${periodOccurrences.length ? Math.round((finalized / periodOccurrences.length) * 100) : 0}%`} detail="das ocorrências do período" icon={CheckCircle2} />
+        <QuickStatus label="Visitas agendadas" value={visits.filter((item) => item.status === 'Agendada').length.toLocaleString('pt-BR')} detail="na agenda visível" icon={Activity} />
+        <QuickStatus label="Maior causa atual" value={groupValues(periodOccurrences, (item) => item.occurrenceType, () => 1)[0]?.label || 'Sem dados'} detail="tipo mais frequente" icon={ClipboardList} />
       </section>
     </div>
   );
@@ -109,14 +111,6 @@ function OverviewMetric({ label, value, supporting, icon: Icon, tone, onClick }:
 
 function RestrictedMetric({ label }: { label: string }) {
   return <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/70 p-4"><span className="text-[9px] font-extrabold uppercase tracking-wider text-gray-400">{label}</span><strong className="mt-2 block text-sm text-gray-600">Área restrita</strong><span className="mt-1 block text-[10px] leading-relaxed text-gray-400">O administrador controla a visibilidade desta informação.</span></div>;
-}
-
-function RestrictedPanel({ title }: { title: string }) {
-  return <section className="flex min-h-64 items-center justify-center rounded-3xl border border-dashed border-gray-200 bg-white/55 p-6 text-center"><div><ShieldCheckIcon /><h3 className="mt-3 text-sm font-extrabold text-gray-700">{title}</h3><p className="mt-1 text-[11px] text-gray-400">Esta análise não está liberada para o seu perfil.</p></div></section>;
-}
-
-function ShieldCheckIcon() {
-  return <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-100 text-gray-400"><ClipboardList className="h-5 w-5" /></span>;
 }
 
 function QuickStatus({ label, value, detail, icon: Icon }: { label: string; value: string; detail: string; icon: typeof Activity }) {

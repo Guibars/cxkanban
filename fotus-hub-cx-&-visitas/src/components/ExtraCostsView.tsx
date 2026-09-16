@@ -1,16 +1,15 @@
 import { ChangeEvent, useMemo, useRef, useState } from 'react';
-import type { CurrentUser } from '../lib/currentUser';
-import { BarChart3, Building2, CalendarDays, CircleDollarSign, FileSpreadsheet, FileText, FileUp, LoaderCircle, Pencil, Plus, Receipt, Search, Sparkles, Tag, UserRound } from 'lucide-react';
+import { User } from 'firebase/auth';
+import { BarChart3, Building2, CalendarDays, CircleDollarSign, FileText, FileUp, LoaderCircle, Pencil, Plus, Receipt, Search, Sparkles, Tag, UserRound } from 'lucide-react';
 import { ExtraCost } from '../types';
 import { readExtraCostsSpreadsheet, saveImportedExtraCosts } from '../lib/extraCostImport';
 import { buildExtraCostsReport, openA4PrintWindow } from '../lib/reportPrint';
-import { exportExtraCostsExcel } from '../lib/excelExport';
 import ExtraCostModal from './ExtraCostModal';
 import PillBarChart from './PillBarChart';
 
 interface ExtraCostsViewProps {
   costs: ExtraCost[];
-  currentUser: CurrentUser;
+  currentUser: User;
 }
 
 const currency = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -47,8 +46,6 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
   const [search, setSearch] = useState('');
   const [responsibleFilter, setResponsibleFilter] = useState<'Todos' | 'Comercial' | 'Cliente'>('Todos');
   const [monthFilter, setMonthFilter] = useState(currentMonthKey());
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
   const [showInsights, setShowInsights] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCost, setEditingCost] = useState<ExtraCost | null>(null);
@@ -62,15 +59,12 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
     const query = search.trim().toLocaleLowerCase('pt-BR');
     return costs.filter((cost) => {
       if (responsibleFilter !== 'Todos' && cost.responsible !== responsibleFilter) return false;
-      if (monthFilter === 'Personalizado') {
-        if (customStart && cost.date < customStart) return false;
-        if (customEnd && cost.date > customEnd) return false;
-      } else if (monthFilter !== 'Todos' && cost.monthYear !== monthFilter) return false;
+      if (monthFilter !== 'Todos' && cost.monthYear !== monthFilter) return false;
       if (!query) return true;
       return [cost.orderNumber, cost.regional, cost.product, cost.origin, cost.reasonCategory, cost.detailedReason]
         .some((value) => value.toLocaleLowerCase('pt-BR').includes(query));
     });
-  }, [costs, customEnd, customStart, monthFilter, responsibleFilter, search]);
+  }, [costs, monthFilter, responsibleFilter, search]);
 
   const total = filtered.reduce((sum, cost) => sum + cost.totalCost, 0);
   const average = filtered.length ? total / filtered.length : 0;
@@ -89,12 +83,6 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
     origin: aggregateCost(filtered, (cost) => cost.origin),
     category: aggregateCost(filtered, (cost) => cost.reasonCategory),
   }), [filtered]);
-
-  const periodLabel = monthFilter === 'Todos'
-    ? 'Todo o histórico'
-    : monthFilter === 'Personalizado'
-      ? `${customStart ? displayDate(customStart) : 'início'} a ${customEnd ? displayDate(customEnd) : 'hoje'}`
-      : monthFilter === currentMonthKey() ? 'Mês atual' : monthLabel(monthFilter);
 
   const annualMonths = useMemo(() => {
     const year = new Date().getFullYear();
@@ -118,11 +106,11 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
     setImportMessage('Lendo a base de custos extras...');
     try {
       const imported = await readExtraCostsSpreadsheet(file, currentUser);
-      if (!window.confirm(`Encontramos ${imported.length} custos extras na planilha. Deseja enviá-los à base central?`)) {
+      if (!window.confirm(`Encontramos ${imported.length} custos extras na planilha. Deseja enviá-los ao Firestore?`)) {
         setImportMessage('Importação cancelada. Nenhum registro foi enviado.');
         return;
       }
-      const saved = await saveImportedExtraCosts(imported, currentUser, (current, amount) => setImportMessage(`Importando ${current} de ${amount} registros...`));
+      const saved = await saveImportedExtraCosts(imported, (current, amount) => setImportMessage(`Importando ${current} de ${amount} registros...`));
       setImportMessage(`${saved} custos extras foram sincronizados com sucesso.`);
     } catch (error) {
       console.error('Erro ao importar custos extras:', error);
@@ -164,15 +152,12 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
         </div>
         <div className="flex max-w-full gap-1.5 overflow-x-auto rounded-2xl border border-white/90 bg-white/60 p-1.5">
           <button onClick={() => setMonthFilter('Todos')} className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold ${monthFilter === 'Todos' ? 'bg-[#123e5b] text-white shadow-sm' : 'text-gray-600 hover:bg-white'}`}>Todos</button>
-          <button onClick={() => setMonthFilter('Personalizado')} className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold ${monthFilter === 'Personalizado' ? 'bg-[#123e5b] text-white shadow-sm' : 'text-gray-600 hover:bg-white'}`}>Escolher período</button>
           {monthOptions.map((month) => <button key={month} onClick={() => setMonthFilter(month)} className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold capitalize ${monthFilter === month ? 'bg-[#123e5b] text-white shadow-sm' : 'text-gray-600 hover:bg-white'}`}>{month === currentMonthKey() ? 'Mês atual' : monthLabel(month)}</button>)}
         </div>
-        {monthFilter === 'Personalizado' && <div className="flex flex-col gap-2 sm:flex-row"><label className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[10px] font-bold text-gray-500">De <input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} className="ml-2 bg-transparent text-xs text-gray-800 outline-none" /></label><label className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[10px] font-bold text-gray-500">Até <input type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} className="ml-2 bg-transparent text-xs text-gray-800 outline-none" /></label></div>}
         <div className="flex flex-col gap-2 sm:flex-row">
           <label className="relative min-w-0 flex-1 sm:w-72"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Pedido, regional, produto, motivo..." className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#385041]" /></label>
           <button onClick={() => setShowInsights((current) => !current)} className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-extrabold ${showInsights ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-[#385041]/20 bg-white text-[#385041]'}`}><Sparkles className="h-4 w-4" />Insights</button>
           <button onClick={generateReport} className="flex items-center justify-center gap-2 rounded-xl border border-[#123e5b]/20 bg-white px-4 py-2.5 text-xs font-extrabold text-[#123e5b] transition-all hover:bg-[#eff5f8]"><FileText className="h-4 w-4" />Gerar relatório PDF</button>
-          <button onClick={() => exportExtraCostsExcel(filtered, periodLabel)} className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-extrabold text-emerald-700 transition-all hover:bg-emerald-50"><FileSpreadsheet className="h-4 w-4" />Exportar Excel</button>
           <input ref={spreadsheetInput} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={importSpreadsheet} className="hidden" />
           <button disabled={isImporting} onClick={() => spreadsheetInput.current?.click()} className="flex items-center justify-center gap-2 rounded-xl border border-[#385041]/20 bg-white px-4 py-2.5 text-xs font-extrabold text-[#385041] disabled:opacity-60">{isImporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}{isImporting ? 'Importando...' : 'Importar planilha'}</button>
           <button onClick={openNew} className="flex items-center justify-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-extrabold text-white"><Plus className="h-4 w-4" />Novo custo</button>
@@ -184,7 +169,7 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
 
       {showInsights && (
         <section className="rounded-3xl border border-[#385041]/10 bg-gradient-to-br from-[#eef5eb] via-white to-amber-50/50 p-5 shadow-sm sm:p-6">
-          <div className="mb-5"><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]">Painel consolidado</p><h2 className="mt-1 text-xl font-extrabold text-gray-950">Onde os custos extras estão concentrados</h2><p className="mt-1 text-xs text-gray-500">Indicadores atualizados automaticamente com os registros do Neon.</p></div>
+          <div className="mb-5"><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]">Painel consolidado</p><h2 className="mt-1 text-xl font-extrabold text-gray-950">Onde os custos extras estão concentrados</h2><p className="mt-1 text-xs text-gray-500">Indicadores atualizados automaticamente com os registros do Firestore.</p></div>
           {costs.length === 0 ? <div className="rounded-2xl border border-dashed border-gray-300 bg-white/60 p-8 text-center text-sm text-gray-500">Importe a planilha ou cadastre o primeiro custo para visualizar os insights.</div> : (
             <div className="grid gap-4 xl:grid-cols-3">
               <div className="grid gap-4 sm:grid-cols-2 xl:col-span-2">
@@ -195,7 +180,7 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
               </div>
               <div className="rounded-2xl border border-white bg-white/85 p-4 shadow-sm">
                 <h3 className="flex items-center gap-2 text-xs font-extrabold text-gray-800"><CalendarDays className="h-4 w-4 text-[#385041]" />Resumo do período selecionado</h3>
-                <div className="mt-4 space-y-2"><SummaryRow label="Período" value={periodLabel} /><SummaryRow label="Registros" value={filtered.length.toLocaleString('pt-BR')} /><SummaryRow label="Total" value={currency(total)} /><SummaryRow label="Custo médio" value={currency(average)} /></div>
+                <div className="mt-4 space-y-2"><SummaryRow label="Período" value={monthFilter === 'Todos' ? 'Todos os meses' : monthFilter === currentMonthKey() ? 'Mês atual' : monthLabel(monthFilter)} /><SummaryRow label="Registros" value={filtered.length.toLocaleString('pt-BR')} /><SummaryRow label="Total" value={currency(total)} /><SummaryRow label="Custo médio" value={currency(average)} /></div>
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center"><CostType label="Produto" value={filtered.reduce((sum, cost) => sum + cost.productCost, 0)} /><CostType label="Logística" value={filtered.reduce((sum, cost) => sum + cost.logisticsCost, 0)} /><CostType label="Impostos" value={filtered.reduce((sum, cost) => sum + cost.taxCost, 0)} /></div>
               </div>
             </div>
@@ -208,7 +193,7 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
         <div className="rounded-3xl border border-dashed border-gray-300 bg-white/60 px-6 py-16 text-center"><CircleDollarSign className="mx-auto h-12 w-12 text-gray-300" /><h3 className="mt-4 text-base font-extrabold text-gray-800">Nenhum custo extra cadastrado</h3><p className="mx-auto mt-1 max-w-lg text-xs text-gray-500">Importe o histórico da planilha ou registre o primeiro gasto não previsto.</p><div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row"><button onClick={() => spreadsheetInput.current?.click()} className="flex items-center justify-center gap-2 rounded-xl border border-[#385041]/20 bg-white px-4 py-2.5 text-xs font-bold text-[#385041]"><FileUp className="h-4 w-4" />Importar histórico</button><button onClick={openNew} className="rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white">Cadastrar primeiro custo</button></div></div>
       ) : (
         <section className="overflow-hidden rounded-3xl border border-white/90 bg-white/80 shadow-sm">
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4"><div><h2 className="text-sm font-extrabold text-gray-900">Registros de custos extras</h2><p className="text-[11px] text-gray-500">{filtered.length} de {costs.length} registros exibidos · {periodLabel}</p></div><strong className="text-sm text-[#385041]">{currency(filtered.reduce((sum, cost) => sum + cost.totalCost, 0))}</strong></div>
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4"><div><h2 className="text-sm font-extrabold text-gray-900">Registros de custos extras</h2><p className="text-[11px] text-gray-500">{filtered.length} de {costs.length} registros exibidos · {monthFilter === 'Todos' ? 'todos os meses' : monthFilter === currentMonthKey() ? 'mês atual' : monthLabel(monthFilter)}</p></div><strong className="text-sm text-[#385041]">{currency(filtered.reduce((sum, cost) => sum + cost.totalCost, 0))}</strong></div>
           <div className="divide-y divide-gray-100">{filtered.map((cost) => (
             <article key={cost.id} className={`grid gap-3 px-5 py-4 transition-colors hover:bg-gray-50/70 lg:grid-cols-[130px_1.1fr_0.9fr_0.8fr_150px_40px] lg:items-center ${cost.totalCost > 1000 ? 'bg-orange-50/45' : ''}`}>
               <div><span className="text-[9px] font-extrabold uppercase text-gray-400">{displayDate(cost.date)}</span><strong className="mt-0.5 block text-xs text-gray-900">#{cost.orderNumber}</strong></div>

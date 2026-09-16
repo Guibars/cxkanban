@@ -15,32 +15,8 @@ service cloud.firestore {
       return isAuthorizedUser() && request.auth.token.email == 'guilhermebarbosars@gmail.com';
     }
 
-    function isMasterOperator() {
-      return isAuthorizedUser()
-        && request.auth.token.email in [
-          'guilhermebarbosars@gmail.com',
-          'matheus.gaspar@fotus.com.br'
-        ];
-    }
-
-    function hasSectionAccess(section) {
-      return isMasterOperator()
-        || (
-          isAuthorizedUser()
-          && !exists(/databases/$(database)/documents/user_access/$(request.auth.token.email))
-          && section in ['visao-geral', 'ocorrencias', 'visitas']
-        )
-        || (
-          isAuthorizedUser()
-          && exists(/databases/$(database)/documents/user_access/$(request.auth.token.email))
-          && get(/databases/$(database)/documents/user_access/$(request.auth.token.email)).data.active == true
-          && get(/databases/$(database)/documents/user_access/$(request.auth.token.email)).data.visibleTabs is list
-          && get(/databases/$(database)/documents/user_access/$(request.auth.token.email)).data.visibleTabs.hasAny([section])
-        );
-    }
-
     function canManagePeople() {
-      return isMasterOperator()
+      return isDeveloper()
         || (
           exists(/databases/$(database)/documents/user_access/$(request.auth.token.email))
           && get(/databases/$(database)/documents/user_access/$(request.auth.token.email)).data.active == true
@@ -71,14 +47,14 @@ service cloud.firestore {
     }
 
     match /ra_cases/{caseId} {
-      allow read: if hasSectionAccess('ra');
-      allow create: if hasSectionAccess('ra')
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser()
         && request.resource.data.raNumber is string
         && request.resource.data.customerName is string
         && request.resource.data.status is string
         && request.resource.data.createdByEmail == request.auth.token.email
         && hasNumericTimestamps(request.resource.data);
-      allow update: if hasSectionAccess('ra')
+      allow update: if isAuthorizedUser()
         && request.resource.data.raNumber is string
         && request.resource.data.customerName is string
         && request.resource.data.status is string
@@ -88,29 +64,29 @@ service cloud.firestore {
           || request.resource.data.createdByEmail == resource.data.createdByEmail
         )
         && request.resource.data.updatedAt is int;
-      allow delete: if hasSectionAccess('ra');
+      allow delete: if isAuthorizedUser();
     }
 
     match /integrator_visits/{visitId} {
-      allow read: if hasSectionAccess('visitas');
-      allow create: if hasSectionAccess('visitas')
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser()
         && request.resource.data.integratorName is string
         && request.resource.data.contactPerson is string
         && request.resource.data.visitDate is string
         && request.resource.data.status is string
         && request.resource.data.createdByEmail == request.auth.token.email
         && hasNumericTimestamps(request.resource.data);
-      allow update: if hasSectionAccess('visitas')
+      allow update: if isAuthorizedUser()
         && request.resource.data.integratorName is string
         && request.resource.data.visitDate is string
         && request.resource.data.status is string
         && request.resource.data.createdByEmail == request.auth.token.email
         && request.resource.data.updatedAt is int;
-      allow delete: if hasSectionAccess('visitas');
+      allow delete: if isAuthorizedUser();
     }
 
     match /organization_units/{unitId} {
-      allow read: if hasSectionAccess('estrutura') || hasSectionAccess('ocorrencias');
+      allow read: if isAuthorizedUser();
       allow create: if canManagePeople()
         && request.resource.data.department is string
         && request.resource.data.teamName is string
@@ -136,7 +112,7 @@ service cloud.firestore {
     }
 
     match /organization_people/{personId} {
-      allow read: if hasSectionAccess('estrutura') || hasSectionAccess('ocorrencias');
+      allow read: if isAuthorizedUser();
       allow create: if canManagePeople()
         && request.resource.data.name is string
         && request.resource.data.email is string
@@ -162,8 +138,8 @@ service cloud.firestore {
     }
 
     match /occurrences/{occurrenceId} {
-      allow read: if hasSectionAccess('ocorrencias');
-      allow create: if hasSectionAccess('ocorrencias')
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser()
         && request.resource.data.date is string
         && request.resource.data.agentName is string
         && request.resource.data.companyName is string
@@ -181,7 +157,7 @@ service cloud.firestore {
         && (!request.resource.data.keys().hasAny(['damageAmount']) || request.resource.data.damageAmount is number)
         && (!request.resource.data.keys().hasAny(['city']) || request.resource.data.city is string)
         && hasNumericTimestamps(request.resource.data);
-      allow update: if hasSectionAccess('ocorrencias')
+      allow update: if isAuthorizedUser()
         && request.resource.data.date is string
         && request.resource.data.agentName is string
         && request.resource.data.companyName is string
@@ -192,12 +168,12 @@ service cloud.firestore {
         && (!request.resource.data.keys().hasAny(['damageAmount']) || request.resource.data.damageAmount is number)
         && (!request.resource.data.keys().hasAny(['city']) || request.resource.data.city is string)
         && request.resource.data.updatedAt is int;
-      allow delete: if hasSectionAccess('ocorrencias');
+      allow delete: if isAuthorizedUser();
     }
 
     match /extra_costs/{costId} {
-      allow read: if hasSectionAccess('custos');
-      allow create: if hasSectionAccess('custos')
+      allow read: if isAuthorizedUser();
+      allow create: if isAuthorizedUser()
         && request.resource.data.date is string
         && request.resource.data.orderNumber is string
         && request.resource.data.regional is string
@@ -212,18 +188,18 @@ service cloud.firestore {
         && request.resource.data.reasonCategory is string
         && request.resource.data.detailedReason is string
         && hasNumericTimestamps(request.resource.data);
-      allow update: if hasSectionAccess('custos')
+      allow update: if isAuthorizedUser()
         && request.resource.data.date is string
         && request.resource.data.orderNumber is string
         && request.resource.data.quantity is int
         && request.resource.data.totalCost is number
         && request.resource.data.responsible is string
         && request.resource.data.updatedAt is int;
-      allow delete: if hasSectionAccess('custos');
+      allow delete: if isAuthorizedUser();
     }
 
     match /app_settings/{settingId} {
-      allow read: if hasSectionAccess('ocorrencias');
+      allow read: if isAuthorizedUser();
       allow create, update: if canManagePeople()
         && settingId == 'occurrence_agents'
         && request.resource.data.names is list
@@ -232,15 +208,13 @@ service cloud.firestore {
     }
 
     match /user_access/{userEmail} {
-      allow read: if isMasterOperator() || (isAuthorizedUser() && userEmail == request.auth.token.email);
-      allow create, update: if isMasterOperator()
+      allow read: if isAuthorizedUser();
+      allow create, update: if isDeveloper()
         && request.resource.data.email == userEmail
         && request.resource.data.displayName is string
         && request.resource.data.role is string
         && request.resource.data.organizationUnitIds is list
         && request.resource.data.visibleTabs is list
-        && request.resource.data.visibleTabs.size() > 0
-        && request.resource.data.visibleTabs.hasOnly(['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura'])
         && request.resource.data.active is bool
         && hasNumericTimestamps(request.resource.data);
       allow delete: if false;

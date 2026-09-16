@@ -1,7 +1,7 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
-import type { CurrentUser } from '../lib/currentUser';
+import { User } from 'firebase/auth';
 import { Building2, CalendarDays, CheckCircle2, CircleDollarSign, Hash, MapPin, Package, Route, Save, ShieldAlert, Truck, UserRound, X } from 'lucide-react';
-import { createData, updateData } from '../lib/dataMutations';
+import { addDoc, collection, db, doc, updateDoc } from '../lib/firebase';
 import {
   BRAZIL_STATES,
   getRegionFromState,
@@ -15,7 +15,7 @@ interface OccurrenceModalProps {
   isOpen: boolean;
   onClose: () => void;
   occurrence: Occurrence | null;
-  currentUser: CurrentUser;
+  currentUser: User;
   organizationUnits: OrganizationUnit[];
   agents: string[];
 }
@@ -116,9 +116,9 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
 
     try {
       if (occurrence) {
-        await updateData(currentUser, 'occurrences', occurrence.id, payload);
+        await updateDoc(doc(db, 'occurrences', occurrence.id), payload);
       } else {
-        await createData(currentUser, 'occurrences', {
+        await addDoc(collection(db, 'occurrences'), {
           ...payload,
           createdByEmail: currentUser.email || '',
           createdByName: currentUser.displayName || currentUser.email || '',
@@ -128,7 +128,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
       onClose();
     } catch (error) {
       console.error('Erro ao salvar ocorrência:', error);
-      setErrorMessage('Não foi possível salvar a ocorrência. Confira sua conexão e suas permissões.');
+      setErrorMessage('Não foi possível salvar a ocorrência. Confira as regras do Firestore.');
     } finally {
       setSaving(false);
     }

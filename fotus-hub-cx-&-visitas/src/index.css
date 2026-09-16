@@ -4,9 +4,6 @@
   .field-input {
     @apply w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition-all focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10;
   }
-  .auth-input {
-    @apply w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-10 pr-4 text-sm outline-none transition-all focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10;
-  }
 }
 
 @keyframes isa-orb-breathe {

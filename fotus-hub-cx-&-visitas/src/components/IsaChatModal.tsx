@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, RefreshCw, Send, X } from 'lucide-react';
 import { CXCase, ExtraCost, IntegratorVisit, Occurrence, OrganizationPerson, OrganizationUnit, RACase } from '../types';
-import { calculateRaReputation } from '../lib/raReputation';
 
 interface IsaChatModalProps {
   isOpen: boolean;
@@ -55,6 +54,10 @@ function costRankingText(title: string, costs: ExtraCost[], selector: (cost: Ext
   return `${title}:\n${ranked.map((item, index) => `• ${index + 1}º ${item.label} — ${item.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (${item.count})`).join('\n')}`;
 }
 
+function scoreOnTen(value: number) {
+  return value > 10 ? value / 10 : value;
+}
+
 function cleanIsaText(text: string) {
   return text
     .replace(/^\s{0,3}#{1,6}\s*/gm, '')
@@ -68,12 +71,10 @@ function cleanIsaText(text: string) {
 }
 
 function buildIsaContext(cases: CXCase[], raCases: RACase[], visits: IntegratorVisit[], occurrences: Occurrence[], extraCosts: ExtraCost[], organizationUnits: OrganizationUnit[], organizationPeople: OrganizationPerson[]) {
-  const raReputation = calculateRaReputation(raCases);
   return JSON.stringify({
     generatedAt: new Date().toISOString(),
     cxCases: cases,
     reclamaAqui: raCases,
-    reclameAquiResumo: raReputation,
     visitas: visits,
     ocorrencias: occurrences,
     custosExtras: extraCosts,
@@ -213,8 +214,9 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
 
     if (query.includes('reclame') || query.includes('ra')) {
       const open = raCases.filter((item) => item.status === 'Aberto' || item.status === 'Em Andamento').length;
-      const reputation = calculateRaReputation(raCases);
-      return { text: `⭐ Reclame Aqui\n\n• Registros: ${raCases.length}\n• Em aberto ou andamento: ${open}\n• Reputação calculada: ${reputation.finalScore === null ? 'sem avaliações completas' : `${reputation.finalScore.toFixed(1)} / 10 (${reputation.classification})`}\n• Taxa de resposta: ${reputation.responseRate.toFixed(0)}%\n• Índice de solução: ${reputation.solutionRate.toFixed(0)}%\n• Nota média do cliente: ${reputation.customerScore === null ? 'sem nota' : reputation.customerScore.toFixed(1)}\n• Voltaria a fazer negócio: ${reputation.wouldDoBusinessRate === null ? 'sem resposta' : `${reputation.wouldDoBusinessRate.toFixed(0)}%`}`, suggestions: ['Resumo de todas as abas', 'Relatório geral de ocorrências'] };
+      const scored = raCases.filter((item) => typeof item.finalScore === 'number');
+      const average = scored.length ? (scored.reduce((sum, item) => sum + scoreOnTen(item.finalScore || 0), 0) / scored.length).toFixed(1) : 'sem notas';
+      return { text: `⭐ Reclame Aqui\n\n• Registros: ${raCases.length}\n• Em aberto ou andamento: ${open}\n• Média dos registros avaliados: ${average}${scored.length ? ' / 10' : ''}`, suggestions: ['Resumo de todas as abas', 'Relatório geral de ocorrências'] };
     }
 
     if (query.includes('visita') || query.includes('integrador')) {

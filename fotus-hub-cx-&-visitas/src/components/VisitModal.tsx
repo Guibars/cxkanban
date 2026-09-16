@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Building2, Calendar, Clock, User, Phone, Mail, MapPin, Users, CheckCircle2, AlertCircle } from 'lucide-react';
 import { IntegratorVisit, VisitStatus } from '../types';
-import { createData, updateData } from '../lib/dataMutations';
-import type { CurrentUser } from '../lib/currentUser';
+import { db, collection, addDoc, updateDoc, doc } from '../lib/firebase';
+import { User as AuthUser } from 'firebase/auth';
 
 interface VisitModalProps {
   isOpen: boolean;
   onClose: () => void;
   visitToEdit?: IntegratorVisit | null;
-  currentUser: CurrentUser | null;
+  currentUser: AuthUser | null;
 }
 
 const statusOptions: { value: VisitStatus; label: string; color: string }[] = [
@@ -94,11 +94,9 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
       };
 
       if (visitToEdit) {
-        if (!currentUser) throw new Error('Sessão não encontrada.');
-        await updateData(currentUser, 'integrator_visits', visitToEdit.id, visitData);
+        await updateDoc(doc(db, 'integrator_visits', visitToEdit.id), visitData);
       } else {
-        if (!currentUser) throw new Error('Sessão não encontrada.');
-        await createData(currentUser, 'integrator_visits', {
+        await addDoc(collection(db, 'integrator_visits'), {
           ...visitData,
           createdAt: Date.now(),
         });
