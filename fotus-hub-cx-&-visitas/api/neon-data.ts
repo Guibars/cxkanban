@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
-import { mutateNeon, MutationBody } from './neon-mutations';
-import { verifyNeonIdentity } from '../src/server/neonAuth';
+import { mutateNeon, type MutationBody } from './neon-mutations.js';
+import { verifyNeonIdentity } from '../src/server/neonAuth.js';
 
 type ApiRequest = {
   method?: string;

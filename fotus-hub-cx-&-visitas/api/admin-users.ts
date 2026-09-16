@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { verifyNeonIdentity } from '../src/server/neonAuth';
+import { verifyNeonIdentity } from '../src/server/neonAuth.js';
 
 type AdminAction = 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile';
 type ApiRequest = {
