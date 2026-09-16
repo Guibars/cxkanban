@@ -4,11 +4,9 @@ import {
   Building2,
   CircleDollarSign,
   ClipboardList,
-  FileText,
   LayoutDashboard,
   LogOut,
   Network,
-  Plus,
   RefreshCw,
   Settings2,
 } from 'lucide-react';
@@ -18,7 +16,6 @@ import { cn } from './lib/utils';
 import { DEFAULT_OCCURRENCE_AGENTS } from './lib/occurrences';
 import { loadNeonBootstrap } from './lib/neonData';
 import { getNeonAccessToken, neonAuth } from './lib/neonAuth';
-import { buildRaReport, openA4PrintWindow } from './lib/reportPrint';
 import {
   CXCase,
   ExtraCost,
@@ -39,6 +36,7 @@ import OccurrencesView from './components/OccurrencesView';
 import OverviewView from './components/OverviewView';
 import OrganizationView from './components/OrganizationView';
 import RaModal from './components/RaModal';
+import RaView from './components/RaView';
 import VisitModal from './components/VisitModal';
 import VisitsView from './components/VisitsView';
 
@@ -50,10 +48,6 @@ const ALL_TABS: MainTab[] = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visi
 const ISA_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1776894141/I_matvg6.png';
 const FOTUS_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1787848825/ChatGPT_Image_27_de_ago._de_2026_13_40_18_tzgwxs.png';
 const RA_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1787843527/25-reclame_mnxv8n.png';
-
-function raScoreOnTen(value: number) {
-  return value > 10 ? value / 10 : value;
-}
 
 const TAB_COPY: Record<MainTab, { title: string; subtitle: string }> = {
   'visao-geral': { title: 'Visão Geral', subtitle: 'Resumo visual das informações que você tem permissão para acompanhar' },
@@ -89,7 +83,6 @@ export default function App() {
   const [isAgentManagerOpen, setIsAgentManagerOpen] = useState(false);
   const [isAccessControlOpen, setIsAccessControlOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [raReportMessage, setRaReportMessage] = useState('');
 
   useEffect(() => {
     const sessionUser = neonSession.data?.user;
@@ -203,9 +196,6 @@ export default function App() {
   ];
   const tabs = allNavigationTabs.filter((tab) => canView(tab.id));
 
-  const scoreCases = visibleRaCases.filter((item) => typeof item.finalScore === 'number');
-  const averageRaScore = scoreCases.length ? (scoreCases.reduce((sum, item) => sum + raScoreOnTen(item.finalScore || 0), 0) / scoreCases.length).toFixed(1) : null;
-
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-[#f8fbf8] via-[#f2f6f3] to-[#e8efe9] font-sans text-gray-900">
       <aside className="sticky top-0 hidden h-screen w-[72px] shrink-0 flex-col border-r border-[#e2e8e3] bg-white/90 px-2 py-3 shadow-[4px_0_24px_rgba(44,64,51,0.035)] backdrop-blur-xl sm:flex">
@@ -259,13 +249,7 @@ export default function App() {
 
           {activeTab === 'custos' && <ExtraCostsView costs={visibleCosts} currentUser={user} />}
 
-          {activeTab === 'ra' && (
-            <div className="space-y-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-100"><img src={RA_LOGO} alt="RA" className="h-7 w-7 object-contain" /></span><div><h2 className="text-base font-extrabold text-gray-950">Ocorrências Reclame Aqui</h2><p className="text-xs text-gray-500">{averageRaScore ? `Média dos casos avaliados: ${averageRaScore} / 10` : 'Nenhum caso avaliado ainda'}</p></div></div><div className="flex flex-col gap-2 sm:flex-row"><button onClick={() => { const opened = openA4PrintWindow('Relatório Estratégico RA', buildRaReport(visibleRaCases)); setRaReportMessage(opened ? 'Relatório A4 aberto para impressão ou salvamento em PDF.' : 'Permita pop-ups para abrir o relatório A4.'); window.setTimeout(() => setRaReportMessage(''), 6000); }} className="flex items-center justify-center gap-2 rounded-xl border border-[#123e5b]/20 bg-white px-4 py-2.5 text-xs font-bold text-[#123e5b] hover:bg-[#eff5f8]"><FileText className="h-4 w-4" />Gerar relatório PDF</button><button onClick={() => { setRaCaseToEdit(null); setIsRaModalOpen(true); }} className="flex items-center justify-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white"><Plus className="h-4 w-4" />Novo chamado RA</button></div></div>
-              {raReportMessage && <div className="flex items-center gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-800"><FileText className="h-4 w-4 shrink-0" /><span>{raReportMessage}</span></div>}
-              {visibleRaCases.length === 0 ? <EmptyState icon={ArchiveRestore} title="Nenhum chamado RA registrado" description="Os exemplos foram removidos. Registre o primeiro chamado real quando necessário." action="Abrir primeiro chamado" onAction={() => { setRaCaseToEdit(null); setIsRaModalOpen(true); }} /> : <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{visibleRaCases.map((caseItem) => <article key={caseItem.id} onClick={() => { setRaCaseToEdit(caseItem); setIsRaModalOpen(true); }} className="cursor-pointer rounded-2xl border border-white/90 bg-white/80 p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"><div className="mb-3 flex items-center justify-between"><span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-extrabold text-gray-700">{caseItem.status}</span>{typeof caseItem.finalScore === 'number' && <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700">Nota {raScoreOnTen(caseItem.finalScore).toFixed(1)}</span>}</div><p className="text-[10px] font-bold uppercase text-gray-400">ID Reclamação</p><h3 className="text-base font-extrabold text-gray-950">{caseItem.raNumber}</h3><div className="mt-3 rounded-xl bg-gray-50 p-3"><p className="text-xs font-bold text-gray-800">{caseItem.customerName}</p><p className="mt-0.5 truncate text-[11px] text-gray-500">{caseItem.phone || caseItem.email || 'Sem contato informado'}</p></div>{caseItem.information && <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-gray-500">{caseItem.information}</p>}</article>)}</div>}
-            </div>
-          )}
+          {activeTab === 'ra' && <RaView cases={visibleRaCases} currentUser={user} onNew={() => { setRaCaseToEdit(null); setIsRaModalOpen(true); }} onEdit={(item) => { setRaCaseToEdit(item); setIsRaModalOpen(true); }} />}
 
           {activeTab === 'visitas' && <VisitsView visits={visits} currentUser={user} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} />}
           {activeTab === 'estrutura' && <OrganizationView units={organizationUnits} people={organizationPeople} currentUser={user} canManage={canManageAgents} canDeleteLegacy={access.isDeveloper} />}
@@ -279,8 +263,4 @@ export default function App() {
       </div>
     </div>
   );
-}
-
-function EmptyState({ icon: Icon, title, description, action, onAction }: { icon: typeof ArchiveRestore; title: string; description: string; action: string; onAction: () => void }) {
-  return <div className="rounded-3xl border border-dashed border-gray-300 bg-white/60 px-6 py-16 text-center"><Icon className="mx-auto h-12 w-12 text-gray-300" /><h3 className="mt-4 text-base font-extrabold text-gray-800">{title}</h3><p className="mx-auto mt-1 max-w-lg text-xs text-gray-500">{description}</p><button onClick={onAction} className="mt-5 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white">{action}</button></div>;
 }

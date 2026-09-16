@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import type { CurrentUser } from '../lib/currentUser';
-import { ArchiveRestore, Building2, Check, CircleDollarSign, ClipboardList, Copy, KeyRound, LayoutDashboard, LoaderCircle, Mail, Network, RefreshCw, Save, Search, SearchCheck, Send, ShieldCheck, UserCog, UserPlus, X } from 'lucide-react';
+import { ArchiveRestore, Building2, Check, CircleDollarSign, ClipboardList, Copy, KeyRound, LayoutDashboard, LoaderCircle, Mail, Network, RefreshCw, Save, Search, SearchCheck, Send, ShieldCheck, Trash2, UserCog, UserPlus, X } from 'lucide-react';
 import { neonAuth } from '../lib/neonAuth';
 import { AppSection, OrganizationUnit, UserAccessProfile, UserAccessRole } from '../types';
 
@@ -65,7 +65,7 @@ interface ManagedUser {
   account?: AuthAccountStatus;
 }
 
-async function requestMasterAction<T = AuthAccountStatus>(currentUser: CurrentUser, action: 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile', email = '', displayName = '', profile?: Record<string, unknown>) {
+async function requestMasterAction<T = AuthAccountStatus>(currentUser: CurrentUser, action: 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile' | 'delete-profile', email = '', displayName = '', profile?: Record<string, unknown>) {
   const idToken = await currentUser.getIdToken();
   const response = await fetch('/api/admin-users', {
     method: 'POST',
@@ -363,6 +363,28 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
     }
   };
 
+  const removeProfile = async () => {
+    const email = form.email.trim().toLowerCase();
+    if (!editingId || !email || email === (currentUser.email || '').trim().toLowerCase()) return;
+    if (!window.confirm(`Remover o acesso de ${form.displayName || email}? Os cards e históricos criados por esta pessoa serão preservados.`)) return;
+    setSaving(true);
+    setMessage('');
+    try {
+      await requestMasterAction<{ deleted: boolean }>(currentUser, 'delete-profile', email);
+      setServerProfiles((current) => current.filter((profile) => profile.email.toLowerCase() !== email));
+      window.dispatchEvent(new Event('fotus:data-changed'));
+      setEditingId(null);
+      setForm(EMPTY_FORM);
+      setAuthStatus(null);
+      setResetLink('');
+      setMessage('Perfil removido. Os dados operacionais foram preservados e o e-mail poderá ser cadastrado novamente.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Não foi possível remover o perfil.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-6">
       <div className="grid max-h-[94vh] w-full max-w-6xl overflow-hidden rounded-3xl border border-white bg-white shadow-2xl lg:grid-cols-[340px_1fr]">
@@ -458,7 +480,8 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
             </label>
           </div>
 
-          <div className="sticky bottom-0 flex justify-end gap-2 border-t border-gray-100 bg-white/95 px-5 py-4 backdrop-blur-xl sm:px-7">
+          <div className="sticky bottom-0 flex items-center gap-2 border-t border-gray-100 bg-white/95 px-5 py-4 backdrop-blur-xl sm:px-7">
+            {editingId && form.email.trim().toLowerCase() !== (currentUser.email || '').trim().toLowerCase() && <button type="button" onClick={() => void removeProfile()} disabled={saving} className="mr-auto flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"><Trash2 className="h-4 w-4" />Excluir perfil</button>}
             <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100">Fechar</button>
             <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-[#385041] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar acesso'}</button>
           </div>

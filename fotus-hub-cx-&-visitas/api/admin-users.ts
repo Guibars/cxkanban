@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { verifyNeonIdentity } from '../src/server/neonAuth.js';
 
-type AdminAction = 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile';
+type AdminAction = 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile' | 'delete-profile';
 type ApiRequest = {
   method?: string;
   headers?: Record<string, string | string[] | undefined>;
@@ -13,7 +13,7 @@ type ApiResponse = {
   setHeader?: (name: string, value: string) => void;
 };
 
-const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com', 'matheus.gaspar@fotus.com.br']);
+const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com']);
 const SECTION_KEYS = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura'];
 
 function getPool() {
@@ -110,6 +110,24 @@ async function listAuthAccounts(email?: string) {
   return result.rows.map((row) => ({ exists: true, ...row }));
 }
 
+async function deleteAccessProfile(email: string, operatorEmail: string) {
+  if (email === 'guilhermebarbosars@gmail.com' || email === operatorEmail) throw new Error('cannot-delete-primary');
+  const client = await getPool().connect();
+  try {
+    await client.query('begin');
+    const deleted = await client.query<{ id: string }>('delete from public.app_users where email=$1 returning id', [email]);
+    if (deleted.rowCount) await client.query(`insert into public.audit_events (actor_email,action,entity_type,entity_id,after_data)
+      values ($1,'delete_profile','app_user',$2,$3::jsonb)`, [operatorEmail, email, JSON.stringify({ email })]);
+    await client.query('commit');
+    return Boolean(deleted.rowCount);
+  } catch (error) {
+    await client.query('rollback');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 function validateProfile(email: string, profile: unknown) {
   if (!profile || typeof profile !== 'object') throw new Error('invalid-profile');
   const data = profile as Record<string, unknown>;
@@ -143,13 +161,18 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     const action = request.body?.action as AdminAction;
     const email = typeof request.body?.email === 'string' ? request.body.email.trim().toLowerCase() : '';
     const displayName = typeof request.body?.displayName === 'string' ? request.body.displayName.trim() : '';
-    if (!['ensure-user', 'inspect', 'list-users', 'reset-link', 'save-profile'].includes(action)) return response.status(400).json({ error: 'Ação inválida.' });
+    if (!['ensure-user', 'inspect', 'list-users', 'reset-link', 'save-profile', 'delete-profile'].includes(action)) return response.status(400).json({ error: 'Ação inválida.' });
 
     if (action === 'list-users') {
       response.status(200).json({ users: await listAuthAccounts(), profiles: await listAccessProfiles() });
       return;
     }
     if (!/^[^@\s]+@fotus[.]com[.]br$/i.test(email) && email !== 'guilhermebarbosars@gmail.com') return response.status(400).json({ error: 'Use um e-mail corporativo @fotus.com.br.' });
+
+    if (action === 'delete-profile') {
+      response.status(200).json({ deleted: await deleteAccessProfile(email, identity.email), email });
+      return;
+    }
 
     if (action === 'save-profile') {
       const profile = validateProfile(email, request.body?.profile);
@@ -183,6 +206,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     if (message === 'unauthorized') return response.status(403).json({ error: 'Esta conta não está liberada.' });
     if (message === 'database-not-configured') return response.status(503).json({ error: 'O banco Neon ainda não foi configurado na Vercel.' });
     if (message === 'invalid-profile') return response.status(400).json({ error: 'Confira os dados e as permissões selecionadas.' });
+    if (message === 'cannot-delete-primary') return response.status(400).json({ error: 'O operador principal não pode ser excluído.' });
     console.error('Erro na administração de usuários Neon:', error);
     response.status(500).json({ error: 'Não foi possível administrar esta conta no Neon.' });
   }

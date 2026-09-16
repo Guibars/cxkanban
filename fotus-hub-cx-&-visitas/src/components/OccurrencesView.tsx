@@ -10,6 +10,7 @@ import {
   CircleDollarSign,
   CircleDot,
   Clock3,
+  FileSpreadsheet,
   FileUp,
   LineChart,
   LoaderCircle,
@@ -24,6 +25,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { updateData } from '../lib/dataMutations';
+import { exportOccurrencesExcel } from '../lib/excelExport';
 import { readOccurrencesSpreadsheet, saveImportedOccurrences } from '../lib/occurrenceImport';
 import { Occurrence, OccurrenceStage, OrganizationUnit } from '../types';
 import OccurrenceModal from './OccurrenceModal';
@@ -114,6 +116,17 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
   const spreadsheetInput = useRef<HTMLInputElement>(null);
 
   const periodRange = useMemo(() => dateRangeForPreset(datePreset, customStart, customEnd), [customEnd, customStart, datePreset]);
+  const periodLabel = datePreset === 'all'
+    ? 'Todo o histórico'
+    : datePreset === 'month'
+      ? 'Mês atual'
+      : datePreset === 'today'
+        ? 'Hoje'
+        : datePreset === 'week'
+          ? 'Últimos 7 dias'
+          : datePreset === 'fortnight'
+            ? 'Últimos 15 dias'
+            : `${customStart ? displayDate(customStart) : 'início'} a ${customEnd ? displayDate(customEnd) : 'hoje'}`;
   const periodOccurrences = useMemo(() => occurrences.filter((occurrence) => {
     if (!occurrence.date && (periodRange.start || periodRange.end)) return false;
     if (periodRange.start && occurrence.date < periodRange.start) return false;
@@ -296,6 +309,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
           <button onClick={() => setShowInsights((current) => !current)} className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-extrabold transition-all ${showInsights ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-[#385041]/20 bg-white text-[#385041] hover:bg-[#eef5eb]'}`}>
             <Sparkles className="h-4 w-4" /> Insights Gerais
           </button>
+          <button onClick={() => exportOccurrencesExcel(filtered, periodLabel)} className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-extrabold text-emerald-700 transition-all hover:bg-emerald-50"><FileSpreadsheet className="h-4 w-4" />Exportar Excel</button>
           {canManageAgents && <button onClick={onEditAgents} className="flex items-center justify-center gap-2 rounded-xl border border-[#385041]/20 bg-white px-4 py-2.5 text-xs font-extrabold text-[#385041] transition-all hover:bg-[#eef5eb]" title="Editar agentes disponíveis">
             <UsersRound className="h-4 w-4" /> Editar agentes
           </button>}

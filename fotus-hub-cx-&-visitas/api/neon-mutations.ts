@@ -23,7 +23,7 @@ const RESOURCE_SECTION: Record<Resource, string> = {
   organization_units: 'estrutura',
 };
 
-const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com', 'matheus.gaspar@fotus.com.br']);
+const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com']);
 const s = (value: unknown, fallback = '') => value == null ? fallback : String(value).replace(/\s+/g, ' ').trim();
 const e = (value: unknown) => s(value).toLowerCase();
 const n = (value: unknown, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;

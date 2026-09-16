@@ -1,7 +1,6 @@
 export const DEVELOPER_EMAIL = 'guilhermebarbosars@gmail.com';
 export const MASTER_OPERATOR_EMAILS = [
   DEVELOPER_EMAIL,
-  'matheus.gaspar@fotus.com.br',
 ] as const;
 
 export function isAuthorizedEmail(email: string | null | undefined) {

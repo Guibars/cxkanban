@@ -19,7 +19,7 @@ begin
     raise exception 'Este e-mail ainda não foi liberado por um operador mestre';
   end if;
 
-  if new.email in ('guilhermebarbosars@gmail.com', 'matheus.gaspar@fotus.com.br') then
+  if new.email = 'guilhermebarbosars@gmail.com' then
     new.role := 'admin';
   else
     new.role := 'user';

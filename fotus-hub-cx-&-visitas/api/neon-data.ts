@@ -18,7 +18,7 @@ type ApiResponse = {
 type AccessRole = 'Agente' | 'Gerente' | 'Líder' | 'Coordenador' | 'Administrador';
 type SectionKey = 'visao-geral' | 'ocorrencias' | 'custos' | 'ra' | 'visitas' | 'estrutura';
 
-const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com', 'matheus.gaspar@fotus.com.br']);
+const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com']);
 const ALL_SECTIONS: SectionKey[] = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura'];
 
 function getPool() {

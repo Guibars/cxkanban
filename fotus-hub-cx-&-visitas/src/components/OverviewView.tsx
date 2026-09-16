@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Activity, ArrowUpRight, CheckCircle2, CircleDollarSign, ClipboardList, Star, Truck } from 'lucide-react';
 import { AppSection, ExtraCost, IntegratorVisit, Occurrence, RACase } from '../types';
+import { calculateRaReputation } from '../lib/raReputation';
 import PillBarChart from './PillBarChart';
 
 interface OverviewViewProps {
@@ -20,10 +21,6 @@ const currency = (value: number) => value.toLocaleString('pt-BR', { style: 'curr
 
 function monthKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function scoreOnTen(value: number) {
-  return value > 10 ? value / 10 : value;
 }
 
 function groupValues<T>(items: T[], labelFor: (item: T) => string, valueFor: (item: T) => number) {
@@ -49,8 +46,7 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
   const extraCostTotal = periodCosts.reduce((sum, item) => sum + item.totalCost, 0);
   const finalized = periodOccurrences.filter((item) => item.stage === 'Finalizada').length;
   const open = periodOccurrences.length - finalized;
-  const scoredRa = raCases.map((item) => item.finalScore).filter((value): value is number => typeof value === 'number');
-  const averageRa = scoredRa.length ? scoredRa.reduce((sum, value) => sum + scoreOnTen(value), 0) / scoredRa.length : null;
+  const raReputation = calculateRaReputation(raCases);
   const damageByCarrier = groupValues(damageOccurrences, (item) => item.carrier, (item) => item.damageAmount || 0).slice(0, 5);
   const maxDamage = damageByCarrier[0]?.value || 1;
 
@@ -77,7 +73,7 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
           {canViewOccurrences ? <OverviewMetric label="Ocorrências no período" value={periodOccurrences.length.toLocaleString('pt-BR')} supporting={`${open} abertas · ${finalized} finalizadas`} icon={ClipboardList} tone="bg-blue-50 text-blue-700" onClick={() => onNavigate('ocorrencias')} /> : <RestrictedMetric label="Ocorrências" />}
           {canViewOccurrences ? <OverviewMetric label="Custo de avarias" value={currency(damageTotal)} supporting={`${damageOccurrences.length} avarias registradas`} icon={Truck} tone="bg-amber-50 text-amber-700" onClick={() => onNavigate('ocorrencias')} /> : <RestrictedMetric label="Avarias" />}
           {canViewCosts ? <OverviewMetric label="Custos extras" value={currency(extraCostTotal)} supporting={`${periodCosts.length} registros no período`} icon={CircleDollarSign} tone="bg-red-50 text-red-700" onClick={() => onNavigate('custos')} /> : <RestrictedMetric label="Custo Extra" />}
-          {canViewRa ? <OverviewMetric label="Reclame Aqui" value={averageRa === null ? 'Sem nota' : `${averageRa.toFixed(1)} / 10`} supporting={`${raCases.length} reclamações visíveis`} icon={Star} tone="bg-emerald-50 text-emerald-700" onClick={() => onNavigate('ra')} /> : <RestrictedMetric label="Reclame Aqui" />}
+          {canViewRa ? <OverviewMetric label="Reclame Aqui" value={raReputation.finalScore === null ? 'Sem nota' : `${raReputation.finalScore.toFixed(1)} / 10`} supporting={`${raReputation.classification} · ${raCases.length} reclamações`} icon={Star} tone="bg-emerald-50 text-emerald-700" onClick={() => onNavigate('ra')} /> : <RestrictedMetric label="Reclame Aqui" />}
         </div>
       </section>
 

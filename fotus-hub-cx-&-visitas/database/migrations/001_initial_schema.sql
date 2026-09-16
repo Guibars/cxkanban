@@ -343,8 +343,7 @@ set label = excluded.label,
 
 insert into public.app_users (email, display_name, role, active)
 values
-  ('guilhermebarbosars@gmail.com', 'Guilherme Barbosa', 'Administrador', true),
-  ('matheus.gaspar@fotus.com.br', 'Matheus Gaspar', 'Administrador', true)
+  ('guilhermebarbosars@gmail.com', 'Guilherme Barbosa', 'Administrador', true)
 on conflict (email) do update
 set role = 'Administrador',
     active = true,
@@ -361,7 +360,7 @@ insert into public.user_section_permissions (
 select users.id, sections.section_key, true, true, true, true
 from public.app_users users
 cross join public.app_sections sections
-where users.email in ('guilhermebarbosars@gmail.com', 'matheus.gaspar@fotus.com.br')
+where users.email = 'guilhermebarbosars@gmail.com'
 on conflict (user_id, section_key) do update
 set can_view = true,
     can_create = true,
