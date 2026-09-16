@@ -10,11 +10,12 @@ Execute no SQL Editor do Neon, nesta ordem:
 1. `migrations/001_initial_schema.sql` — tabelas, relacionamentos, auditoria e indicadores;
 2. `migrations/002_neon_auth_bridge.sql` — vínculo entre os perfis internos e o Neon Auth;
 3. `migrations/003_neon_only_auth.sql` — cadastro controlado e operadores mestres;
-4. `migrations/004_reset_access_profiles.sql` — limpeza dos perfis antigos do painel, preservando todos os registros operacionais e mantendo somente o operador principal.
+4. `migrations/004_reset_access_profiles.sql` — limpeza dos perfis antigos do painel, preservando todos os registros operacionais e mantendo somente o operador principal;
+5. `migrations/005_fix_neon_auth_registration.sql` — corrige a criação da conta de primeiro acesso no Neon Auth.
 
-A terceira e a quarta migrações permitem criar conta somente quando o e-mail já estiver ativo
-em `public.app_users`. Os e-mails dos operadores mestres recebem a função de
-administrador no Neon Auth automaticamente.
+O Neon Auth cria a identidade e a senha. O acesso aos dados permanece bloqueado
+até que o e-mail tenha um perfil ativo em `public.app_users`. Essa verificação é
+feita no servidor em todas as consultas e alterações do sistema.
 
 ## Variáveis da Vercel
 

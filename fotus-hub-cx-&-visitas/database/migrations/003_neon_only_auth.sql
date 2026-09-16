@@ -1,38 +1,11 @@
--- Fotus CX — Neon Auth como autenticação única
--- Autoriza cadastro somente para e-mails previamente liberados em app_users.
+-- Fotus CX — Neon Auth como autenticação única.
+-- A identidade pode ser criada no Neon, mas o acesso aos dados continua
+-- condicionado a um perfil ativo em public.app_users pelas APIs do sistema.
 
 begin;
 
-create or replace function public.authorize_neon_auth_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = public, neon_auth, pg_temp
-as $$
-begin
-  new.email := lower(trim(new.email));
-
-  if not exists (
-    select 1 from public.app_users
-    where lower(email::text) = new.email and active = true
-  ) then
-    raise exception 'Este e-mail ainda não foi liberado por um operador mestre';
-  end if;
-
-  if new.email = 'guilhermebarbosars@gmail.com' then
-    new.role := 'admin';
-  else
-    new.role := 'user';
-  end if;
-
-  return new;
-end;
-$$;
-
 drop trigger if exists trg_authorize_fotus_neon_user on neon_auth."user";
-create trigger trg_authorize_fotus_neon_user
-before insert or update of email on neon_auth."user"
-for each row execute function public.authorize_neon_auth_user();
+drop function if exists public.authorize_neon_auth_user();
 
 create or replace function public.link_neon_auth_user()
 returns trigger

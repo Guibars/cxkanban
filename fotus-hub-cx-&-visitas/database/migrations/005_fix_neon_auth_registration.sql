@@ -1,20 +1,41 @@
--- Remove apenas perfis antigos do painel. Os registros operacionais permanecem.
--- O login Neon do operador principal não é alterado.
+-- Corrige o cadastro de primeiro acesso no Neon Auth.
+-- Pode ser executada com segurança mesmo se as migrações anteriores já rodaram.
 
 begin;
 
--- Essa trava antiga interrompia a criação de usuários do Better Auth antes
--- que o cadastro fosse concluído. A autorização real é feita pelas APIs,
--- que exigem um perfil ativo em public.app_users para devolver qualquer dado.
 drop trigger if exists trg_authorize_fotus_neon_user on neon_auth."user";
 drop function if exists public.authorize_neon_auth_user();
 
-delete from public.app_users
-where lower(email::text) not in (
-  'guilhermebarbosars@gmail.com',
-  'matheus.gaspar@fotus.com.br'
-);
+create or replace function public.link_neon_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, neon_auth, pg_temp
+as $$
+begin
+  update public.app_users
+  set auth_user_id = new.id,
+      updated_at = now()
+  where lower(email::text) = lower(trim(new.email));
+  return new;
+end;
+$$;
 
+drop trigger if exists trg_link_fotus_neon_user on neon_auth."user";
+create trigger trg_link_fotus_neon_user
+after insert or update of email on neon_auth."user"
+for each row execute function public.link_neon_auth_user();
+
+update neon_auth.project_config
+set email_and_password = jsonb_set(
+      coalesce(email_and_password, '{}'::jsonb),
+      '{disableSignUp}',
+      'false'::jsonb,
+      true
+    ),
+    updated_at = now();
+
+-- Restaura os dois operadores mestres autorizados a criar e administrar usuários.
 insert into public.app_users (email, display_name, role, active)
 values
   ('guilhermebarbosars@gmail.com', 'Guilherme Barbosa', 'Administrador', true),

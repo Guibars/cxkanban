@@ -14,6 +14,7 @@ function authErrorMessage(error: unknown) {
   if (text.includes('already') || text.includes('exists')) return 'Este e-mail já possui uma conta. Entre normalmente ou redefina a senha.';
   if (text.includes('not allowed') || text.includes('não foi liberado') || text.includes('sign up')) return 'Este e-mail ainda não foi liberado por um operador mestre.';
   if (text.includes('origin')) return 'Este endereço ainda não está autorizado no Neon Auth.';
+  if (text.includes('request failed') || text.includes('reason:')) return 'O Neon recusou a criação da conta. Confirme se o e-mail foi liberado e tente novamente.';
   return raw || 'Não foi possível concluir. Confira os dados e tente novamente.';
 }
 
@@ -70,13 +71,22 @@ export default function Auth() {
 
   const handleRegister = async (event: FormEvent) => {
     event.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
     if (password.length < 8) return setErrorMessage('A senha precisa ter pelo menos 8 caracteres.');
     if (password !== confirmPassword) return setErrorMessage('As senhas digitadas não são iguais.');
     setLoading('register');
     setErrorMessage('');
     try {
+      const accessResponse = await fetch('/api/registration-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalizedEmail }),
+      });
+      const access = await accessResponse.json().catch(() => ({})) as { allowed?: boolean; error?: string };
+      if (!accessResponse.ok) throw new Error(access.error || 'Não foi possível confirmar a liberação deste e-mail.');
+      if (!access.allowed) throw new Error('Este e-mail ainda não foi liberado por um operador mestre.');
       const result = await neonAuth.signUp.email({
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         name: name.trim(),
         password,
         callbackURL: window.location.origin,

@@ -13,7 +13,7 @@ type ApiResponse = {
   setHeader?: (name: string, value: string) => void;
 };
 
-const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com']);
+const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com', 'matheus.gaspar@fotus.com.br']);
 const SECTION_KEYS = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura'];
 
 function getPool() {

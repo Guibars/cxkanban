@@ -18,7 +18,7 @@ type ApiResponse = {
 type AccessRole = 'Agente' | 'Gerente' | 'Líder' | 'Coordenador' | 'Administrador';
 type SectionKey = 'visao-geral' | 'ocorrencias' | 'custos' | 'ra' | 'visitas' | 'estrutura';
 
-const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com']);
+const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com', 'matheus.gaspar@fotus.com.br']);
 const ALL_SECTIONS: SectionKey[] = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura'];
 
 function getPool() {
@@ -157,7 +157,7 @@ export async function loadBootstrap(email: string) {
         objective,participants_count as "participantsCount",status,notes,feedback,created_by_email::text as "createdByEmail",
         created_by_name as "createdByName",created_at as "createdAt",updated_at as "updatedAt"
       from public.integrator_visits order by created_at desc`) : Promise.resolve({ rows: [] }),
-    email === 'guilhermebarbosars@gmail.com' ? pool.query(`
+    MASTER_EMAILS.has(email) ? pool.query(`
       select legacy_firestore_id as id,order_number as "orderNumber",product_code as "productCode",quantity,is_replacement as "isReplacement",
         status,assignee_email_snapshot::text as "assigneeEmail",assignee_name_snapshot as "assigneeName",
         (select legacy_firestore_id from public.organization_units where id=cx_cases.organization_unit_id) as "organizationUnitId",
