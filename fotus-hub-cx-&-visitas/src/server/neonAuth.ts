@@ -2,8 +2,27 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import type { Pool } from 'pg';
 
 const DEFAULT_NEON_AUTH_URL = 'https://ep-falling-waterfall-b5oiundt.neonauth.c-7.us-east-2.aws.neon.tech/neondb/auth';
-const NEON_AUTH_URL = (process.env.NEON_AUTH_BASE_URL || process.env.VITE_NEON_AUTH_URL || DEFAULT_NEON_AUTH_URL).replace(/\/$/, '');
-const JWKS = createRemoteJWKSet(new URL(`${NEON_AUTH_URL}/.well-known/jwks.json`));
+let jwks: ReturnType<typeof createRemoteJWKSet> | undefined;
+
+function getJwks() {
+  if (jwks) return jwks;
+
+  const authUrl = (process.env.NEON_AUTH_BASE_URL || process.env.VITE_NEON_AUTH_URL || DEFAULT_NEON_AUTH_URL)
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/\/+$/, '');
+
+  let endpoint: URL;
+  try {
+    endpoint = new URL(`${authUrl}/.well-known/jwks.json`);
+  } catch {
+    throw new Error('auth-not-configured');
+  }
+  if (endpoint.protocol !== 'https:') throw new Error('auth-not-configured');
+
+  jwks = createRemoteJWKSet(endpoint);
+  return jwks;
+}
 
 type RequestLike = { headers?: Record<string, string | string[] | undefined> };
 
@@ -24,9 +43,10 @@ function bearerToken(request: RequestLike) {
 
 export async function verifyNeonIdentity(request: RequestLike, pool: Pool): Promise<NeonIdentity> {
   const token = bearerToken(request);
+  const remoteJwks = getJwks();
   let payload;
   try {
-    ({ payload } = await jwtVerify(token, JWKS, {
+    ({ payload } = await jwtVerify(token, remoteJwks, {
       algorithms: ['EdDSA'],
       clockTolerance: 10,
     }));

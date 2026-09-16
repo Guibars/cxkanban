@@ -22,8 +22,11 @@ const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com', 'matheus.gaspar@f
 const ALL_SECTIONS: SectionKey[] = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura'];
 
 function getPool() {
-  if (!process.env.DATABASE_URL) throw new Error('database-not-configured');
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = (process.env.DATABASE_URL || '')
+    .trim()
+    .replace(/^DATABASE_URL\s*=\s*/i, '')
+    .replace(/^['"]|['"]$/g, '');
+  if (!/^postgres(?:ql)?:\/\//i.test(connectionString)) throw new Error('database-not-configured');
   const globalPool = globalThis as typeof globalThis & { __fotusNeonPool?: Pool };
   globalPool.__fotusNeonPool ||= new Pool({ connectionString, max: 4, connectionTimeoutMillis: 10_000, idleTimeoutMillis: 20_000 });
   return globalPool.__fotusNeonPool;
@@ -192,6 +195,8 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     if (message === 'unauthenticated') return response.status(401).json({ error: 'Sessão não encontrada. Entre novamente.' });
+    if (message === 'auth-not-configured') return response.status(503).json({ error: 'A URL do Neon Auth não está configurada corretamente na Vercel.' });
+    if (message === 'database-not-configured') return response.status(503).json({ error: 'A conexão DATABASE_URL do Neon não está configurada corretamente na Vercel.' });
     if (message === 'unauthorized') return response.status(403).json({ error: 'E-mail não autorizado.' });
     if (message === 'profile-not-found') return response.status(403).json({ error: 'Seu perfil ainda não foi cadastrado no Neon.' });
     if (message === 'profile-disabled') return response.status(403).json({ error: 'Seu perfil está desativado.' });
