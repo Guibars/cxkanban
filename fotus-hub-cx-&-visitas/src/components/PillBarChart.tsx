@@ -18,14 +18,17 @@ interface PillBarChartProps {
 }
 
 const WIDTH = 1200;
-const HEIGHT = 230;
-const PLOT_TOP = 28;
-const PLOT_BOTTOM = 184;
+const HEIGHT = 238;
+const PLOT_LEFT = 44;
+const PLOT_RIGHT = 1182;
+const PLOT_TOP = 22;
+const PLOT_BOTTOM = 190;
 
 function coordinates(data: PillBarDatum[], selector: (item: PillBarDatum) => number, max: number) {
-  const step = WIDTH / Math.max(data.length, 1);
+  const plotWidth = PLOT_RIGHT - PLOT_LEFT;
+  const step = plotWidth / Math.max(data.length, 1);
   return data.map((item, index) => ({
-    x: step * index + step / 2,
+    x: PLOT_LEFT + (step * index) + (step / 2),
     y: PLOT_BOTTOM - (selector(item) / max) * (PLOT_BOTTOM - PLOT_TOP),
   }));
 }
@@ -63,54 +66,58 @@ export default function PillBarChart({
   const focusedPoint = primaryPoints[focusedIndex];
   const currentKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
   const chartYear = data.find((item) => /^\d{4}-/.test(item.key))?.key.slice(0, 4);
+  const gridValues = [1, 0.75, 0.5, 0.25, 0];
+  const barWidth = Math.min(58, Math.max(28, ((PLOT_RIGHT - PLOT_LEFT) / Math.max(data.length, 1)) * 0.32));
 
   return (
-    <div className="overflow-hidden rounded-[30px] border border-[#29314d] bg-[#121426] shadow-[0_26px_70px_rgba(17,20,38,0.24)]" role="img" aria-label={ariaLabel}>
-      <div className="flex flex-col gap-3 border-b border-white/[0.07] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-4 text-[10px] font-extrabold text-slate-300">
-          <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-[#46e0c5] shadow-[0_0_12px_rgba(70,224,197,0.75)]" />{primaryLabel}</span>
-          {secondaryLabel && <span className="flex items-center gap-2"><span className="h-0.5 w-5 border-t-2 border-dashed border-[#ffb547]" />{secondaryLabel}</span>}
-          {chartYear && <span className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[9px] text-cyan-200">{chartYear}</span>}
+    <div className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_18px_55px_rgba(30,55,45,0.08)]" role="img" aria-label={ariaLabel}>
+      <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] font-extrabold text-slate-600">
+          <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-[#f59e0b]" />{primaryLabel}</span>
+          {secondaryLabel && <span className="flex items-center gap-2"><span className="w-5 border-t-2 border-dashed border-[#6366f1]" />{secondaryLabel}</span>}
+          {chartYear && <span className="rounded-lg bg-[#f2f6f2] px-2.5 py-1 text-[9px] text-[#385041]">{chartYear}</span>}
         </div>
-        {focused && <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-2.5"><span className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-400">{focused.label}</span><strong className="text-sm text-white">{valueFormatter(focused.value)}</strong>{secondaryLabel && <small className="text-[9px] font-semibold text-amber-300">{secondaryLabel}: {valueFormatter(focused.secondaryValue || 0)}</small>}</div>}
+        {focused && <div className="flex min-w-[190px] items-center justify-between gap-4 rounded-2xl bg-[#17223b] px-4 py-3 text-white shadow-lg shadow-slate-300/40"><div><span className="block text-[9px] font-extrabold uppercase tracking-[0.14em] text-amber-400">{focused.label}{chartYear ? ` '${chartYear.slice(-2)}` : ''}</span><strong className="mt-0.5 block text-sm">{valueFormatter(focused.value)}</strong></div>{secondaryLabel && <div className="border-l border-white/10 pl-3 text-right"><span className="block text-[8px] font-bold text-slate-400">{secondaryLabel}</span><strong className="text-[11px] text-indigo-200">{valueFormatter(focused.secondaryValue || 0)}</strong></div>}</div>}
       </div>
 
-      {!hasData && <p className="mx-5 mt-5 rounded-2xl border border-dashed border-white/10 bg-white/[0.035] px-4 py-3 text-center text-xs font-semibold text-slate-400">{emptyMessage}</p>}
+      {!hasData && <p className="mx-5 mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-center text-xs font-semibold text-slate-500">{emptyMessage}</p>}
 
-      <div className="overflow-x-auto px-3 pb-3 pt-3 sm:px-5">
-        <div className="relative min-w-[760px]" style={{ height: `${HEIGHT + 34}px` }}>
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-[230px]">
-            {[0, 1, 2, 3].map((line) => <span key={line} className="absolute inset-x-0 border-t border-dashed border-white/[0.075]" style={{ top: `${PLOT_TOP + line * 52}px` }} />)}
-          </div>
-
-          <div className="absolute inset-x-0 top-0 grid h-[230px]" style={{ gridTemplateColumns: `repeat(${Math.max(data.length, 1)}, minmax(0, 1fr))` }}>
-            {data.map((item) => {
-              const isFocused = focused?.key === item.key;
-              const isCurrent = item.key === currentKey;
-              return <button key={item.key} type="button" onClick={() => setFocusedKey(item.key)} title={item.tooltip || `${item.label}: ${valueFormatter(item.value)}`} aria-pressed={isFocused} className={`group relative flex flex-col items-center justify-end pb-[34px] outline-none transition-colors ${isFocused ? 'bg-cyan-300/[0.035]' : 'hover:bg-white/[0.025]'}`}>
-                <span className={`absolute bottom-[38px] top-4 w-px transition-opacity ${isFocused ? 'bg-cyan-200/25 opacity-100' : 'bg-white/10 opacity-0 group-hover:opacity-100'}`} />
-                <span className={`absolute bottom-1 rounded-lg px-2 py-1 text-[9px] font-extrabold uppercase transition-all ${isCurrent ? 'border border-amber-300/40 bg-amber-300/10 text-amber-200' : isFocused ? 'bg-cyan-300/15 text-cyan-100' : 'text-slate-500 group-hover:text-slate-300'}`}>{item.label}</span>
-              </button>;
-            })}
-          </div>
-
-          <svg className="pointer-events-none absolute inset-x-0 top-0 h-[230px] w-full overflow-visible" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" aria-hidden="true">
+      <div className="overflow-x-auto px-3 pt-4 sm:px-5">
+        <div className="relative min-w-[760px]" style={{ height: `${HEIGHT}px` }}>
+          <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" aria-hidden="true">
             <defs>
-              <linearGradient id={`line-${chartId}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#4d8dff" /><stop offset="54%" stopColor="#46d9ca" /><stop offset="100%" stopColor="#52f0c2" /></linearGradient>
-              <linearGradient id={`area-${chartId}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#4b8dff" stopOpacity="0.34" /><stop offset="62%" stopColor="#3edbc6" stopOpacity="0.12" /><stop offset="100%" stopColor="#3edbc6" stopOpacity="0" /></linearGradient>
-              <filter id={`glow-${chartId}`} x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+              <linearGradient id={`bar-${chartId}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#fbbf24" /><stop offset="100%" stopColor="#ea7a00" /></linearGradient>
+              <linearGradient id={`area-${chartId}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f59e0b" stopOpacity="0.25" /><stop offset="100%" stopColor="#f59e0b" stopOpacity="0.025" /></linearGradient>
             </defs>
-            <path d={primaryArea} fill={`url(#area-${chartId})`} />
-            <path d={primaryLine} fill="none" stroke={`url(#line-${chartId})`} strokeWidth="4" strokeLinecap="round" filter={`url(#glow-${chartId})`} />
-            {primaryPoints.map((point, index) => {
-              const isFocused = index === focusedIndex;
-              return <circle key={`primary-${data[index]?.key}`} cx={point.x} cy={point.y} r={isFocused ? 7 : 3.5} fill={isFocused ? '#121426' : '#eafffb'} stroke={isFocused ? '#46e0c5' : '#65e8d2'} strokeWidth={isFocused ? 4 : 2} filter={isFocused ? `url(#glow-${chartId})` : undefined} />;
+            {gridValues.map((ratio) => {
+              const y = PLOT_TOP + ((1 - ratio) * (PLOT_BOTTOM - PLOT_TOP));
+              return <g key={ratio}><line x1={PLOT_LEFT} y1={y} x2={PLOT_RIGHT} y2={y} stroke="#dfe7ee" strokeWidth="1" strokeDasharray="4 6" /><text x={PLOT_LEFT - 10} y={y + 3} textAnchor="end" fill="#94a3b8" fontSize="8" fontWeight="700">{Math.round(max * ratio)}</text></g>;
             })}
-            {secondaryLabel && <path d={smoothPath(secondaryPoints)} fill="none" stroke="#ffb547" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="8 8" opacity=".9" />}
-            {secondaryLabel && secondaryPoints.map((point, index) => <circle key={`secondary-${data[index]?.key}`} cx={point.x} cy={point.y} r="3" fill="#ffb547" stroke="#121426" strokeWidth="2" />)}
-            {focusedPoint && <text x={focusedPoint.x} y={Math.max(15, focusedPoint.y - 17)} textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="800">{valueFormatter(focused?.value || 0)}</text>}
+            {primaryPoints.map((point, index) => {
+              const barHeight = Math.max(0, PLOT_BOTTOM - point.y);
+              return <rect key={`bar-${data[index]?.key}`} x={point.x - (barWidth / 2)} y={point.y} width={barWidth} height={barHeight} rx={Math.min(12, barWidth / 2)} fill={`url(#bar-${chartId})`} opacity={focusedIndex === index ? 1 : 0.86} />;
+            })}
+            <path d={primaryArea} fill={`url(#area-${chartId})`} />
+            <path d={primaryLine} fill="none" stroke="#f59e0b" strokeWidth="3.5" strokeLinecap="round" />
+            {secondaryLabel && <path d={smoothPath(secondaryPoints)} fill="none" stroke="#6366f1" strokeWidth="3" strokeLinecap="round" strokeDasharray="8 8" />}
+            {secondaryLabel && secondaryPoints.map((point, index) => <circle key={`secondary-${data[index]?.key}`} cx={point.x} cy={point.y} r="3.5" fill="#ffffff" stroke="#6366f1" strokeWidth="2.5" />)}
+            {focusedPoint && <line x1={focusedPoint.x} y1={PLOT_TOP} x2={focusedPoint.x} y2={PLOT_BOTTOM} stroke="#cbd5e1" strokeWidth="1" />}
+            {primaryPoints.map((point, index) => <circle key={`primary-${data[index]?.key}`} cx={point.x} cy={point.y} r={focusedIndex === index ? 5 : 3} fill="#ffffff" stroke="#f59e0b" strokeWidth={focusedIndex === index ? 3 : 2} />)}
           </svg>
+
+          <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${Math.max(data.length, 1)}, minmax(0, 1fr))`, paddingLeft: `${(PLOT_LEFT / WIDTH) * 100}%`, paddingRight: `${((WIDTH - PLOT_RIGHT) / WIDTH) * 100}%` }}>
+            {data.map((item) => <button key={item.key} type="button" onMouseEnter={() => setFocusedKey(item.key)} onFocus={() => setFocusedKey(item.key)} onClick={() => setFocusedKey(item.key)} title={item.tooltip || `${item.label}: ${valueFormatter(item.value)}`} aria-pressed={focused?.key === item.key} className="h-full outline-none" />)}
+          </div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 border-t border-slate-100 bg-slate-50/55 p-3 sm:grid-cols-6">
+        {data.map((item) => {
+          const selected = item.key === focused?.key;
+          const isCurrent = item.key === currentKey;
+          const completion = item.value > 0 && secondaryLabel ? Math.round(((item.secondaryValue || 0) / item.value) * 100) : null;
+          return <button key={`summary-${item.key}`} type="button" onMouseEnter={() => setFocusedKey(item.key)} onFocus={() => setFocusedKey(item.key)} onClick={() => setFocusedKey(item.key)} className={`min-w-0 rounded-xl border px-3 py-2.5 text-left transition-all ${selected ? 'border-amber-300 bg-amber-50 shadow-sm' : 'border-slate-200/80 bg-white hover:border-slate-300'}`}><span className="flex items-center justify-between gap-1 text-[8px] font-extrabold uppercase text-slate-500"><span>{item.label}{chartYear ? ` '${chartYear.slice(-2)}` : ''}</span>{isCurrent && <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[7px] text-[#17223b]">Atual</span>}</span><strong className="mt-1 block truncate text-xs text-slate-900">{valueFormatter(item.value)}</strong>{completion !== null && <span className={`mt-1 block text-[8px] font-bold ${completion >= 80 ? 'text-emerald-600' : 'text-amber-600'}`}>{completion}% {secondaryLabel.toLocaleLowerCase('pt-BR')}</span>}</button>;
+        })}
       </div>
     </div>
   );
