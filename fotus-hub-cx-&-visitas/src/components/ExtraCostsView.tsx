@@ -1,5 +1,5 @@
 import { ChangeEvent, useMemo, useRef, useState } from 'react';
-import { User } from 'firebase/auth';
+import type { CurrentUser } from '../lib/currentUser';
 import { BarChart3, Building2, CalendarDays, CircleDollarSign, FileText, FileUp, LoaderCircle, Pencil, Plus, Receipt, Search, Sparkles, Tag, UserRound } from 'lucide-react';
 import { ExtraCost } from '../types';
 import { readExtraCostsSpreadsheet, saveImportedExtraCosts } from '../lib/extraCostImport';
@@ -9,7 +9,7 @@ import PillBarChart from './PillBarChart';
 
 interface ExtraCostsViewProps {
   costs: ExtraCost[];
-  currentUser: User;
+  currentUser: CurrentUser;
 }
 
 const currency = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -106,11 +106,11 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
     setImportMessage('Lendo a base de custos extras...');
     try {
       const imported = await readExtraCostsSpreadsheet(file, currentUser);
-      if (!window.confirm(`Encontramos ${imported.length} custos extras na planilha. Deseja enviá-los ao Firestore?`)) {
+      if (!window.confirm(`Encontramos ${imported.length} custos extras na planilha. Deseja enviá-los à base central?`)) {
         setImportMessage('Importação cancelada. Nenhum registro foi enviado.');
         return;
       }
-      const saved = await saveImportedExtraCosts(imported, (current, amount) => setImportMessage(`Importando ${current} de ${amount} registros...`));
+      const saved = await saveImportedExtraCosts(imported, currentUser, (current, amount) => setImportMessage(`Importando ${current} de ${amount} registros...`));
       setImportMessage(`${saved} custos extras foram sincronizados com sucesso.`);
     } catch (error) {
       console.error('Erro ao importar custos extras:', error);
@@ -169,7 +169,7 @@ export default function ExtraCostsView({ costs, currentUser }: ExtraCostsViewPro
 
       {showInsights && (
         <section className="rounded-3xl border border-[#385041]/10 bg-gradient-to-br from-[#eef5eb] via-white to-amber-50/50 p-5 shadow-sm sm:p-6">
-          <div className="mb-5"><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]">Painel consolidado</p><h2 className="mt-1 text-xl font-extrabold text-gray-950">Onde os custos extras estão concentrados</h2><p className="mt-1 text-xs text-gray-500">Indicadores atualizados automaticamente com os registros do Firestore.</p></div>
+          <div className="mb-5"><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]">Painel consolidado</p><h2 className="mt-1 text-xl font-extrabold text-gray-950">Onde os custos extras estão concentrados</h2><p className="mt-1 text-xs text-gray-500">Indicadores atualizados automaticamente com os registros do Neon.</p></div>
           {costs.length === 0 ? <div className="rounded-2xl border border-dashed border-gray-300 bg-white/60 p-8 text-center text-sm text-gray-500">Importe a planilha ou cadastre o primeiro custo para visualizar os insights.</div> : (
             <div className="grid gap-4 xl:grid-cols-3">
               <div className="grid gap-4 sm:grid-cols-2 xl:col-span-2">

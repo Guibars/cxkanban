@@ -1,302 +1,184 @@
-import { randomBytes } from 'node:crypto';
-import { cert, getApps, initializeApp } from 'firebase-admin/app';
-import { getAuth, UserRecord } from 'firebase-admin/auth';
+import { Pool } from 'pg';
+import { verifyNeonIdentity } from '../src/server/neonAuth';
 
 type AdminAction = 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile';
-
 type ApiRequest = {
   method?: string;
   headers?: Record<string, string | string[] | undefined>;
-  body?: {
-    action?: unknown;
-    email?: unknown;
-    displayName?: unknown;
-    profile?: unknown;
-  };
+  body?: { action?: unknown; email?: unknown; displayName?: unknown; profile?: unknown };
 };
-
 type ApiResponse = {
   status: (code: number) => ApiResponse;
   json: (value: unknown) => void;
   setHeader?: (name: string, value: string) => void;
 };
 
-const PROJECT_ID = 'gen-lang-client-0929275981';
-const FIRESTORE_DATABASE_ID = 'ai-studio-752453f7-ae97-40d3-ab96-17738cb30cc2';
-const MASTER_EMAILS = new Set([
-  'guilhermebarbosars@gmail.com',
-  'matheus.gaspar@fotus.com.br',
-]);
+const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com', 'matheus.gaspar@fotus.com.br']);
+const SECTION_KEYS = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura'];
 
-function errorCode(error: unknown) {
-  return typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+function getPool() {
+  if (!process.env.DATABASE_URL) throw new Error('database-not-configured');
+  const globalPool = globalThis as typeof globalThis & { __fotusAdminPool?: Pool };
+  globalPool.__fotusAdminPool ||= new Pool({ connectionString: process.env.DATABASE_URL, max: 3, connectionTimeoutMillis: 10_000, idleTimeoutMillis: 20_000 });
+  return globalPool.__fotusAdminPool;
 }
 
-function getAdminApp() {
-  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
-  const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || PROJECT_ID;
-  if (!clientEmail || !privateKey) {
-    throw new Error('admin-not-configured');
+function requestOrigin(request: ApiRequest) {
+  const rawOrigin = request.headers?.origin;
+  const origin = Array.isArray(rawOrigin) ? rawOrigin[0] : rawOrigin;
+  if (origin && /^https?:\/\//i.test(origin)) return origin.replace(/\/$/, '');
+  const rawHost = request.headers?.['x-forwarded-host'] || request.headers?.host;
+  const host = Array.isArray(rawHost) ? rawHost[0] : rawHost;
+  return host ? `https://${host}` : 'https://cxkanban.vercel.app';
+}
+
+export async function listAccessProfiles() {
+  const result = await getPool().query(`select users.email::text as id,users.email::text,users.display_name as "displayName",users.role,
+    users.agent_name as "agentName",users.active,
+    coalesce(array_agg(distinct permissions.section_key order by permissions.section_key)
+      filter (where permissions.can_view),'{}') as "visibleTabs",
+    coalesce(array_agg(distinct units.legacy_firestore_id order by units.legacy_firestore_id)
+      filter (where units.legacy_firestore_id is not null),'{}') as "organizationUnitIds",
+    (extract(epoch from users.created_at)*1000)::bigint as "createdAt",
+    (extract(epoch from users.updated_at)*1000)::bigint as "updatedAt"
+    from public.app_users users
+    left join public.user_section_permissions permissions on permissions.user_id=users.id
+    left join public.user_unit_scopes scopes on scopes.user_id=users.id
+    left join public.organization_units units on units.id=scopes.unit_id
+    group by users.id order by users.display_name`);
+  return result.rows.map((row) => ({ ...row, createdAt: Number(row.createdAt), updatedAt: Number(row.updatedAt) }));
+}
+
+export async function saveAccessProfile(email: string, profile: Record<string, unknown>, operatorEmail: string) {
+  const client = await getPool().connect();
+  try {
+    await client.query('begin');
+    await client.query("set local statement_timeout='20s'");
+    const user = await client.query<{ id: string }>(`insert into public.app_users
+      (email,display_name,role,agent_name,active,created_at,updated_at)
+      values ($1,$2,$3,$4,$5,$6,$7)
+      on conflict (email) do update set display_name=excluded.display_name,role=excluded.role,agent_name=excluded.agent_name,
+        active=excluded.active,updated_at=excluded.updated_at returning id`, [email, profile.displayName, profile.role,
+      typeof profile.agentName === 'string' && profile.agentName ? profile.agentName : null, profile.active,
+      new Date(Number(profile.createdAt)), new Date(Number(profile.updatedAt))]);
+    const userId = user.rows[0].id;
+    const visibleTabs = Array.isArray(profile.visibleTabs) ? profile.visibleTabs.map(String) : [];
+    const isAdmin = profile.role === 'Administrador';
+    for (const section of SECTION_KEYS) {
+      const allowed = visibleTabs.includes(section);
+      await client.query(`insert into public.user_section_permissions
+        (user_id,section_key,can_view,can_create,can_edit,can_delete)
+        values ($1,$2,$3,$3,$3,$4) on conflict (user_id,section_key) do update set
+        can_view=excluded.can_view,can_create=excluded.can_create,can_edit=excluded.can_edit,can_delete=excluded.can_delete,updated_at=now()`,
+      [userId, section, allowed, isAdmin && allowed]);
+    }
+    await client.query('delete from public.user_unit_scopes where user_id=$1', [userId]);
+    const unitIds = Array.isArray(profile.organizationUnitIds) ? profile.organizationUnitIds.map(String) : [];
+    const level = isAdmin ? 'Administração' : profile.role === 'Agente' ? 'Membro' : 'Liderança';
+    if (unitIds.length) await client.query(`insert into public.user_unit_scopes (user_id,unit_id,access_level)
+      select $1,units.id,$3 from public.organization_units units where units.legacy_firestore_id=any($2::text[])
+      on conflict (user_id,unit_id) do update set access_level=excluded.access_level`, [userId, unitIds, level]);
+    await client.query(`insert into public.audit_events (actor_email,action,entity_type,entity_id,after_data)
+      values ($1,'save_profile','app_user',$2,$3::jsonb)`, [operatorEmail, email, JSON.stringify(profile)]);
+    await client.query('commit');
+  } catch (error) {
+    await client.query('rollback');
+    throw error;
+  } finally {
+    client.release();
   }
-
-  return getApps()[0] || initializeApp({
-    credential: cert({ projectId, clientEmail, privateKey }),
-    projectId,
-  });
 }
 
-function getAdminAuth() {
-  return getAuth(getAdminApp());
+async function listAuthAccounts(email?: string) {
+  const values: unknown[] = [];
+  const where = email ? 'where lower(users.email)=lower($1)' : '';
+  if (email) values.push(email);
+  const result = await getPool().query(`select users.id::text as uid,lower(users.email) as email,users.name as "displayName",
+    coalesce(users.banned,false) as disabled,users."emailVerified" as "emailVerified",
+    users."createdAt"::text as "createdAt",max(sessions."updatedAt")::text as "lastSignInAt",
+    coalesce(array_agg(distinct case accounts."providerId" when 'credential' then 'password' when 'google' then 'google.com' else accounts."providerId" end)
+      filter (where accounts."providerId" is not null),'{}') as providers
+    from neon_auth."user" users
+    left join neon_auth.account accounts on accounts."userId"=users.id
+    left join neon_auth.session sessions on sessions."userId"=users.id
+    ${where}
+    group by users.id order by users.name`, values);
+  return result.rows.map((row) => ({ exists: true, ...row }));
 }
 
-async function getAdminAccessToken() {
-  const credential = getAdminApp().options.credential;
-  if (!credential) throw new Error('admin-not-configured');
-  const token = await credential.getAccessToken();
-  return token.access_token;
-}
-
-function firestoreCollectionUrl() {
-  return `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/${FIRESTORE_DATABASE_ID}/documents/user_access`;
-}
-
-function decodeFirestoreValue(value: Record<string, unknown> | undefined): unknown {
-  if (!value) return undefined;
-  if ('stringValue' in value) return value.stringValue;
-  if ('booleanValue' in value) return value.booleanValue;
-  if ('integerValue' in value) return Number(value.integerValue);
-  if ('doubleValue' in value) return Number(value.doubleValue);
-  if ('nullValue' in value) return null;
-  if ('arrayValue' in value) {
-    const arrayValue = value.arrayValue as { values?: Record<string, unknown>[] };
-    return (arrayValue.values || []).map((item) => decodeFirestoreValue(item));
-  }
-  return undefined;
-}
-
-function decodeAccessProfile(document: { name?: string; fields?: Record<string, Record<string, unknown>> }) {
-  const fields = document.fields || {};
-  const decoded = Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, decodeFirestoreValue(value)]));
-  return { id: decodeURIComponent((document.name || '').split('/').pop() || ''), ...decoded };
-}
-
-async function listAccessProfiles() {
-  const accessToken = await getAdminAccessToken();
-  const profiles: Record<string, unknown>[] = [];
-  let pageToken = '';
-  do {
-    const url = new URL(firestoreCollectionUrl());
-    url.searchParams.set('pageSize', '1000');
-    if (pageToken) url.searchParams.set('pageToken', pageToken);
-    const result = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-    if (!result.ok) throw new Error(`firestore-list-${result.status}`);
-    const body = await result.json() as { documents?: Array<{ name?: string; fields?: Record<string, Record<string, unknown>> }>; nextPageToken?: string };
-    profiles.push(...(body.documents || []).map(decodeAccessProfile));
-    pageToken = body.nextPageToken || '';
-  } while (pageToken && profiles.length < 5000);
-  return profiles;
-}
-
-function encodeFirestoreValue(value: unknown): Record<string, unknown> {
-  if (typeof value === 'string') return { stringValue: value };
-  if (typeof value === 'boolean') return { booleanValue: value };
-  if (typeof value === 'number' && Number.isInteger(value)) return { integerValue: String(value) };
-  if (typeof value === 'number') return { doubleValue: value };
-  if (Array.isArray(value)) return { arrayValue: { values: value.map(encodeFirestoreValue) } };
-  return { nullValue: null };
-}
-
-async function saveAccessProfile(email: string, profile: Record<string, unknown>) {
-  const accessToken = await getAdminAccessToken();
-  const fields = Object.fromEntries(Object.entries(profile).map(([key, value]) => [key, encodeFirestoreValue(value)]));
-  const result = await fetch(`${firestoreCollectionUrl()}/${encodeURIComponent(email)}`, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields }),
-  });
-  if (!result.ok) throw new Error(`firestore-save-${result.status}`);
-}
-
-function accountSummary(user: UserRecord) {
+function validateProfile(email: string, profile: unknown) {
+  if (!profile || typeof profile !== 'object') throw new Error('invalid-profile');
+  const data = profile as Record<string, unknown>;
+  const roles = ['Agente', 'Gerente', 'Líder', 'Coordenador', 'Administrador'];
+  const tabs = Array.isArray(data.visibleTabs) ? data.visibleTabs : [];
+  const units = Array.isArray(data.organizationUnitIds) ? data.organizationUnitIds : [];
+  if (data.email !== email || typeof data.displayName !== 'string' || !data.displayName.trim()
+    || typeof data.role !== 'string' || !roles.includes(data.role) || !tabs.length
+    || tabs.some((item) => typeof item !== 'string' || !SECTION_KEYS.includes(item))
+    || units.some((item) => typeof item !== 'string') || typeof data.active !== 'boolean'
+    || typeof data.createdAt !== 'number' || typeof data.updatedAt !== 'number') throw new Error('invalid-profile');
   return {
-    exists: true,
-    uid: user.uid,
-    email: user.email || '',
-    displayName: user.displayName || '',
-    disabled: user.disabled,
-    emailVerified: user.emailVerified,
-    providers: user.providerData.map((provider) => provider.providerId),
-    createdAt: user.metadata.creationTime,
-    lastSignInAt: user.metadata.lastSignInTime || null,
+    email,
+    displayName: data.displayName.trim(),
+    role: data.role,
+    agentName: typeof data.agentName === 'string' ? data.agentName : '',
+    organizationUnitIds: units,
+    visibleTabs: [...new Set(tabs)],
+    active: data.active,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
   };
 }
 
-async function findUser(email: string) {
-  try {
-    return await getAdminAuth().getUserByEmail(email);
-  } catch (error) {
-    if (errorCode(error).includes('user-not-found')) return null;
-    throw error;
-  }
-}
-
 export default async function handler(request: ApiRequest, response: ApiResponse) {
-  response.setHeader?.('Cache-Control', 'no-store');
-  if (request.method !== 'POST') {
-    response.status(405).json({ error: 'Método não permitido.' });
-    return;
-  }
-
+  response.setHeader?.('Cache-Control', 'private, no-store');
+  if (request.method !== 'POST') return response.status(405).json({ error: 'Método não permitido.' });
   try {
-    const rawAuthorization = request.headers?.authorization;
-    const authorization = Array.isArray(rawAuthorization) ? rawAuthorization[0] : rawAuthorization || '';
-    const idToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
-    if (!idToken) {
-      response.status(401).json({ error: 'Sessão não encontrada. Entre novamente.' });
-      return;
-    }
-
-    const adminAuth = getAdminAuth();
-    const operator = await adminAuth.verifyIdToken(idToken, true);
-    const operatorEmail = operator.email?.trim().toLowerCase() || '';
-    if (!MASTER_EMAILS.has(operatorEmail)) {
-      response.status(403).json({ error: 'Somente operadores mestres podem administrar logins.' });
-      return;
-    }
-
+    const identity = await verifyNeonIdentity(request, getPool());
+    if (!MASTER_EMAILS.has(identity.email)) return response.status(403).json({ error: 'Somente operadores mestres podem administrar usuários.' });
     const action = request.body?.action as AdminAction;
     const email = typeof request.body?.email === 'string' ? request.body.email.trim().toLowerCase() : '';
     const displayName = typeof request.body?.displayName === 'string' ? request.body.displayName.trim() : '';
-    if (!['ensure-user', 'inspect', 'list-users', 'reset-link', 'save-profile'].includes(action)) {
-      response.status(400).json({ error: 'Ação inválida.' });
-      return;
-    }
+    if (!['ensure-user', 'inspect', 'list-users', 'reset-link', 'save-profile'].includes(action)) return response.status(400).json({ error: 'Ação inválida.' });
 
     if (action === 'list-users') {
-      const users: ReturnType<typeof accountSummary>[] = [];
-      let pageToken: string | undefined;
-      do {
-        const page = await adminAuth.listUsers(1000, pageToken);
-        users.push(...page.users.filter((item) => Boolean(item.email)).map(accountSummary));
-        pageToken = page.pageToken;
-      } while (pageToken && users.length < 5000);
-      let profiles: Record<string, unknown>[] = [];
-      let profileWarning = '';
-      try {
-        profiles = await listAccessProfiles();
-      } catch (profileError) {
-        console.error('Erro ao listar perfis de acesso:', profileError);
-        profileWarning = 'As contas foram carregadas, mas os perfis do painel não puderam ser consultados pelo servidor.';
-      }
-      response.status(200).json({ users, profiles, profileWarning });
+      response.status(200).json({ users: await listAuthAccounts(), profiles: await listAccessProfiles() });
       return;
     }
-
-    if (!/^[^@\s]+@fotus[.]com[.]br$/i.test(email) && email !== 'guilhermebarbosars@gmail.com') {
-      response.status(400).json({ error: 'Use um e-mail corporativo @fotus.com.br.' });
-      return;
-    }
+    if (!/^[^@\s]+@fotus[.]com[.]br$/i.test(email) && email !== 'guilhermebarbosars@gmail.com') return response.status(400).json({ error: 'Use um e-mail corporativo @fotus.com.br.' });
 
     if (action === 'save-profile') {
-      const profile = request.body?.profile;
-      if (!profile || typeof profile !== 'object') {
-        response.status(400).json({ error: 'Perfil de acesso inválido.' });
-        return;
-      }
-      const data = profile as Record<string, unknown>;
-      const validRoles = ['Agente', 'Gerente', 'Líder', 'Coordenador', 'Administrador'];
-      const validTabs = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura'];
-      const visibleTabs = Array.isArray(data.visibleTabs) ? data.visibleTabs : [];
-      const organizationUnitIds = Array.isArray(data.organizationUnitIds) ? data.organizationUnitIds : [];
-      if (
-        data.email !== email
-        || typeof data.displayName !== 'string'
-        || !data.displayName.trim()
-        || typeof data.role !== 'string'
-        || !validRoles.includes(data.role)
-        || !visibleTabs.length
-        || visibleTabs.some((item) => typeof item !== 'string' || !validTabs.includes(item))
-        || organizationUnitIds.some((item) => typeof item !== 'string')
-        || typeof data.active !== 'boolean'
-        || typeof data.createdAt !== 'number'
-        || typeof data.updatedAt !== 'number'
-      ) {
-        response.status(400).json({ error: 'Confira os dados e as permissões selecionadas para este usuário.' });
-        return;
-      }
-      const cleanProfile = {
-        email,
-        displayName: data.displayName.trim(),
-        role: data.role,
-        agentName: typeof data.agentName === 'string' ? data.agentName : '',
-        organizationUnitIds,
-        visibleTabs: [...new Set(visibleTabs)],
-        active: data.active,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-        ...(typeof data.createdByEmail === 'string' ? { createdByEmail: data.createdByEmail } : {}),
-      };
-      await saveAccessProfile(email, cleanProfile);
-      response.status(200).json({ profile: { id: email, ...cleanProfile } });
+      const profile = validateProfile(email, request.body?.profile);
+      await saveAccessProfile(email, profile, identity.email);
+      response.status(200).json({ profile: { id: email, ...profile } });
       return;
     }
 
-    let user = await findUser(email);
-
+    const account = (await listAuthAccounts(email))[0];
     if (action === 'inspect') {
-      response.status(200).json(user ? accountSummary(user) : { exists: false, email });
+      response.status(200).json(account || { exists: false, email, displayName });
+      return;
+    }
+    if (action === 'reset-link' && account) {
+      response.status(200).json({ ...account, resetLink: `${requestOrigin(request)}/?reset=1&email=${encodeURIComponent(email)}` });
       return;
     }
 
-    if (action === 'ensure-user') {
-      let created = false;
-      if (!user) {
-        user = await adminAuth.createUser({
-          email,
-          displayName: displayName || undefined,
-          password: `${randomBytes(24).toString('base64url')}Aa1!`,
-          emailVerified: false,
-          disabled: false,
-        });
-        created = true;
-      } else if (user.disabled || (displayName && user.displayName !== displayName)) {
-        user = await adminAuth.updateUser(user.uid, {
-          disabled: false,
-          ...(displayName ? { displayName } : {}),
-        });
-      }
-      const resetLink = await adminAuth.generatePasswordResetLink(email);
-      response.status(200).json({ ...accountSummary(user), created, resetLink });
-      return;
-    }
-
-    if (!user) {
-      response.status(404).json({ error: 'Esta conta ainda não existe. Use “Criar conta de login”.' });
-      return;
-    }
-
-    const resetLink = await adminAuth.generatePasswordResetLink(email);
-    response.status(200).json({ ...accountSummary(user), resetLink });
+    const setupLink = `${requestOrigin(request)}/?firstAccess=1&email=${encodeURIComponent(email)}&name=${encodeURIComponent(displayName)}`;
+    response.status(200).json(account ? { ...account, created: false } : {
+      exists: false,
+      email,
+      displayName,
+      created: true,
+      resetLink: setupLink,
+    });
   } catch (error) {
-    console.error('Erro na administração de usuários:', error);
-    const code = errorCode(error);
-    if (error instanceof Error && error.message === 'admin-not-configured') {
-      response.status(503).json({ error: 'A administração de usuários ainda não foi configurada na Vercel.' });
-      return;
-    }
-    if (code.includes('id-token-expired') || code.includes('id-token-revoked') || code.includes('argument-error')) {
-      response.status(401).json({ error: 'Sua sessão expirou. Saia e entre novamente.' });
-      return;
-    }
-    if (code.includes('email-already-exists')) {
-      response.status(409).json({ error: 'Já existe uma conta com este e-mail.' });
-      return;
-    }
-    if (error instanceof Error && error.message.startsWith('firestore-')) {
-      response.status(503).json({ error: 'A conta existe, mas o servidor não conseguiu acessar os perfis do Firestore. Confira as permissões da conta de serviço na Vercel.' });
-      return;
-    }
-    response.status(500).json({ error: 'Não foi possível administrar esta conta agora.' });
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'unauthenticated') return response.status(401).json({ error: 'Sua sessão expirou. Entre novamente.' });
+    if (message === 'unauthorized') return response.status(403).json({ error: 'Esta conta não está liberada.' });
+    if (message === 'database-not-configured') return response.status(503).json({ error: 'O banco Neon ainda não foi configurado na Vercel.' });
+    if (message === 'invalid-profile') return response.status(400).json({ error: 'Confira os dados e as permissões selecionadas.' });
+    console.error('Erro na administração de usuários Neon:', error);
+    response.status(500).json({ error: 'Não foi possível administrar esta conta no Neon.' });
   }
 }

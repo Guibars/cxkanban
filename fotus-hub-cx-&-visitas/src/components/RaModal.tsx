@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Star, User, Phone, Mail, FileText, Check } from 'lucide-react';
 import { RACase, CaseStatus } from '../types';
-import { db, collection, addDoc, updateDoc, doc } from '../lib/firebase';
-import { User as AuthUser } from 'firebase/auth';
+import { createData, updateData } from '../lib/dataMutations';
+import type { CurrentUser } from '../lib/currentUser';
 
 interface RaModalProps {
   isOpen: boolean;
   onClose: () => void;
   caseToEdit?: RACase | null;
-  currentUser: AuthUser | null;
+  currentUser: CurrentUser | null;
 }
 
 const statusOptions: { value: CaseStatus; label: string }[] = [
@@ -103,9 +103,11 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
       };
 
       if (caseToEdit) {
-        await updateDoc(doc(db, 'ra_cases', caseToEdit.id), caseData);
+        if (!currentUser) throw new Error('Sessão não encontrada.');
+        await updateData(currentUser, 'ra_cases', caseToEdit.id, caseData);
       } else {
-        await addDoc(collection(db, 'ra_cases'), {
+        if (!currentUser) throw new Error('Sessão não encontrada.');
+        await createData(currentUser, 'ra_cases', {
           ...caseData,
           createdAt: Date.now(),
         });
@@ -115,7 +117,7 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
       console.error("Error saving RA case: ", error);
       const errorCode = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
       setSaveError(errorCode.includes('permission-denied')
-        ? 'Sua conta não tem permissão para editar este registro. Publique as regras atualizadas do Firestore e tente novamente.'
+        ? 'Sua conta não tem permissão para editar este registro. Peça a um operador mestre para conferir seu acesso.'
         : 'Não foi possível salvar o caso. Confira sua conexão e tente novamente.');
     } finally {
       setLoading(false);

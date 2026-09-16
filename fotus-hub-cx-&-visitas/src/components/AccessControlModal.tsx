@@ -1,7 +1,7 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
-import { User } from 'firebase/auth';
+import type { CurrentUser } from '../lib/currentUser';
 import { ArchiveRestore, Building2, Check, CircleDollarSign, ClipboardList, Copy, KeyRound, LayoutDashboard, LoaderCircle, Mail, Network, RefreshCw, Save, Search, SearchCheck, Send, ShieldCheck, UserCog, UserPlus, X } from 'lucide-react';
-import { auth, sendPasswordResetEmail } from '../lib/firebase';
+import { neonAuth } from '../lib/neonAuth';
 import { AppSection, OrganizationUnit, UserAccessProfile, UserAccessRole } from '../types';
 
 interface AccessControlModalProps {
@@ -10,7 +10,7 @@ interface AccessControlModalProps {
   profiles: UserAccessProfile[];
   units: OrganizationUnit[];
   agents: string[];
-  currentUser: User;
+  currentUser: CurrentUser;
 }
 
 const ROLE_OPTIONS: UserAccessRole[] = ['Agente', 'Gerente', 'Líder', 'Coordenador', 'Administrador'];
@@ -65,7 +65,7 @@ interface ManagedUser {
   account?: AuthAccountStatus;
 }
 
-async function requestMasterAction<T = AuthAccountStatus>(currentUser: User, action: 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile', email = '', displayName = '', profile?: Record<string, unknown>) {
+async function requestMasterAction<T = AuthAccountStatus>(currentUser: CurrentUser, action: 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile', email = '', displayName = '', profile?: Record<string, unknown>) {
   const idToken = await currentUser.getIdToken();
   const response = await fetch('/api/admin-users', {
     method: 'POST',
@@ -140,7 +140,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       setServerProfiles(result.profiles || []);
       setAccountsError(result.profileWarning || '');
     } catch (error) {
-      setAccountsError(error instanceof Error ? error.message : 'Não foi possível carregar as contas do Firebase.');
+      setAccountsError(error instanceof Error ? error.message : 'Não foi possível carregar as contas do Neon.');
     } finally {
       setAccountsLoading(false);
     }
@@ -190,7 +190,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       displayName: item.displayName,
       active: !item.account?.disabled,
     });
-    setMessage('Esta conta já existe no Firebase, mas ainda não possui permissões configuradas no painel. Escolha as abas e salve.');
+    setMessage('Esta conta já existe no Neon Auth, mas ainda não possui permissões configuradas no painel. Escolha as abas e salve.');
     setAuthMessage('Conta de login encontrada. Falta configurar o perfil de acesso.');
     setAuthStatus(item.account || null);
     setResetLink('');
@@ -248,11 +248,11 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       }
       if (account.resetLink) setResetLink(account.resetLink);
       if (action === 'inspect') {
-        setAuthMessage(account.exists ? 'Conta de login encontrada no Firebase.' : 'Este perfil ainda não possui uma conta de login.');
+        setAuthMessage(account.exists ? 'Conta de login encontrada no Neon Auth.' : 'Este perfil ainda não criou a senha no Neon.');
       } else if (action === 'ensure-user') {
-        setAuthMessage(account.created ? 'Conta criada. Agora envie o link direto exibido abaixo para a pessoa definir a primeira senha.' : 'Conta localizada e liberada. O link direto abaixo permite criar uma nova senha.');
+        setAuthMessage(account.created ? 'Cadastro liberado. Envie o link abaixo para a pessoa criar a própria senha no Neon.' : 'Conta Neon localizada e ativa.');
       } else {
-        setAuthMessage('Link direto gerado. O Firebase não envia este link sozinho: copie e encaminhe para a pessoa.');
+        setAuthMessage('Link para solicitar a redefinição gerado. O envio da senha continua protegido pelo Neon.');
       }
     } catch (error) {
       setAuthMessage(error instanceof Error ? error.message : 'Não foi possível administrar esta conta.');
@@ -276,12 +276,12 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
         setAuthAccounts((current) => [account, ...current.filter((item) => item.email.toLowerCase() !== account.email.toLowerCase())]);
       }
       if (!account.exists) {
-        setAuthMessage('A conta ainda não existe no Firebase. Clique primeiro em “Criar ou liberar login”.');
+        setAuthMessage('A pessoa ainda não criou a conta Neon. Salve o perfil e envie o link de primeiro acesso.');
         return;
       }
-      auth.languageCode = 'pt-BR';
-      await sendPasswordResetEmail(auth, email);
-      setAuthMessage(`O Firebase recebeu a solicitação para enviar o e-mail a ${email}. Se não chegar, gere o link direto e envie por outro canal.`);
+      const result = await neonAuth.requestPasswordReset({ email, redirectTo: `${window.location.origin}/?newPassword=1` });
+      if (result.error) throw new Error(result.error.message || 'Não foi possível solicitar a redefinição.');
+      setAuthMessage(`O Neon enviou a solicitação de redefinição para ${email}.`);
     } catch (error) {
       setAuthMessage(error instanceof Error ? error.message : 'Não foi possível solicitar o e-mail de redefinição.');
     } finally {
@@ -326,19 +326,9 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
     const existing = allProfiles.find((profile) => profile.id === editingId || profile.email.toLowerCase() === editingId?.toLowerCase());
     try {
       let account: AuthAccountStatus | null = null;
-      let automaticEmailRequested = false;
       if (!existing) {
         account = await requestMasterAction(currentUser, 'ensure-user', email, form.displayName.trim());
-        setAuthAccounts((current) => [account!, ...current.filter((item) => item.email.toLowerCase() !== email)]);
-        if (account.created) {
-          try {
-            auth.languageCode = 'pt-BR';
-            await sendPasswordResetEmail(auth, email);
-            automaticEmailRequested = true;
-          } catch (emailError) {
-            console.error('Erro ao solicitar e-mail inicial de senha:', emailError);
-          }
-        }
+        if (account.exists) setAuthAccounts((current) => [account!, ...current.filter((item) => item.email.toLowerCase() !== email)]);
       }
       const payload = {
         email,
@@ -354,14 +344,15 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       };
       const saved = await requestMasterAction<{ profile: UserAccessProfile }>(currentUser, 'save-profile', email, form.displayName.trim(), payload);
       setServerProfiles((current) => [saved.profile, ...current.filter((profile) => profile.email.toLowerCase() !== email)]);
+      window.dispatchEvent(new Event('fotus:data-changed'));
       if (account) {
         setAuthStatus(account);
         setResetLink(account.resetLink || '');
       }
       setMessage(account?.created
-        ? `Usuário e perfil criados. ${automaticEmailRequested ? 'O envio automático foi solicitado ao Firebase.' : 'O envio automático não foi confirmado.'} Para garantir o acesso, copie o link de criação de senha exibido abaixo e encaminhe à pessoa.`
+        ? 'Usuário liberado no Neon. Copie o link de primeiro acesso e encaminhe à pessoa para ela criar a própria senha.'
         : account
-          ? 'Perfil de acesso criado para uma conta que já existia no Firebase. As permissões estão salvas.'
+          ? 'Perfil de acesso criado para uma conta que já existia no Neon. As permissões estão salvas.'
           : 'Acesso salvo. A pessoa verá a nova configuração no próximo acesso.');
       setEditingId(email);
     } catch (error) {
@@ -380,7 +371,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
             <div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#385041]">Administração</p><h2 className="mt-1 text-base font-extrabold text-gray-950">Todos os usuários</h2></div>
             <div className="flex gap-1.5"><button type="button" onClick={() => void loadAuthAccounts()} disabled={accountsLoading} title="Atualizar usuários" className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition-colors hover:text-[#385041] disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${accountsLoading ? 'animate-spin' : ''}`} /></button><button type="button" onClick={newProfile} className="rounded-xl bg-[#385041] px-3 py-2 text-[10px] font-extrabold text-white">Novo</button></div>
           </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-gray-500">Contas do Firebase e perfis do painel reunidos no mesmo lugar.</p>
+          <p className="mt-2 text-[11px] leading-relaxed text-gray-500">Contas do Neon Auth e permissões do painel reunidas no mesmo lugar.</p>
           <div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-xl border border-white bg-white/75 p-2.5"><strong className="block text-sm text-gray-950">{authAccounts.length}</strong><span className="text-[9px] font-bold uppercase tracking-wide text-gray-400">Contas de login</span></div><div className="rounded-xl border border-white bg-white/75 p-2.5"><strong className="block text-sm text-gray-950">{allProfiles.length}</strong><span className="text-[9px] font-bold uppercase tracking-wide text-gray-400">Com permissões</span></div></div>
           <label className="relative mt-3 block"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder="Buscar nome ou e-mail" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#385041]" /></label>
           {accountsError && <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-semibold leading-relaxed text-amber-800">{accountsError} Os perfis já salvos no painel continuam listados abaixo.</p>}
@@ -391,7 +382,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
               const selected = editingId === item.email;
               return <button key={item.email} type="button" onClick={() => selectManagedUser(item)} className={`w-full rounded-2xl border p-3 text-left transition-all ${selected ? 'border-[#385041] bg-white shadow-sm ring-1 ring-[#385041]/10' : 'border-transparent bg-white/65 hover:border-[#385041]/20 hover:bg-white'}`}>
                 <span className="flex items-start justify-between gap-2"><span className="flex min-w-0 items-center gap-2"><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[10px] font-extrabold ${item.profile ? 'bg-[#e8efe0] text-[#385041]' : 'bg-amber-50 text-amber-700'}`}>{item.displayName.slice(0, 2).toUpperCase()}</span><span className="min-w-0"><strong className="block truncate text-xs text-gray-900">{item.displayName}</strong><span className="mt-0.5 block truncate text-[9px] text-gray-500">{item.email}</span></span></span><span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${active ? 'bg-emerald-500' : 'bg-gray-300'}`} /></span>
-                <span className="mt-2 flex flex-wrap gap-1.5">{item.profile ? <><span className="rounded-full bg-[#e8efe0] px-2 py-0.5 text-[8px] font-extrabold text-[#385041]">{item.profile.role}</span><span className="rounded-full bg-gray-100 px-2 py-0.5 text-[8px] font-bold text-gray-500">{item.profile.visibleTabs?.length || 0} abas</span></> : <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[8px] font-extrabold text-amber-700">Configurar permissões</span>}{item.account && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[8px] font-bold text-blue-700">Login Firebase</span>}</span>
+                <span className="mt-2 flex flex-wrap gap-1.5">{item.profile ? <><span className="rounded-full bg-[#e8efe0] px-2 py-0.5 text-[8px] font-extrabold text-[#385041]">{item.profile.role}</span><span className="rounded-full bg-gray-100 px-2 py-0.5 text-[8px] font-bold text-gray-500">{item.profile.visibleTabs?.length || 0} abas</span></> : <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[8px] font-extrabold text-amber-700">Configurar permissões</span>}{item.account && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[8px] font-bold text-blue-700">Login Neon</span>}</span>
               </button>;
             })}
             {!accountsLoading && !managedUsers.length && <p className="rounded-2xl border border-dashed border-gray-300 p-5 text-center text-xs text-gray-500">Nenhum usuário encontrado.</p>}
@@ -425,7 +416,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
 
             <section className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div><h4 className="flex items-center gap-2 text-xs font-extrabold text-blue-950"><KeyRound className="h-4 w-4" />Login e criação da primeira senha</h4><p className="mt-1 max-w-xl text-[10px] leading-relaxed text-blue-800">{editingId ? 'A conta precisa existir no Firebase. Depois, envie o e-mail automático ou gere um link direto para a pessoa criar a senha.' : 'Ao salvar, criaremos a conta, solicitaremos o e-mail automático e também mostraremos um link direto como alternativa segura.'}</p></div>
+                <div><h4 className="flex items-center gap-2 text-xs font-extrabold text-blue-950"><KeyRound className="h-4 w-4" />Login e criação da primeira senha</h4><p className="mt-1 max-w-xl text-[10px] leading-relaxed text-blue-800">{editingId ? 'O perfil libera o e-mail no Neon. Se a pessoa ainda não entrou, envie o link de primeiro acesso.' : 'Ao salvar, o e-mail será liberado e você receberá um link para a pessoa criar a própria senha no Neon.'}</p></div>
                 {authBusy && <LoaderCircle className="h-5 w-5 shrink-0 animate-spin text-blue-700" />}
               </div>
 
@@ -437,7 +428,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
 
               {editingId && <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" disabled={authBusy} onClick={() => manageLogin('inspect')} className="flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-3 py-2 text-[10px] font-extrabold text-blue-800 disabled:opacity-50"><SearchCheck className="h-4 w-4" />Verificar conta</button>
-                <button type="button" disabled={authBusy} onClick={() => manageLogin('ensure-user')} className="flex items-center gap-2 rounded-xl bg-blue-700 px-3 py-2 text-[10px] font-extrabold text-white disabled:opacity-50"><UserPlus className="h-4 w-4" />Criar ou liberar login</button>
+                <button type="button" disabled={authBusy} onClick={() => manageLogin('ensure-user')} className="flex items-center gap-2 rounded-xl bg-blue-700 px-3 py-2 text-[10px] font-extrabold text-white disabled:opacity-50"><UserPlus className="h-4 w-4" />Gerar primeiro acesso</button>
                 <button type="button" disabled={authBusy} onClick={sendAutomaticResetEmail} className="flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-3 py-2 text-[10px] font-extrabold text-blue-800 disabled:opacity-50"><Send className="h-4 w-4" />Enviar e-mail automático</button>
                 <button type="button" disabled={authBusy} onClick={() => manageLogin('reset-link')} className="flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-3 py-2 text-[10px] font-extrabold text-blue-800 disabled:opacity-50"><KeyRound className="h-4 w-4" />Gerar link direto</button>
               </div>}

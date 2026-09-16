@@ -1,5 +1,5 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { User } from 'firebase/auth';
+import type { CurrentUser } from '../lib/currentUser';
 import {
   BarChart3,
   Building2,
@@ -23,7 +23,7 @@ import {
   Truck,
   UsersRound,
 } from 'lucide-react';
-import { db, doc, updateDoc } from '../lib/firebase';
+import { updateData } from '../lib/dataMutations';
 import { readOccurrencesSpreadsheet, saveImportedOccurrences } from '../lib/occurrenceImport';
 import { Occurrence, OccurrenceStage, OrganizationUnit } from '../types';
 import OccurrenceModal from './OccurrenceModal';
@@ -32,7 +32,7 @@ import PillBarChart from './PillBarChart';
 interface OccurrencesViewProps {
   occurrences: Occurrence[];
   organizationUnits: OrganizationUnit[];
-  currentUser: User;
+  currentUser: CurrentUser;
   agents: string[];
   canManageAgents: boolean;
   onEditAgents: () => void;
@@ -213,7 +213,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
 
   const changeStage = async (occurrence: Occurrence, stage: OccurrenceStage) => {
     try {
-      await updateDoc(doc(db, 'occurrences', occurrence.id), { stage, updatedAt: Date.now() });
+      await updateData(currentUser, 'occurrences', occurrence.id, { ...occurrence, stage, updatedAt: Date.now() });
     } catch (error) {
       console.error('Erro ao atualizar etapa:', error);
     }
@@ -231,7 +231,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
     try {
       const imported = await readOccurrencesSpreadsheet(file, currentUser);
       const confirmed = window.confirm(
-        `Encontramos ${imported.length} ocorrências na planilha. Deseja enviá-las agora para o Firestore?`,
+        `Encontramos ${imported.length} ocorrências na planilha. Deseja enviá-las agora para a base central?`,
       );
 
       if (!confirmed) {
@@ -239,7 +239,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
         return;
       }
 
-      const saved = await saveImportedOccurrences(imported, (current, total) => {
+      const saved = await saveImportedOccurrences(imported, currentUser, (current, total) => {
         setImportMessage(`Importando ${current} de ${total} ocorrências...`);
       });
       setImportMessage(`${saved} ocorrências da planilha foram sincronizadas com sucesso. As datas foram normalizadas no padrão brasileiro.`);
@@ -318,7 +318,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
       {showInsights && (
         <section className="rounded-3xl border border-[#385041]/10 bg-gradient-to-br from-[#eef5eb] via-white to-amber-50/50 p-5 shadow-sm sm:p-6">
           <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]">Leitura instantânea</p><h2 className="mt-1 text-xl font-extrabold text-gray-950">Insights gerais das ocorrências</h2><p className="mt-1 text-xs text-gray-500">Calculados em tempo real com os cards salvos no Firestore.</p></div>
+            <div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]">Leitura instantânea</p><h2 className="mt-1 text-xl font-extrabold text-gray-950">Insights gerais das ocorrências</h2><p className="mt-1 text-xs text-gray-500">Calculados em tempo real com os cards salvos no Neon.</p></div>
             <div className="flex gap-2 text-xs"><span className="rounded-full bg-white px-3 py-1.5 font-bold text-gray-700 shadow-sm">{open} abertas</span><span className="rounded-full bg-emerald-100 px-3 py-1.5 font-bold text-emerald-800">{approved} aprovadas</span></div>
           </div>
 

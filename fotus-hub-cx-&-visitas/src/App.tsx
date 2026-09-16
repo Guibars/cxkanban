@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { User } from 'firebase/auth';
 import {
   ArchiveRestore,
   Building2,
@@ -13,20 +12,12 @@ import {
   RefreshCw,
   Settings2,
 } from 'lucide-react';
-import {
-  auth,
-  collection,
-  db,
-  doc,
-  onAuthStateChanged,
-  onSnapshot,
-  orderBy,
-  query,
-  signOut,
-} from './lib/firebase';
-import { isAuthorizedEmail, isMasterOperatorEmail } from './lib/auth';
+import { isMasterOperatorEmail } from './lib/auth';
+import { CurrentUser, currentUserFromNeon } from './lib/currentUser';
 import { cn } from './lib/utils';
 import { DEFAULT_OCCURRENCE_AGENTS } from './lib/occurrences';
+import { loadNeonBootstrap } from './lib/neonData';
+import { getNeonAccessToken, neonAuth } from './lib/neonAuth';
 import { buildRaReport, openA4PrintWindow } from './lib/reportPrint';
 import {
   CXCase,
@@ -64,26 +55,6 @@ function raScoreOnTen(value: number) {
   return value > 10 ? value / 10 : value;
 }
 
-function isLegacyDemoCase(caseItem: CXCase) {
-  const content = [
-    caseItem.orderNumber,
-    caseItem.productCode,
-    caseItem.assigneeName,
-    caseItem.departmentAssigneeName,
-    caseItem.observations,
-  ].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR');
-
-  return [
-    '197010-88',
-    '192716-98',
-    'batt-lfp-5.12kwh',
-    'mod-can-550w',
-    'marcelo fotus',
-    'fernanda souza',
-    'teste1',
-  ].some((marker) => content.includes(marker));
-}
-
 const TAB_COPY: Record<MainTab, { title: string; subtitle: string }> = {
   'visao-geral': { title: 'Visão Geral', subtitle: 'Resumo visual das informações que você tem permissão para acompanhar' },
   ocorrencias: { title: 'Controle de Ocorrências', subtitle: 'Acompanhamento interativo das ocorrências antes controladas por planilha' },
@@ -94,7 +65,8 @@ const TAB_COPY: Record<MainTab, { title: string; subtitle: string }> = {
 };
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const neonSession = neonAuth.useSession();
+  const [user, setUser] = useState<CurrentUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<MainTab>('visao-geral');
   const [cases, setCases] = useState<CXCase[]>([]);
@@ -120,41 +92,45 @@ export default function App() {
   const [raReportMessage, setRaReportMessage] = useState('');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser && !isAuthorizedEmail(currentUser.email)) {
-        await signOut(auth);
-        setUser(null);
-      } else {
-        setUser(currentUser);
-      }
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+    const sessionUser = neonSession.data?.user;
+    setUser(sessionUser?.email ? currentUserFromNeon({ ...sessionUser, email: sessionUser.email }, getNeonAccessToken) : null);
+    setAuthLoading(neonSession.isPending);
+  }, [neonSession.data?.user, neonSession.isPending]);
 
   useEffect(() => {
-    if (!user?.email) {
+    if (!user) {
       setAccessProfiles([]);
       setAccessProfileLoading(false);
       return;
     }
-    setAccessProfileLoading(true);
-    const email = user.email.trim().toLowerCase();
-    const handleAccessError = (error: unknown) => {
-      console.error('Erro ao ler perfil de acesso:', error);
-      setDataError('Não foi possível conferir as permissões deste usuário. Publique as regras atualizadas do Firestore.');
-      setAccessProfileLoading(false);
+    let cancelled = false;
+    const load = async () => {
+      setAccessProfileLoading(true);
+      setDataError('');
+      try {
+        const data = await loadNeonBootstrap(user);
+        if (cancelled) return;
+        setAccessProfiles(data.profiles);
+        setOccurrenceAgents(data.occurrenceAgents.length ? data.occurrenceAgents : DEFAULT_OCCURRENCE_AGENTS);
+        setOrganizationPeople(data.organizationPeople);
+        setOrganizationUnits(data.organizationUnits);
+        setOccurrences(data.occurrences);
+        setExtraCosts(data.extraCosts);
+        setRaCases(data.raCases);
+        setVisits(data.visits);
+        setCases(data.cases);
+      } catch (error) {
+        if (!cancelled) setDataError(error instanceof Error ? error.message : 'Não foi possível carregar os dados do Neon.');
+      } finally {
+        if (!cancelled) setAccessProfileLoading(false);
+      }
     };
-    if (isMasterOperatorEmail(email)) {
-      return onSnapshot(collection(db, 'user_access'), (snapshot) => {
-        setAccessProfiles(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as UserAccessProfile[]);
-        setAccessProfileLoading(false);
-      }, handleAccessError);
-    }
-    return onSnapshot(doc(db, 'user_access', email), (snapshot) => {
-      setAccessProfiles(snapshot.exists() ? [{ id: snapshot.id, ...snapshot.data() } as UserAccessProfile] : []);
-      setAccessProfileLoading(false);
-    }, handleAccessError);
+    void load();
+    window.addEventListener('fotus:data-changed', load);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('fotus:data-changed', load);
+    };
   }, [user]);
 
   const access = useMemo(() => {
@@ -190,97 +166,6 @@ export default function App() {
     };
   }, [accessProfiles, organizationPeople, organizationUnits, user]);
 
-  useEffect(() => {
-    if (!user || accessProfileLoading || !access.active) {
-      setVisits([]);
-      setOccurrences([]);
-      setOrganizationUnits([]);
-      setOrganizationPeople([]);
-      setOccurrenceAgents(DEFAULT_OCCURRENCE_AGENTS);
-      return;
-    }
-    const allowedTabs = access.isMasterOperator ? ALL_TABS : access.tabs;
-    const canAccess = (tab: MainTab) => allowedTabs.includes(tab);
-    const unsubscribers: Array<() => void> = [];
-    const handleSnapshotError = (area: string) => (error: unknown) => {
-      console.error('Erro ao ler dados liberados:', error);
-      setDataError(`Seu perfil permite acessar ${area}, mas o Firestore bloqueou a leitura. Peça a um operador mestre para conferir e salvar novamente suas permissões.`);
-    };
-
-    if (canAccess('visitas')) {
-      unsubscribers.push(onSnapshot(query(collection(db, 'integrator_visits'), orderBy('createdAt', 'desc')), (snapshot) => {
-        const stored = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as IntegratorVisit[];
-        setVisits(stored.filter((item) => Boolean(item.createdByEmail)));
-      }, handleSnapshotError('Visitas')));
-    } else setVisits([]);
-
-    if (canAccess('ocorrencias')) {
-      unsubscribers.push(onSnapshot(query(collection(db, 'occurrences'), orderBy('createdAt', 'desc')), (snapshot) => {
-        setOccurrences(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as Occurrence[]);
-      }, handleSnapshotError('Ocorrências')));
-      unsubscribers.push(onSnapshot(doc(db, 'app_settings', 'occurrence_agents'), (snapshot) => {
-        const names = snapshot.exists() ? snapshot.data().names : null;
-        const cleanNames = Array.isArray(names) ? names.map((name) => String(name).replace(/\s+/g, ' ').trim()).filter(Boolean) : [];
-        setOccurrenceAgents(cleanNames.length ? [...new Set(cleanNames)] : DEFAULT_OCCURRENCE_AGENTS);
-      }, handleSnapshotError('a lista de agentes')));
-    } else {
-      setOccurrences([]);
-      setOccurrenceAgents(DEFAULT_OCCURRENCE_AGENTS);
-    }
-
-    if (canAccess('estrutura') || canAccess('ocorrencias')) {
-      unsubscribers.push(onSnapshot(query(collection(db, 'organization_units'), orderBy('createdAt', 'desc')), (snapshot) => {
-        setOrganizationUnits(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationUnit[]);
-      }, handleSnapshotError('a estrutura de times')));
-      unsubscribers.push(onSnapshot(query(collection(db, 'organization_people'), orderBy('createdAt', 'asc')), (snapshot) => {
-        setOrganizationPeople(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationPerson[]);
-      }, handleSnapshotError('a estrutura de pessoas')));
-    } else {
-      setOrganizationUnits([]);
-      setOrganizationPeople([]);
-    }
-
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [access.active, access.isMasterOperator, access.tabs.join('|'), accessProfileLoading, user]);
-
-  useEffect(() => {
-    if (!user || accessProfileLoading || !access.active) {
-      setCases([]);
-      setRaCases([]);
-      setExtraCosts([]);
-      return;
-    }
-    const allowedTabs = access.isMasterOperator ? ALL_TABS : access.tabs;
-    const unsubscribers: Array<() => void> = [];
-    const handleRestrictedError = (area: string) => (error: unknown) => {
-      console.error('Erro ao ler área restrita:', error);
-      setDataError(`Seu perfil permite acessar ${area}, mas o Firestore bloqueou a leitura. Peça a um operador mestre para conferir e salvar novamente suas permissões.`);
-    };
-
-    if (access.isDeveloper) {
-      unsubscribers.push(onSnapshot(query(collection(db, 'cx_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
-        const storedCases = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as CXCase[];
-        setCases(storedCases.filter((caseItem) => !isLegacyDemoCase(caseItem)));
-      }, handleRestrictedError('Casos CX')));
-    } else {
-      setCases([]);
-    }
-
-    if (allowedTabs.includes('ra')) {
-      unsubscribers.push(onSnapshot(query(collection(db, 'ra_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
-        const stored = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as RACase[];
-        setRaCases(stored.filter((item) => Boolean(item.createdByEmail)));
-      }, handleRestrictedError('Reclame Aqui')));
-    } else setRaCases([]);
-
-    if (allowedTabs.includes('custos')) {
-      unsubscribers.push(onSnapshot(query(collection(db, 'extra_costs'), orderBy('createdAt', 'desc')), (snapshot) => {
-        setExtraCosts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as ExtraCost[]);
-      }, handleRestrictedError('Custo Extra')));
-    } else setExtraCosts([]);
-
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [access.active, access.isDeveloper, access.isMasterOperator, access.tabs.join('|'), accessProfileLoading, user]);
 
   const visibleOccurrences = occurrences;
   const visibleTabs = access.isMasterOperator ? ALL_TABS : access.tabs;
@@ -290,6 +175,10 @@ export default function App() {
   const visibleOrganizationUnits = organizationUnits;
   const canManageAgents = access.isDeveloper || ['Administrador', 'Coordenador', 'Líder'].includes(access.role);
   const scopeLabel = access.isMasterOperator ? 'operador mestre · todas as áreas' : `${visibleTabs.length} ${visibleTabs.length === 1 ? 'área liberada' : 'áreas liberadas'}`;
+  const handleSignOut = async () => {
+    await neonAuth.signOut();
+    setUser(null);
+  };
 
   useEffect(() => {
     if (user && !visibleTabs.includes(activeTab)) setActiveTab(visibleTabs[0] || 'visao-geral');
@@ -301,7 +190,7 @@ export default function App() {
 
   if (!user) return <Auth />;
   if (!access.active || visibleTabs.length === 0) {
-    return <div className="flex min-h-screen items-center justify-center bg-[#f4f7f6] p-6"><div className="w-full max-w-md rounded-3xl border border-white bg-white p-8 text-center shadow-xl"><img src={FOTUS_LOGO} alt="Fotus" className="mx-auto h-14 w-auto object-contain" /><h1 className="mt-6 text-xl font-extrabold text-gray-950">Acesso temporariamente indisponível</h1><p className="mt-2 text-sm leading-relaxed text-gray-500">Seu perfil está desativado ou ainda não possui nenhuma aba liberada. Procure um operador mestre.</p><button type="button" onClick={() => signOut(auth)} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#385041] px-5 py-3 text-xs font-bold text-white"><LogOut className="h-4 w-4" />Sair da conta</button></div></div>;
+    return <div className="flex min-h-screen items-center justify-center bg-[#f4f7f6] p-6"><div className="w-full max-w-md rounded-3xl border border-white bg-white p-8 text-center shadow-xl"><img src={FOTUS_LOGO} alt="Fotus" className="mx-auto h-14 w-auto object-contain" /><h1 className="mt-6 text-xl font-extrabold text-gray-950">Acesso temporariamente indisponível</h1><p className="mt-2 text-sm leading-relaxed text-gray-500">Seu perfil está desativado ou ainda não possui nenhuma aba liberada. Procure um operador mestre.</p><button type="button" onClick={() => void handleSignOut()} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#385041] px-5 py-3 text-xs font-bold text-white"><LogOut className="h-4 w-4" />Sair da conta</button></div></div>;
   }
 
   const allNavigationTabs: Array<{ id: MainTab; label: string; icon: typeof ClipboardList; alert?: boolean }> = [
@@ -348,7 +237,7 @@ export default function App() {
                 {isProfileMenuOpen && <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-72 rounded-2xl border border-gray-200 bg-white p-3 shadow-xl">
                   <div className="rounded-xl bg-[#f4f8f2] p-3"><p className="text-xs font-extrabold text-gray-900">{user.displayName || user.email}</p><p className="mt-0.5 truncate text-[10px] text-gray-500">{user.email}</p><div className="mt-2 flex flex-wrap gap-1"><span className="rounded-full bg-[#385041] px-2 py-1 text-[8px] font-extrabold uppercase tracking-wide text-white">{access.role}</span><span className="rounded-full bg-white px-2 py-1 text-[8px] font-bold text-gray-500">{scopeLabel}</span></div></div>
                   {access.isMasterOperator && <button type="button" onClick={() => { setIsProfileMenuOpen(false); setIsAccessControlOpen(true); }} className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-[#385041] hover:bg-[#eef5eb]"><Settings2 className="h-4 w-4" /><span>Gerenciar usuários<small className="mt-0.5 block text-[9px] font-normal text-gray-500">Logins, senhas, funções e equipes</small></span></button>}
-                  <button type="button" onClick={() => signOut(auth)} className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-red-600 hover:bg-red-50"><LogOut className="h-4 w-4" />Sair da conta</button>
+                  <button type="button" onClick={() => void handleSignOut()} className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-red-600 hover:bg-red-50"><LogOut className="h-4 w-4" />Sair da conta</button>
                 </div>}
               </div>
             </div>
@@ -378,7 +267,7 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'visitas' && <VisitsView visits={visits} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} />}
+          {activeTab === 'visitas' && <VisitsView visits={visits} currentUser={user} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} />}
           {activeTab === 'estrutura' && <OrganizationView units={organizationUnits} people={organizationPeople} currentUser={user} canManage={canManageAgents} canDeleteLegacy={access.isDeveloper} />}
         </main>
 
