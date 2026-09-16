@@ -1,33 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { User } from 'firebase/auth';
 import {
   ArchiveRestore,
   Building2,
   CircleDollarSign,
   ClipboardList,
-  FileText,
   LayoutDashboard,
   LogOut,
   Network,
-  Plus,
   RefreshCw,
   Settings2,
 } from 'lucide-react';
-import {
-  auth,
-  collection,
-  db,
-  doc,
-  onAuthStateChanged,
-  onSnapshot,
-  orderBy,
-  query,
-  signOut,
-} from './lib/firebase';
-import { isAuthorizedEmail } from './lib/auth';
+import { isMasterOperatorEmail } from './lib/auth';
+import { CurrentUser, currentUserFromNeon } from './lib/currentUser';
 import { cn } from './lib/utils';
 import { DEFAULT_OCCURRENCE_AGENTS } from './lib/occurrences';
-import { buildRaReport, openA4PrintWindow } from './lib/reportPrint';
+import { loadNeonBootstrap } from './lib/neonData';
+import { getNeonAccessToken, neonAuth } from './lib/neonAuth';
 import {
   CXCase,
   ExtraCost,
@@ -48,6 +36,7 @@ import OccurrencesView from './components/OccurrencesView';
 import OverviewView from './components/OverviewView';
 import OrganizationView from './components/OrganizationView';
 import RaModal from './components/RaModal';
+import RaView from './components/RaView';
 import VisitModal from './components/VisitModal';
 import VisitsView from './components/VisitsView';
 
@@ -60,30 +49,6 @@ const ISA_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1776894141/
 const FOTUS_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1787848825/ChatGPT_Image_27_de_ago._de_2026_13_40_18_tzgwxs.png';
 const RA_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1787843527/25-reclame_mnxv8n.png';
 
-function raScoreOnTen(value: number) {
-  return value > 10 ? value / 10 : value;
-}
-
-function isLegacyDemoCase(caseItem: CXCase) {
-  const content = [
-    caseItem.orderNumber,
-    caseItem.productCode,
-    caseItem.assigneeName,
-    caseItem.departmentAssigneeName,
-    caseItem.observations,
-  ].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR');
-
-  return [
-    '197010-88',
-    '192716-98',
-    'batt-lfp-5.12kwh',
-    'mod-can-550w',
-    'marcelo fotus',
-    'fernanda souza',
-    'teste1',
-  ].some((marker) => content.includes(marker));
-}
-
 const TAB_COPY: Record<MainTab, { title: string; subtitle: string }> = {
   'visao-geral': { title: 'Visão Geral', subtitle: 'Resumo visual das informações que você tem permissão para acompanhar' },
   ocorrencias: { title: 'Controle de Ocorrências', subtitle: 'Acompanhamento interativo das ocorrências antes controladas por planilha' },
@@ -94,7 +59,8 @@ const TAB_COPY: Record<MainTab, { title: string; subtitle: string }> = {
 };
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const neonSession = neonAuth.useSession();
+  const [user, setUser] = useState<CurrentUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<MainTab>('visao-geral');
   const [cases, setCases] = useState<CXCase[]>([]);
@@ -106,6 +72,7 @@ export default function App() {
   const [organizationPeople, setOrganizationPeople] = useState<OrganizationPerson[]>([]);
   const [occurrenceAgents, setOccurrenceAgents] = useState<string[]>(DEFAULT_OCCURRENCE_AGENTS);
   const [accessProfiles, setAccessProfiles] = useState<UserAccessProfile[]>([]);
+  const [accessProfileLoading, setAccessProfileLoading] = useState(true);
   const [dataError, setDataError] = useState('');
 
   const [isRaModalOpen, setIsRaModalOpen] = useState(false);
@@ -116,72 +83,73 @@ export default function App() {
   const [isAgentManagerOpen, setIsAgentManagerOpen] = useState(false);
   const [isAccessControlOpen, setIsAccessControlOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [raReportMessage, setRaReportMessage] = useState('');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser && !isAuthorizedEmail(currentUser.email)) {
-        await signOut(auth);
-        setUser(null);
-      } else {
-        setUser(currentUser);
-      }
+    const sessionUser = neonSession.data?.user;
+    if (sessionUser?.email) {
+      setUser((current) => {
+        if (current?.uid === sessionUser.id
+          && current.email === sessionUser.email
+          && current.displayName === sessionUser.name
+          && current.photoURL === (sessionUser.image || null)) return current;
+        return currentUserFromNeon({ ...sessionUser, email: sessionUser.email }, getNeonAccessToken);
+      });
       setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+      return;
+    }
+    if (!neonSession.isPending) {
+      setUser(null);
+      setAuthLoading(false);
+    }
+  }, [
+    neonSession.data?.user?.id,
+    neonSession.data?.user?.email,
+    neonSession.data?.user?.name,
+    neonSession.data?.user?.image,
+    neonSession.isPending,
+  ]);
 
   useEffect(() => {
-    if (!user) return;
-    setDataError('');
-    const handleSnapshotError = (error: unknown) => {
-      console.error('Erro ao ler dados do Firestore:', error);
-      setDataError('Não foi possível ler todos os dados. Publique as regras atualizadas do Firestore e recarregue a página.');
+    if (!user) {
+      setAccessProfiles([]);
+      setAccessProfileLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      setAccessProfileLoading(true);
+      setDataError('');
+      try {
+        const data = await loadNeonBootstrap(user);
+        if (cancelled) return;
+        setAccessProfiles(data.profiles);
+        setOccurrenceAgents(data.occurrenceAgents.length ? data.occurrenceAgents : DEFAULT_OCCURRENCE_AGENTS);
+        setOrganizationPeople(data.organizationPeople);
+        setOrganizationUnits(data.organizationUnits);
+        setOccurrences(data.occurrences);
+        setExtraCosts(data.extraCosts);
+        setRaCases(data.raCases);
+        setVisits(data.visits);
+        setCases(data.cases);
+      } catch (error) {
+        if (!cancelled) setDataError(error instanceof Error ? error.message : 'Não foi possível carregar os dados do Neon.');
+      } finally {
+        if (!cancelled) setAccessProfileLoading(false);
+      }
     };
-
-    const unsubVisits = onSnapshot(query(collection(db, 'integrator_visits'), orderBy('createdAt', 'desc')), (snapshot) => {
-      const stored = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as IntegratorVisit[];
-      setVisits(stored.filter((item) => Boolean(item.createdByEmail)));
-    }, handleSnapshotError);
-
-    const unsubOccurrences = onSnapshot(query(collection(db, 'occurrences'), orderBy('createdAt', 'desc')), (snapshot) => {
-      setOccurrences(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as Occurrence[]);
-    }, handleSnapshotError);
-
-    const unsubOrganization = onSnapshot(query(collection(db, 'organization_units'), orderBy('createdAt', 'desc')), (snapshot) => {
-      setOrganizationUnits(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationUnit[]);
-    }, handleSnapshotError);
-
-    const unsubOrganizationPeople = onSnapshot(query(collection(db, 'organization_people'), orderBy('createdAt', 'asc')), (snapshot) => {
-      setOrganizationPeople(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as OrganizationPerson[]);
-    }, handleSnapshotError);
-
-    const unsubAgents = onSnapshot(doc(db, 'app_settings', 'occurrence_agents'), (snapshot) => {
-      const names = snapshot.exists() ? snapshot.data().names : null;
-      const cleanNames = Array.isArray(names)
-        ? names.map((name) => String(name).replace(/\s+/g, ' ').trim()).filter(Boolean)
-        : [];
-      setOccurrenceAgents(cleanNames.length ? [...new Set(cleanNames)] : DEFAULT_OCCURRENCE_AGENTS);
-    }, handleSnapshotError);
-
-    const unsubAccess = onSnapshot(collection(db, 'user_access'), (snapshot) => {
-      setAccessProfiles(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as UserAccessProfile[]);
-    }, handleSnapshotError);
-
+    void load();
+    window.addEventListener('fotus:data-changed', load);
     return () => {
-      unsubVisits();
-      unsubOccurrences();
-      unsubOrganization();
-      unsubOrganizationPeople();
-      unsubAgents();
-      unsubAccess();
+      cancelled = true;
+      window.removeEventListener('fotus:data-changed', load);
     };
   }, [user]);
 
   const access = useMemo(() => {
     const email = (user?.email || '').toLowerCase();
     const isDeveloper = email === DEVELOPER_EMAIL;
-    if (isDeveloper) return { role: 'Administrador' as const, agentName: '', unitIds: organizationUnits.map((unit) => unit.id), tabs: ALL_TABS, active: true, isDeveloper };
+    const isMasterOperator = isMasterOperatorEmail(email);
+    if (isDeveloper) return { role: 'Administrador' as const, agentName: '', unitIds: organizationUnits.map((unit) => unit.id), tabs: ALL_TABS, active: true, isDeveloper, isMasterOperator };
 
     const profile = accessProfiles.find((item) => item.email.toLowerCase() === email);
     const inferredUnits = organizationUnits.filter((unit) => [unit.managerEmail, unit.leaderEmail, unit.coordinatorEmail || ''].some((value) => value.toLowerCase() === email));
@@ -203,59 +171,41 @@ export default function App() {
       role,
       agentName: profile?.agentName || user?.displayName || '',
       unitIds,
-      tabs: profile?.visibleTabs?.length ? profile.visibleTabs : defaultTabs,
+      tabs: profile && Array.isArray(profile.visibleTabs) ? profile.visibleTabs : defaultTabs,
       active: profile?.active ?? true,
       isDeveloper,
+      isMasterOperator,
     };
   }, [accessProfiles, organizationPeople, organizationUnits, user]);
 
-  useEffect(() => {
-    if (!user) return;
-    const unsubscribers: Array<() => void> = [];
-    const handleRestrictedError = (error: unknown) => {
-      console.error('Erro ao ler área restrita:', error);
-      setDataError('Não foi possível ler uma área liberada. Publique as regras atualizadas do Firestore e recarregue a página.');
-    };
-
-    if (access.isDeveloper) {
-      unsubscribers.push(onSnapshot(query(collection(db, 'cx_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
-        const storedCases = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as CXCase[];
-        setCases(storedCases.filter((caseItem) => !isLegacyDemoCase(caseItem)));
-      }, handleRestrictedError));
-    } else {
-      setCases([]);
-    }
-
-    unsubscribers.push(onSnapshot(query(collection(db, 'ra_cases'), orderBy('createdAt', 'desc')), (snapshot) => {
-      const stored = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as RACase[];
-      setRaCases(stored.filter((item) => Boolean(item.createdByEmail)));
-    }, handleRestrictedError));
-
-    unsubscribers.push(onSnapshot(query(collection(db, 'extra_costs'), orderBy('createdAt', 'desc')), (snapshot) => {
-      setExtraCosts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as ExtraCost[]);
-    }, handleRestrictedError));
-
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [access.isDeveloper, user]);
 
   const visibleOccurrences = occurrences;
-  const visibleTabs = ALL_TABS;
+  const visibleTabs = access.tabs;
   const canView = (tab: MainTab) => visibleTabs.includes(tab);
   const visibleCosts = extraCosts;
   const visibleRaCases = raCases;
   const visibleOrganizationUnits = organizationUnits;
   const canManageAgents = access.isDeveloper || ['Administrador', 'Coordenador', 'Líder'].includes(access.role);
-  const scopeLabel = 'toda a empresa · acesso liberado para usuários autenticados';
+  const scopeLabel = access.isMasterOperator
+    ? `operador mestre · ${visibleTabs.length} ${visibleTabs.length === 1 ? 'área liberada' : 'áreas liberadas'}`
+    : `${visibleTabs.length} ${visibleTabs.length === 1 ? 'área liberada' : 'áreas liberadas'}`;
+  const handleSignOut = async () => {
+    await neonAuth.signOut();
+    setUser(null);
+  };
 
   useEffect(() => {
     if (user && !visibleTabs.includes(activeTab)) setActiveTab(visibleTabs[0] || 'visao-geral');
   }, [activeTab, user, visibleTabs.join('|')]);
 
-  if (authLoading) {
+  if (authLoading || (user && accessProfileLoading)) {
     return <div className="flex min-h-screen items-center justify-center bg-[#f4f7f6]"><RefreshCw className="h-8 w-8 animate-spin text-[#385041]" /></div>;
   }
 
   if (!user) return <Auth />;
+  if (!access.active || visibleTabs.length === 0) {
+    return <div className="flex min-h-screen items-center justify-center bg-[#f4f7f6] p-6"><div className="w-full max-w-md rounded-3xl border border-white bg-white p-8 text-center shadow-xl"><img src={FOTUS_LOGO} alt="Fotus" className="mx-auto h-14 w-auto object-contain" /><h1 className="mt-6 text-xl font-extrabold text-gray-950">Acesso temporariamente indisponível</h1><p className="mt-2 text-sm leading-relaxed text-gray-500">Seu perfil está desativado ou ainda não possui nenhuma aba liberada. Procure um operador mestre.</p><button type="button" onClick={() => void handleSignOut()} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#385041] px-5 py-3 text-xs font-bold text-white"><LogOut className="h-4 w-4" />Sair da conta</button></div></div>;
+  }
 
   const allNavigationTabs: Array<{ id: MainTab; label: string; icon: typeof ClipboardList; alert?: boolean }> = [
     { id: 'visao-geral', label: 'Visão Geral', icon: LayoutDashboard },
@@ -267,21 +217,21 @@ export default function App() {
   ];
   const tabs = allNavigationTabs.filter((tab) => canView(tab.id));
 
-  const scoreCases = visibleRaCases.filter((item) => typeof item.finalScore === 'number');
-  const averageRaScore = scoreCases.length ? (scoreCases.reduce((sum, item) => sum + raScoreOnTen(item.finalScore || 0), 0) / scoreCases.length).toFixed(1) : null;
-
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-[#f8fbf8] via-[#f2f6f3] to-[#e8efe9] font-sans text-gray-900">
-      <aside className="hidden w-24 shrink-0 flex-col items-center gap-2 border-r border-gray-200/80 bg-white/90 px-2 py-5 shadow-[6px_0_30px_rgba(44,64,51,0.04)] backdrop-blur-xl sm:flex">
-        <img src={FOTUS_LOGO} alt="Fotus" className="mb-4 h-auto w-14 object-contain" />
-        {tabs.map(({ id, label, icon: Icon, alert }) => (
-          <button key={id} onClick={() => setActiveTab(id)} title={label} className={cn('relative flex w-full flex-col items-center gap-1 rounded-2xl px-1 py-2.5 transition-all', activeTab === id ? 'bg-[#e8efe0] text-[#385041] shadow-sm ring-1 ring-[#385041]/10' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700')}>
-            {id === 'ra' ? <img src={RA_LOGO} alt="Reclame Aqui" className="h-6 w-6 object-contain" /> : <Icon className="h-6 w-6" />}
-            <span className="max-w-full truncate text-[8px] font-extrabold">{label}</span>
-            {alert && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-500" />}
-          </button>
-        ))}
-        <button onClick={() => setIsIsaChatOpen(true)} title="Abrir ISA" className="mt-auto flex h-12 w-12 items-center justify-center rounded-2xl transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#385041]/20"><img src={ISA_LOGO} alt="ISA" className="h-12 w-12 object-contain drop-shadow-md" /></button>
+      <aside className="sticky top-0 hidden h-screen w-[72px] shrink-0 flex-col border-r border-[#e2e8e3] bg-white/90 px-2 py-3 shadow-[4px_0_24px_rgba(44,64,51,0.035)] backdrop-blur-xl sm:flex">
+        <div className="flex h-11 items-center justify-center"><img src={FOTUS_LOGO} alt="Fotus" className="h-auto w-10 object-contain" /></div>
+        <nav className="mt-4 flex flex-col items-center gap-1.5" aria-label="Navegação principal">
+          {tabs.map(({ id, label, icon: Icon, alert }) => {
+            const selected = activeTab === id;
+            return <button key={id} type="button" onClick={() => setActiveTab(id)} title={label} aria-label={label} aria-current={selected ? 'page' : undefined} className={cn('group relative flex h-12 w-12 items-center justify-center rounded-[15px] transition-all duration-200', selected ? 'bg-[#385041] text-white shadow-[0_8px_18px_rgba(56,80,65,0.22)]' : 'text-[#8a958c] hover:bg-[#eef4eb] hover:text-[#385041]')}>
+              {id === 'ra' ? <img src={RA_LOGO} alt="" className={cn('h-7 w-7 rounded-lg object-contain', selected && 'ring-2 ring-white/70')} /> : <Icon className="h-[22px] w-[22px]" strokeWidth={selected ? 2.25 : 2} />}
+              <span className="sr-only">{label}</span>
+              {alert && <span className={cn('absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full border-2', selected ? 'border-[#385041] bg-amber-300' : 'border-white bg-amber-500')} aria-label="Há itens que precisam de atenção" />}
+            </button>;
+          })}
+        </nav>
+        <button type="button" onClick={() => setIsIsaChatOpen(true)} title="Abrir ISA" aria-label="Abrir ISA" className="mt-auto flex h-11 w-full items-center justify-center rounded-xl transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#385041]/20"><img src={ISA_LOGO} alt="ISA" className="h-10 w-10 object-contain drop-shadow-sm" /></button>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -289,7 +239,7 @@ export default function App() {
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3"><img src={FOTUS_LOGO} alt="Fotus" className="h-9 w-auto object-contain sm:hidden" /><div className="min-w-0"><h1 className="truncate text-base font-extrabold tracking-tight text-gray-950 sm:text-lg">{TAB_COPY[activeTab].title}</h1><p className="hidden truncate text-xs text-gray-500 md:block">{TAB_COPY[activeTab].subtitle}</p></div></div>
             <div className="flex items-center gap-2 sm:gap-3">
-              <button onClick={() => setIsIsaChatOpen(true)} title="Falar com a ISA" className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#385041]/20"><img src={ISA_LOGO} alt="Abrir ISA" className="h-11 w-11 object-contain drop-shadow-sm" /></button>
+              <button type="button" onClick={() => setIsIsaChatOpen(true)} title="Falar com a ISA" className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#385041]/20"><img src={ISA_LOGO} alt="Abrir ISA" className="h-11 w-11 object-contain drop-shadow-sm" /></button>
               <div className="relative border-l border-gray-200 pl-2 sm:pl-3">
                 <button type="button" onClick={() => setIsProfileMenuOpen((current) => !current)} className="flex items-center gap-2 rounded-xl p-1.5 text-left transition-colors hover:bg-gray-50" aria-expanded={isProfileMenuOpen}>
                   <div className="hidden text-right lg:block"><p className="text-xs font-bold text-gray-800">{user.displayName || user.email}</p><p className="text-[10px] text-gray-500">{access.role} · {user.email}</p></div>
@@ -297,37 +247,33 @@ export default function App() {
                 </button>
                 {isProfileMenuOpen && <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-72 rounded-2xl border border-gray-200 bg-white p-3 shadow-xl">
                   <div className="rounded-xl bg-[#f4f8f2] p-3"><p className="text-xs font-extrabold text-gray-900">{user.displayName || user.email}</p><p className="mt-0.5 truncate text-[10px] text-gray-500">{user.email}</p><div className="mt-2 flex flex-wrap gap-1"><span className="rounded-full bg-[#385041] px-2 py-1 text-[8px] font-extrabold uppercase tracking-wide text-white">{access.role}</span><span className="rounded-full bg-white px-2 py-1 text-[8px] font-bold text-gray-500">{scopeLabel}</span></div></div>
-                  {access.isDeveloper && <button type="button" onClick={() => { setIsProfileMenuOpen(false); setIsAccessControlOpen(true); }} className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-[#385041] hover:bg-[#eef5eb]"><Settings2 className="h-4 w-4" /><span>Gerenciar perfis<small className="mt-0.5 block text-[9px] font-normal text-gray-500">Funções, agentes e equipes</small></span></button>}
-                  <button type="button" onClick={() => signOut(auth)} className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-red-600 hover:bg-red-50"><LogOut className="h-4 w-4" />Sair da conta</button>
+                  {access.isMasterOperator && <button type="button" onClick={() => { setIsProfileMenuOpen(false); setIsAccessControlOpen(true); }} className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-[#385041] hover:bg-[#eef5eb]"><Settings2 className="h-4 w-4" /><span>Gerenciar usuários<small className="mt-0.5 block text-[9px] font-normal text-gray-500">Logins, senhas, funções e equipes</small></span></button>}
+                  <button type="button" onClick={() => void handleSignOut()} className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-red-600 hover:bg-red-50"><LogOut className="h-4 w-4" />Sair da conta</button>
                 </div>}
               </div>
             </div>
           </div>
 
-          <nav className="mt-3 flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 sm:hidden">
-            {tabs.map(({ id, label }) => <button key={id} onClick={() => setActiveTab(id)} className={cn('shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-bold', activeTab === id ? 'bg-white text-[#385041] shadow-sm' : 'text-gray-500')}>{label}</button>)}
+          <nav className="mt-3 flex gap-1.5 overflow-x-auto rounded-2xl border border-gray-200/70 bg-[#f4f7f3] p-1.5 sm:hidden" aria-label="Navegação principal">
+            {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab === id ? 'page' : undefined} className={cn('flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all', activeTab === id ? 'bg-[#385041] text-white shadow-sm' : 'text-gray-500')}>
+              {id === 'ra' ? <img src={RA_LOGO} alt="" className="h-4 w-4 rounded object-contain" /> : <Icon className="h-3.5 w-3.5" />}{label}
+            </button>)}
           </nav>
         </header>
 
         <main className="mx-auto w-full max-w-[1560px] flex-1 px-4 py-5 sm:px-8 sm:py-6">
           {dataError && <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800">{dataError}</div>}
 
-          {activeTab === 'visao-geral' && <OverviewView occurrences={visibleOccurrences} costs={visibleCosts} raCases={visibleRaCases} visits={visits} scopeLabel={scopeLabel} canViewCosts={canView('custos')} canViewRa={canView('ra')} onNavigate={setActiveTab} />}
+          {canView('visao-geral') && <section hidden={activeTab !== 'visao-geral'}><OverviewView occurrences={visibleOccurrences} costs={visibleCosts} raCases={visibleRaCases} visits={visits} scopeLabel={scopeLabel} canViewOccurrences={canView('ocorrencias')} canViewCosts={canView('custos')} canViewRa={canView('ra')} canViewVisits={canView('visitas')} onNavigate={setActiveTab} /></section>}
 
-          {activeTab === 'ocorrencias' && <OccurrencesView occurrences={visibleOccurrences} organizationUnits={visibleOrganizationUnits} currentUser={user} agents={occurrenceAgents} canManageAgents={canManageAgents} onEditAgents={() => setIsAgentManagerOpen(true)} />}
+          {canView('ocorrencias') && <section hidden={activeTab !== 'ocorrencias'}><OccurrencesView occurrences={visibleOccurrences} organizationUnits={visibleOrganizationUnits} currentUser={user} agents={occurrenceAgents} canManageAgents={canManageAgents} onEditAgents={() => setIsAgentManagerOpen(true)} /></section>}
 
-          {activeTab === 'custos' && <ExtraCostsView costs={visibleCosts} currentUser={user} />}
+          {canView('custos') && <section hidden={activeTab !== 'custos'}><ExtraCostsView costs={visibleCosts} currentUser={user} /></section>}
 
-          {activeTab === 'ra' && (
-            <div className="space-y-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-100"><img src={RA_LOGO} alt="RA" className="h-7 w-7 object-contain" /></span><div><h2 className="text-base font-extrabold text-gray-950">Ocorrências Reclame Aqui</h2><p className="text-xs text-gray-500">{averageRaScore ? `Média dos casos avaliados: ${averageRaScore} / 10` : 'Nenhum caso avaliado ainda'}</p></div></div><div className="flex flex-col gap-2 sm:flex-row"><button onClick={() => { const opened = openA4PrintWindow('Relatório Estratégico RA', buildRaReport(visibleRaCases)); setRaReportMessage(opened ? 'Relatório A4 aberto para impressão ou salvamento em PDF.' : 'Permita pop-ups para abrir o relatório A4.'); window.setTimeout(() => setRaReportMessage(''), 6000); }} className="flex items-center justify-center gap-2 rounded-xl border border-[#123e5b]/20 bg-white px-4 py-2.5 text-xs font-bold text-[#123e5b] hover:bg-[#eff5f8]"><FileText className="h-4 w-4" />Gerar relatório PDF</button><button onClick={() => { setRaCaseToEdit(null); setIsRaModalOpen(true); }} className="flex items-center justify-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white"><Plus className="h-4 w-4" />Novo chamado RA</button></div></div>
-              {raReportMessage && <div className="flex items-center gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-800"><FileText className="h-4 w-4 shrink-0" /><span>{raReportMessage}</span></div>}
-              {visibleRaCases.length === 0 ? <EmptyState icon={ArchiveRestore} title="Nenhum chamado RA registrado" description="Os exemplos foram removidos. Registre o primeiro chamado real quando necessário." action="Abrir primeiro chamado" onAction={() => { setRaCaseToEdit(null); setIsRaModalOpen(true); }} /> : <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{visibleRaCases.map((caseItem) => <article key={caseItem.id} onClick={() => { setRaCaseToEdit(caseItem); setIsRaModalOpen(true); }} className="cursor-pointer rounded-2xl border border-white/90 bg-white/80 p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"><div className="mb-3 flex items-center justify-between"><span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-extrabold text-gray-700">{caseItem.status}</span>{typeof caseItem.finalScore === 'number' && <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700">Nota {raScoreOnTen(caseItem.finalScore).toFixed(1)}</span>}</div><p className="text-[10px] font-bold uppercase text-gray-400">ID Reclamação</p><h3 className="text-base font-extrabold text-gray-950">{caseItem.raNumber}</h3><div className="mt-3 rounded-xl bg-gray-50 p-3"><p className="text-xs font-bold text-gray-800">{caseItem.customerName}</p><p className="mt-0.5 truncate text-[11px] text-gray-500">{caseItem.phone || caseItem.email || 'Sem contato informado'}</p></div>{caseItem.information && <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-gray-500">{caseItem.information}</p>}</article>)}</div>}
-            </div>
-          )}
+          {canView('ra') && <section hidden={activeTab !== 'ra'}><RaView cases={visibleRaCases} currentUser={user} onNew={() => { setRaCaseToEdit(null); setIsRaModalOpen(true); }} onEdit={(item) => { setRaCaseToEdit(item); setIsRaModalOpen(true); }} /></section>}
 
-          {activeTab === 'visitas' && <VisitsView visits={visits} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} />}
-          {activeTab === 'estrutura' && <OrganizationView units={organizationUnits} people={organizationPeople} currentUser={user} canManage={canManageAgents} canDeleteLegacy={access.isDeveloper} />}
+          {canView('visitas') && <section hidden={activeTab !== 'visitas'}><VisitsView visits={visits} currentUser={user} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} /></section>}
+          {canView('estrutura') && <section hidden={activeTab !== 'estrutura'}><OrganizationView units={organizationUnits} people={organizationPeople} currentUser={user} canManage={canManageAgents} canDeleteLegacy={access.isDeveloper} /></section>}
         </main>
 
         <RaModal isOpen={isRaModalOpen} onClose={() => setIsRaModalOpen(false)} caseToEdit={raCaseToEdit} currentUser={user} />
@@ -338,8 +284,4 @@ export default function App() {
       </div>
     </div>
   );
-}
-
-function EmptyState({ icon: Icon, title, description, action, onAction }: { icon: typeof ArchiveRestore; title: string; description: string; action: string; onAction: () => void }) {
-  return <div className="rounded-3xl border border-dashed border-gray-300 bg-white/60 px-6 py-16 text-center"><Icon className="mx-auto h-12 w-12 text-gray-300" /><h3 className="mt-4 text-base font-extrabold text-gray-800">{title}</h3><p className="mx-auto mt-1 max-w-lg text-xs text-gray-500">{description}</p><button onClick={onAction} className="mt-5 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white">{action}</button></div>;
 }

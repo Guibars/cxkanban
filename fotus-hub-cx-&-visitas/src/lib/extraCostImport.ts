@@ -1,7 +1,7 @@
-import { User } from 'firebase/auth';
+import type { CurrentUser } from './currentUser';
 import { readSheet } from 'read-excel-file/browser';
 import { ExtraCost, ExtraCostResponsible } from '../types';
-import { db, doc, writeBatch } from './firebase';
+import { bulkUpsertData } from './dataMutations';
 import { monthYearFromDate, totalExtraCost } from './extraCosts';
 
 const SHEET_NAME = 'Base de Dados';
@@ -68,7 +68,7 @@ function createdAtFromDate(date: string, rowNumber: number) {
   return (Number.isNaN(timestamp) ? Date.UTC(2000, 0, 1, 12) : timestamp) + rowNumber;
 }
 
-export async function readExtraCostsSpreadsheet(file: File, currentUser: User) {
+export async function readExtraCostsSpreadsheet(file: File, currentUser: CurrentUser) {
   const rows = await readSheet(file, SHEET_NAME);
   const header = rows[0] || [];
   if (normalized(text(header[0])) !== 'data' || normalized(text(header[1])) !== 'pedido') {
@@ -118,18 +118,8 @@ export async function readExtraCostsSpreadsheet(file: File, currentUser: User) {
 
 export async function saveImportedExtraCosts(
   costs: ImportedExtraCost[],
+  currentUser: CurrentUser,
   onProgress?: (saved: number, total: number) => void,
 ) {
-  let saved = 0;
-  for (let start = 0; start < costs.length; start += BATCH_SIZE) {
-    const currentBatch = costs.slice(start, start + BATCH_SIZE);
-    const batch = writeBatch(db);
-    currentBatch.forEach(({ id, ...cost }) => {
-      batch.set(doc(db, 'extra_costs', id), cost, { merge: true });
-    });
-    await batch.commit();
-    saved += currentBatch.length;
-    onProgress?.(saved, costs.length);
-  }
-  return saved;
+  return bulkUpsertData(currentUser, 'extra_costs', costs, onProgress);
 }

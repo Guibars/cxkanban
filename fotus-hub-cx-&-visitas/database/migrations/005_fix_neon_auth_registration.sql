@@ -52,15 +52,23 @@ insert into public.user_section_permissions (
 select users.id, sections.section_key, true, true, true, true
 from public.app_users users
 cross join public.app_sections sections
-where lower(users.email::text) in (
-  'guilhermebarbosars@gmail.com',
-  'matheus.gaspar@fotus.com.br'
-)
+where lower(users.email::text) = 'guilhermebarbosars@gmail.com'
 on conflict (user_id, section_key) do update
 set can_view = true,
     can_create = true,
     can_edit = true,
     can_delete = true,
     updated_at = now();
+
+-- O Matheus começa com as áreas cadastradas, mas futuras execuções desta
+-- correção não substituem as escolhas feitas no painel de permissões.
+insert into public.user_section_permissions (
+  user_id, section_key, can_view, can_create, can_edit, can_delete
+)
+select users.id, sections.section_key, true, true, true, true
+from public.app_users users
+cross join public.app_sections sections
+where lower(users.email::text) = 'matheus.gaspar@fotus.com.br'
+on conflict (user_id, section_key) do nothing;
 
 commit;

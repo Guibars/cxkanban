@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, Building2, Calendar, Clock, User, Phone, Mail, MapPin, Users, CheckCircle2, AlertCircle } from 'lucide-react';
 import { IntegratorVisit, VisitStatus } from '../types';
-import { db, collection, addDoc, updateDoc, doc } from '../lib/firebase';
-import { User as AuthUser } from 'firebase/auth';
+import { createData, updateData } from '../lib/dataMutations';
+import type { CurrentUser } from '../lib/currentUser';
 
 interface VisitModalProps {
   isOpen: boolean;
   onClose: () => void;
   visitToEdit?: IntegratorVisit | null;
-  currentUser: AuthUser | null;
+  currentUser: CurrentUser | null;
 }
 
 const statusOptions: { value: VisitStatus; label: string; color: string }[] = [
@@ -33,8 +33,16 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
   const [notes, setNotes] = useState('');
   const [feedback, setFeedback] = useState('');
   const [loading, setLoading] = useState(false);
+  const initializedRecord = useRef('');
 
   useEffect(() => {
+    if (!isOpen) {
+      initializedRecord.current = '';
+      return;
+    }
+    const recordKey = visitToEdit?.id || 'new';
+    if (initializedRecord.current === recordKey) return;
+    initializedRecord.current = recordKey;
     if (visitToEdit) {
       setIntegratorName(visitToEdit.integratorName || '');
       setContactPerson(visitToEdit.contactPerson || '');
@@ -64,7 +72,7 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
       setNotes('');
       setFeedback('');
     }
-  }, [visitToEdit, isOpen, currentUser]);
+  }, [isOpen, visitToEdit?.id]);
 
   if (!isOpen) return null;
 
@@ -94,9 +102,11 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
       };
 
       if (visitToEdit) {
-        await updateDoc(doc(db, 'integrator_visits', visitToEdit.id), visitData);
+        if (!currentUser) throw new Error('Sessão não encontrada.');
+        await updateData(currentUser, 'integrator_visits', visitToEdit.id, visitData);
       } else {
-        await addDoc(collection(db, 'integrator_visits'), {
+        if (!currentUser) throw new Error('Sessão não encontrada.');
+        await createData(currentUser, 'integrator_visits', {
           ...visitData,
           createdAt: Date.now(),
         });

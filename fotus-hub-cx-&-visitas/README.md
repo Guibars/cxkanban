@@ -1,114 +1,39 @@
-# Fotus Hub — CX, Ocorrências e Visitas
+# Fotus Hub CX
 
-Aplicação React conectada ao Firebase Authentication e ao banco Firestore nomeado `ai-studio-752453f7-ae97-40d3-ab96-17738cb30cc2`.
+Aplicação React com banco PostgreSQL e autenticação hospedados integralmente no
+Neon. Não existe dependência de outro banco ou serviço de login.
 
-## Acesso na Vercel
-
-O código autoriza:
-
-- contas `@fotus.com.br`;
-- a conta de desenvolvimento `guilhermebarbosars@gmail.com`.
-
-Para o login funcionar na Vercel, o domínio publicado precisa ser autorizado no Firebase:
-
-1. Abra o Firebase Console do projeto `gen-lang-client-0929275981`.
-2. Entre em **Authentication**.
-3. Confirme que os provedores **Google** e **E-mail/senha** estão habilitados.
-4. Abra **Settings > Authorized domains**.
-5. Adicione apenas o domínio, sem `https://` e sem caminhos. Exemplo: `nome-do-projeto.vercel.app`.
-6. Se houver domínio próprio, adicione-o também.
-
-O formulário de e-mail e senha não cria contas novas. Cadastre os usuários autorizados em **Firebase Authentication > Users** e use somente endereços `@fotus.com.br` ou a conta de desenvolvimento liberada.
-
-## Publicar as regras do Firestore
-
-As regras estão vinculadas ao banco nomeado por meio do arquivo `firebase.json`.
-
-No terminal aberto na raiz do projeto:
+## Desenvolvimento
 
 ```bash
-# somente se o comando firebase ainda não existir no Mac
-npm install -g firebase-tools
-firebase login
-firebase use gen-lang-client-0929275981
-firebase deploy --only firestore
+npm install
+npm run dev
 ```
 
-Esse comando publica `firestore.rules` no banco configurado e substitui as regras anteriores desse banco.
+O arquivo `.env` local precisa conter somente:
 
-Para a ISA responder com inteligência sobre todas as abas, crie a variável `GEMINI_API_KEY` nas Environment Variables da Vercel (Production, Preview e Development, se usar). A chave é usada somente pela função segura `api/isa.ts`; ela não fica exposta no navegador. O modelo utilizado é `gemini-3.5-flash-lite`.
+```dotenv
+DATABASE_URL=conexao_pooler_do_neon
+NEON_AUTH_BASE_URL=https://ep-falling-waterfall-b5oiundt.neonauth.c-7.us-east-2.aws.neon.tech/neondb/auth
+VITE_NEON_AUTH_URL=https://ep-falling-waterfall-b5oiundt.neonauth.c-7.us-east-2.aws.neon.tech/neondb/auth
+```
 
-## Remover os dados demonstrativos antigos
+Nunca publique `.env` nem exponha `DATABASE_URL` no navegador.
 
-O código não cria mais exemplos. Os documentos já existentes no Firestore continuam salvos até serem excluídos.
+## Publicação na Vercel
 
-Antes de executar qualquer exclusão, confira no Firebase Console se as coleções abaixo contêm somente dados demonstrativos. Os comandos apagam todos os documentos das coleções indicadas:
+Cadastre as mesmas três variáveis em **Settings → Environment Variables** e
+faça um novo deploy. `VITE_NEON_AUTH_URL` é público; as demais variáveis são
+usadas pelas funções seguras do servidor.
+
+## Banco e login
+
+As migrações e o processo de primeiro acesso estão documentados em
+[`database/README.md`](database/README.md).
+
+## Validação
 
 ```bash
-firebase firestore:delete --database=ai-studio-752453f7-ae97-40d3-ab96-17738cb30cc2 cx_cases
-firebase firestore:delete --database=ai-studio-752453f7-ae97-40d3-ab96-17738cb30cc2 integrator_visits
-firebase firestore:delete --database=ai-studio-752453f7-ae97-40d3-ab96-17738cb30cc2 ra_cases
+npm run lint
+npm run build
 ```
-
-Não execute esses comandos se houver dados reais misturados. Nesse caso, exclua apenas os documentos demonstrativos pelo Firebase Console.
-
-## Novas coleções
-
-- `organization_units`: setor, time, regional, gerente, liderança e coordenação;
-- `organization_people`: organograma em cadeia com Head, Gerente, Coordenador, Líder e o vínculo de responsável direto;
-- `occurrences`: controle operacional de ocorrências;
-- `extra_costs`: custos não previstos por pedido, regional, origem, responsabilidade e motivo;
-- `cx_cases`: casos CX e seus direcionamentos;
-- `ra_cases`: chamados do Reclame Aqui;
-- `integrator_visits`: visitas de integradores.
-- `app_settings/occurrence_agents`: lista editável de agentes disponíveis no controle de ocorrências.
-- `user_access`: função, agente vinculada, times acompanhados e abas liberadas para cada e-mail.
-
-Nenhuma pessoa ou ocorrência é criada automaticamente. Na aba **Estrutura**, cadastre primeiro o Head, depois os Gerentes, Coordenadores e Líderes. Cada card posterior seleciona a pessoa para quem responde. Os registros do modelo anterior continuam visíveis em uma área separada até o administrador excluí-los.
-
-## Importar o histórico de ocorrências
-
-Depois que a nova versão estiver publicada:
-
-1. Entre na aba **Ocorrências**.
-2. Clique em **Importar planilha**.
-3. Escolha o arquivo `Controle de Ocorrências - CX.xlsx`.
-4. Confirme o envio quando o sistema mostrar a quantidade encontrada.
-
-A aba `Controle de Ocorrências` é lida diretamente no navegador e os registros são enviados ao Firestore em blocos. Repetir a importação da mesma planilha atualiza as mesmas linhas, sem criar outra cópia do histórico.
-
-Após esta atualização, reimporte a planilha para corrigir as linhas antigas em que o Excel interpretou dia e mês invertidos. A conversão agora usa o calendário brasileiro e UTC, evitando também o deslocamento de um dia causado pelo fuso horário.
-
-Na aba de ocorrências, **Insights Gerais** começa fechado e abre o gráfico de produtividade mensal do ano atual. É possível alternar entre agentes, transportadoras e estados/UF. O ranking anual mostra claramente quem está na frente e o total de cards; ao clicar em uma posição, o gráfico exibe a evolução mensal somente daquela seleção. A opção **Todos** soma todas as ocorrências em cada mês. O comparativo com a média da equipe mede apenas volume de cards e não é apresentado como nota de desempenho.
-
-Os cards podem ser filtrados por hoje, últimos 7 dias, últimos 15 dias, mês atual, período personalizado ou histórico completo. Cada coluna mostra inicialmente três cards e oferece **Ver mais** quando houver outros registros.
-
-Ao abrir uma nova ocorrência, marque **Avaria com custo** para informar valor, transportadora, cidade e UF. Esses campos alimentam os rankings financeiros por transportadora e região.
-
-## Acesso às telas
-
-A conta `guilhermebarbosars@gmail.com` é a administradora do MVP. Depois de publicar o código e as regras:
-
-1. Entre com a conta de desenvolvimento.
-2. Clique na foto de perfil.
-3. Abra **Gerenciar visibilidade**.
-4. Cadastre o e-mail, a função, o nome da agente usado nos cards e o time.
-
-Todas as pessoas autenticadas e autorizadas visualizam novamente todas as abas e todos os dados do Hub, incluindo **Visão Geral**, **Ocorrências**, **Custo Extra**, **Reclame Aqui**, **Visitas** e **Estrutura**. Os perfis continuam disponíveis para registrar função, agente e equipe, mas não ocultam telas.
-
-A nova aba **Visão Geral** apresenta o consolidado completo da empresa para qualquer usuário autenticado.
-
-## Importar a planilha de custos extras
-
-Depois de publicar o código e as regras atualizadas do Firestore:
-
-1. Entre na aba **Custo Extra**.
-2. Clique em **Importar planilha**.
-3. Escolha `Planilha_de_Custos_Extras_Fotus_2.xlsx`.
-4. Confirme o envio dos registros encontrados.
-
-O sistema lê a aba `Base de Dados`, calcula novamente o custo total pela soma de produto, logística e impostos e atualiza o painel automaticamente. Reimportar a mesma planilha atualiza as mesmas linhas sem duplicar o histórico.
-
-Os botões **Gerar relatório PDF** nas abas **Custo Extra** e **Reclame Aqui** abrem um relatório em folha A4; na janela de impressão, escolha **Salvar como PDF**. Os modelos seguem a estrutura visual dos relatórios de referência enviados.
-
-Em **Custo Extra**, o filtro inicia no mês atual. A opção **Todos** mostra o histórico completo, e a visão anual permanece disponível para comparação mês a mês.

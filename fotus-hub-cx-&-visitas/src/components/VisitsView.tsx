@@ -1,16 +1,18 @@
 import React, { useState, useMemo } from 'react';
 import { Building2, Calendar, Clock, MapPin, User, Users, Plus, Search, Filter, CheckCircle2, AlertCircle, ArrowRight, MessageSquareQuote } from 'lucide-react';
 import { IntegratorVisit, VisitStatus } from '../types';
-import { db, updateDoc, doc } from '../lib/firebase';
+import type { CurrentUser } from '../lib/currentUser';
+import { updateData } from '../lib/dataMutations';
 import { cn } from '../lib/utils';
 
 interface VisitsViewProps {
   visits: IntegratorVisit[];
   onNewVisit: () => void;
   onEditVisit: (visit: IntegratorVisit) => void;
+  currentUser: CurrentUser;
 }
 
-export default function VisitsView({ visits, onNewVisit, onEditVisit }: VisitsViewProps) {
+export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUser }: VisitsViewProps) {
   const [statusFilter, setStatusFilter] = useState<'Todas' | VisitStatus>('Todas');
   const [search, setSearch] = useState('');
 
@@ -43,7 +45,8 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit }: VisitsVi
   const handleQuickStatusChange = async (e: React.MouseEvent, visit: IntegratorVisit, newStatus: VisitStatus) => {
     e.stopPropagation();
     try {
-      await updateDoc(doc(db, 'integrator_visits', visit.id), {
+      await updateData(currentUser, 'integrator_visits', visit.id, {
+        ...visit,
         status: newStatus,
         updatedAt: Date.now()
       });

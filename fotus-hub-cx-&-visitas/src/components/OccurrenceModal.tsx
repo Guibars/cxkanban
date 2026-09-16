@@ -1,7 +1,7 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
-import { User } from 'firebase/auth';
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import type { CurrentUser } from '../lib/currentUser';
 import { Building2, CalendarDays, CheckCircle2, CircleDollarSign, Hash, MapPin, Package, Route, Save, ShieldAlert, Truck, UserRound, X } from 'lucide-react';
-import { addDoc, collection, db, doc, updateDoc } from '../lib/firebase';
+import { createData, updateData } from '../lib/dataMutations';
 import {
   BRAZIL_STATES,
   getRegionFromState,
@@ -15,7 +15,7 @@ interface OccurrenceModalProps {
   isOpen: boolean;
   onClose: () => void;
   occurrence: Occurrence | null;
-  currentUser: User;
+  currentUser: CurrentUser;
   organizationUnits: OrganizationUnit[];
   agents: string[];
 }
@@ -53,11 +53,18 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
   const [organizationUnitId, setOrganizationUnitId] = useState('');
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const initializedRecord = useRef('');
 
   const activeUnits = useMemo(() => organizationUnits.filter((unit) => unit.active), [organizationUnits]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      initializedRecord.current = '';
+      return;
+    }
+    const recordKey = occurrence?.id || 'new';
+    if (initializedRecord.current === recordKey) return;
+    initializedRecord.current = recordKey;
     setDate(occurrence?.date || today());
     setAgentName(occurrence?.agentName || (agents.length === 1 ? agents[0] : ''));
     setCompanyName(occurrence?.companyName || '');
@@ -78,7 +85,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
     setCity(occurrence?.city || '');
     setOrganizationUnitId(occurrence?.organizationUnitId || '');
     setErrorMessage('');
-  }, [agents, currentUser.displayName, isOpen, occurrence]);
+  }, [isOpen, occurrence?.id]);
 
   if (!isOpen) return null;
 
@@ -116,9 +123,9 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
 
     try {
       if (occurrence) {
-        await updateDoc(doc(db, 'occurrences', occurrence.id), payload);
+        await updateData(currentUser, 'occurrences', occurrence.id, payload);
       } else {
-        await addDoc(collection(db, 'occurrences'), {
+        await createData(currentUser, 'occurrences', {
           ...payload,
           createdByEmail: currentUser.email || '',
           createdByName: currentUser.displayName || currentUser.email || '',
@@ -128,7 +135,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
       onClose();
     } catch (error) {
       console.error('Erro ao salvar ocorrência:', error);
-      setErrorMessage('Não foi possível salvar a ocorrência. Confira as regras do Firestore.');
+      setErrorMessage('Não foi possível salvar a ocorrência. Confira sua conexão e suas permissões.');
     } finally {
       setSaving(false);
     }

@@ -1,13 +1,13 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { User } from 'firebase/auth';
+import type { CurrentUser } from '../lib/currentUser';
 import { Plus, Save, Trash2, UserRound, X } from 'lucide-react';
-import { db, doc, setDoc } from '../lib/firebase';
+import { replaceOccurrenceAgents } from '../lib/dataMutations';
 
 interface AgentManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
   agents: string[];
-  currentUser: User;
+  currentUser: CurrentUser;
 }
 
 export default function AgentManagerModal({ isOpen, onClose, agents, currentUser }: AgentManagerModalProps) {
@@ -51,16 +51,11 @@ export default function AgentManagerModal({ isOpen, onClose, agents, currentUser
     setSaving(true);
     setErrorMessage('');
     try {
-      await setDoc(doc(db, 'app_settings', 'occurrence_agents'), {
-        names: draftAgents,
-        updatedAt: Date.now(),
-        updatedByEmail: currentUser.email || '',
-        updatedByName: currentUser.displayName || currentUser.email || '',
-      }, { merge: true });
+      await replaceOccurrenceAgents(currentUser, draftAgents);
       onClose();
     } catch (error) {
       console.error('Erro ao salvar agentes:', error);
-      setErrorMessage('Não foi possível salvar a lista. Publique as regras atualizadas do Firestore.');
+      setErrorMessage('Não foi possível salvar a lista. Confira sua conexão e suas permissões.');
     } finally {
       setSaving(false);
     }
