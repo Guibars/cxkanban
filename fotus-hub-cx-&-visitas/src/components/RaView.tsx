@@ -85,8 +85,12 @@ export default function RaView({ cases, currentUser, onNew, onEdit }: RaViewProp
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-3xl border border-white bg-white/80 shadow-sm">
-        <div className="grid gap-5 p-5 lg:grid-cols-[1.1fr_1fr] lg:p-6">
+      <section className="overflow-hidden rounded-[30px] border border-white bg-white/80 shadow-sm">
+        <div className="relative overflow-hidden bg-[#16568f]">
+          <img src="/ra-banner.png" alt="Fotus — ao seu lado, em cada projeto" className="block h-24 w-full object-cover object-[35%_center] sm:h-auto" />
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#0d3153]/20 to-transparent" />
+        </div>
+        <div className="relative z-10 mx-3 -mt-4 grid gap-5 rounded-[26px] border border-white/90 bg-white p-5 shadow-[0_18px_45px_rgba(27,54,76,0.12)] sm:mx-6 sm:-mt-6 lg:grid-cols-[1.1fr_1fr] lg:p-6">
           <div>
             <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#385041] text-white"><ArchiveRestore className="h-5 w-5" /></span><div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#385041]">Reputação do período</p><h2 className="text-xl font-extrabold text-gray-950">Calculadora Reclame Aqui</h2></div></div>
             <p className="mt-3 max-w-2xl text-xs leading-relaxed text-gray-500">Nota automática com os pesos oficiais: resposta 20%, solução 30%, nota do cliente 30% e voltaria a fazer negócio 20%.</p>
@@ -94,6 +98,7 @@ export default function RaView({ cases, currentUser, onNew, onEdit }: RaViewProp
           </div>
           <ReputationGauge score={score} classification={reputation.classification} />
         </div>
+        <div className="h-4 sm:h-6" />
       </section>
 
       <section className="rounded-2xl border border-white bg-white/75 p-3 shadow-sm">
