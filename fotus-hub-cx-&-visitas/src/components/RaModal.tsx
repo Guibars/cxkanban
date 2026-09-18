@@ -50,7 +50,7 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
 
   const normalizedScore = typeof customerScore === 'number' && Number.isFinite(customerScore) ? customerScore : null;
   const previewScore = calculateSingleRaScore(status, normalizedScore, wouldDoBusiness);
-  const previewClass = classifyRaScore(previewScore, status === 'Aberto' ? 0 : 100);
+  const previewClass = classifyRaScore(previewScore, status === 'Resolvido' || status === 'Cancelado' ? 100 : 0);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -59,6 +59,7 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
     setSaveError('');
     try {
       const finalScore = calculateSingleRaScore(status, normalizedScore, wouldDoBusiness);
+      const readyForReputation = (status === 'Resolvido' || status === 'Cancelado') && normalizedScore !== null && wouldDoBusiness !== null;
       const caseData = {
         raNumber: raNumber.trim(),
         customerName: customerName.trim(),
@@ -66,8 +67,8 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
         email: email.trim(),
         information: information.trim(),
         status,
-        indicatorIR: status === 'Aberto' ? 0 : 100,
-        indicatorIS: status === 'Resolvido' ? 100 : 0,
+        indicatorIR: readyForReputation ? 100 : 0,
+        indicatorIS: readyForReputation && status === 'Resolvido' ? 100 : 0,
         indicatorMA: normalizedScore,
         indicatorIN: wouldDoBusiness === null ? null : wouldDoBusiness ? 100 : 0,
         finalScore,
@@ -117,7 +118,7 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
           <Field label="Relato da reclamação e tratativa"><textarea rows={4} value={information} onChange={(event) => setInformation(event.target.value)} placeholder="Descreva a situação e as providências tomadas..." className="field-input resize-none" /></Field>
 
           <section className="rounded-3xl border border-[#385041]/15 bg-[#f5f8f4] p-4 sm:p-5">
-            <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#385041] shadow-sm"><Star className="h-4 w-4" /></span><div><h3 className="text-sm font-extrabold text-gray-950">Avaliação do cliente</h3><p className="mt-0.5 text-[11px] text-gray-500">Preencha somente o que o consumidor respondeu.</p></div></div>
+            <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#385041] shadow-sm"><Star className="h-4 w-4" /></span><div><h3 className="text-sm font-extrabold text-gray-950">Avaliação do cliente</h3><p className="mt-0.5 text-[11px] text-gray-500">Preencha somente o que o consumidor respondeu. O card entra na reputação quando estiver encerrado e com as duas respostas completas.</p></div></div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Nota do cliente (0 a 10)"><input type="number" min="0" max="10" step="0.1" value={customerScore} onChange={(event) => setCustomerScore(event.target.value === '' ? '' : Number(event.target.value))} placeholder="Ex.: 8,5" className="field-input" /></Field>
               <div><span className="mb-1.5 block text-xs font-bold text-gray-700">Voltaria a fazer negócio?</span><div className="grid grid-cols-2 gap-2">{[{ label: 'Sim', value: true }, { label: 'Não', value: false }].map((option) => <button key={option.label} type="button" onClick={() => setWouldDoBusiness(option.value)} className={`rounded-xl border px-4 py-3 text-xs font-extrabold transition-all ${wouldDoBusiness === option.value ? option.value ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-red-500 bg-red-500 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-[#385041]/30'}`}>{option.label}</button>)}</div></div>

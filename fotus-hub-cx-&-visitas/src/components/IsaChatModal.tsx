@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, RefreshCw, Send, X } from 'lucide-react';
 import { CXCase, ExtraCost, IntegratorVisit, Occurrence, OrganizationPerson, OrganizationUnit, RACase } from '../types';
 import { calculateRaReputation } from '../lib/raReputation';
+import { occurrenceProducts } from '../lib/occurrenceProducts';
 
 interface IsaChatModalProps {
   isOpen: boolean;
@@ -116,7 +117,7 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
       `• Reprovados: ${rejected}\n` +
       `• Aguardando decisão: ${pending}\n\n` +
       `${rankingText('Transportadoras mais citadas', rank(occurrences.map((item) => item.carrier)))}\n\n` +
-      `${rankingText('Produtos com maior volume', rank(occurrences.map((item) => item.product)))}\n\n` +
+      `${rankingText('Produtos com maior volume', rank(occurrences.flatMap((item) => occurrenceProducts(item).map((entry) => entry.product))))}\n\n` +
       `${rankingText('Regiões com mais ocorrências', rank(occurrences.map((item) => item.region)))}`;
   };
 
@@ -145,7 +146,7 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
 
     if (query.includes('produto') && !query.includes('custo')) {
       return {
-        text: `📦 Análise de produtos\n\n${rankingText('Produtos com mais ocorrências', rank(occurrences.map((item) => item.product), 5))}\n\n${rankingText('Tipos de ocorrência', rank(occurrences.map((item) => item.occurrenceType), 5))}`,
+        text: `📦 Análise de produtos\n\n${rankingText('Produtos com mais ocorrências', rank(occurrences.flatMap((item) => occurrenceProducts(item).map((entry) => entry.product)), 5))}\n\n${rankingText('Tipos de ocorrência', rank(occurrences.map((item) => item.occurrenceType), 5))}`,
         suggestions: ['Transportadoras mais citadas', 'Relatório geral de ocorrências'],
       };
     }
@@ -214,7 +215,7 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
     if (query.includes('reclame') || query.includes('ra')) {
       const open = raCases.filter((item) => item.status === 'Aberto' || item.status === 'Em Andamento').length;
       const reputation = calculateRaReputation(raCases);
-      return { text: `⭐ Reclame Aqui\n\n• Registros: ${raCases.length}\n• Em aberto ou andamento: ${open}\n• Reputação calculada: ${reputation.finalScore === null ? 'sem avaliações completas' : `${reputation.finalScore.toFixed(1)} / 10 (${reputation.classification})`}\n• Taxa de resposta: ${reputation.responseRate.toFixed(0)}%\n• Índice de solução: ${reputation.solutionRate.toFixed(0)}%\n• Nota média do cliente: ${reputation.customerScore === null ? 'sem nota' : reputation.customerScore.toFixed(1)}\n• Voltaria a fazer negócio: ${reputation.wouldDoBusinessRate === null ? 'sem resposta' : `${reputation.wouldDoBusinessRate.toFixed(0)}%`}`, suggestions: ['Resumo de todas as abas', 'Relatório geral de ocorrências'] };
+      return { text: `⭐ Reclame Aqui\n\n• Registros: ${raCases.length}\n• Em aberto ou andamento: ${open}\n• Respondidos e avaliados considerados: ${reputation.evaluatedCases}\n• Reputação calculada: ${reputation.finalScore === null ? 'sem avaliações completas' : `${reputation.finalScore.toFixed(1)} / 10 (${reputation.classification})`}\n• Taxa de resposta: ${reputation.responseRate.toFixed(0)}%\n• Índice de solução: ${reputation.solutionRate.toFixed(0)}%\n• Nota média do cliente: ${reputation.customerScore === null ? 'sem nota' : reputation.customerScore.toFixed(1)}\n• Voltaria a fazer negócio: ${reputation.wouldDoBusinessRate === null ? 'sem resposta' : `${reputation.wouldDoBusinessRate.toFixed(0)}%`}`, suggestions: ['Resumo de todas as abas', 'Relatório geral de ocorrências'] };
     }
 
     if (query.includes('visita') || query.includes('integrador')) {

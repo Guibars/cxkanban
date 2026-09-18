@@ -173,6 +173,7 @@ create table if not exists public.occurrences (
   occurrence_type text not null,
   product text not null,
   quantity integer not null default 0 check (quantity >= 0),
+  products jsonb not null default '[]'::jsonb,
   stage text not null default 'Recebida'
     check (stage in ('Recebida', 'Em Análise', 'Aguardando Retorno', 'Finalizada')),
   approval_status text not null default 'Pendente'

@@ -121,5 +121,6 @@ export async function saveImportedExtraCosts(
   currentUser: CurrentUser,
   onProgress?: (saved: number, total: number) => void,
 ) {
-  return bulkUpsertData(currentUser, 'extra_costs', costs, onProgress);
+  const result = await bulkUpsertData(currentUser, 'extra_costs', costs, onProgress);
+  return result.inserted;
 }

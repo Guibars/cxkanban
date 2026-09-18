@@ -9,7 +9,7 @@ async function neonMutation(user: CurrentUser, body: Record<string, unknown>) {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
   });
-  const result = await response.json().catch(() => ({})) as { error?: string; id?: string };
+  const result = await response.json().catch(() => ({})) as { error?: string; id?: string; inserted?: number; skipped?: number };
   if (!response.ok) throw new Error(result.error || 'Não foi possível salvar no Neon.');
   window.dispatchEvent(new Event('fotus:data-changed'));
   return result;
@@ -37,7 +37,9 @@ export async function bulkUpsertData(
   records: Array<Record<string, unknown> & { id: string }>,
   onProgress?: (saved: number, total: number) => void,
 ) {
-  await neonMutation(user, { resource, action: 'bulk-upsert', records });
-  onProgress?.(records.length, records.length);
-  return records.length;
+  const result = await neonMutation(user, { resource, action: 'bulk-upsert', records });
+  const inserted = result.inserted ?? records.length;
+  const skipped = result.skipped ?? 0;
+  onProgress?.(inserted + skipped, records.length);
+  return { inserted, skipped };
 }

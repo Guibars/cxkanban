@@ -116,6 +116,11 @@ export interface OrganizationPerson {
 export type OccurrenceStage = 'Recebida' | 'Em Análise' | 'Aguardando Retorno' | 'Finalizada';
 export type OccurrenceApproval = 'Pendente' | 'Aprovado' | 'Reprovado';
 
+export interface OccurrenceProduct {
+  product: string;
+  quantity: number;
+}
+
 export interface Occurrence {
   id: string;
   date: string;
@@ -129,6 +134,7 @@ export interface Occurrence {
   occurrenceType: string;
   product: string;
   quantity: number;
+  products?: OccurrenceProduct[];
   stage: OccurrenceStage;
   approvalStatus: OccurrenceApproval;
   carrier: string;

@@ -2,6 +2,7 @@ import type { CurrentUser } from './currentUser';
 import { readSheet } from 'read-excel-file/browser';
 import { bulkUpsertData } from './dataMutations';
 import { getRegionFromState } from './occurrences';
+import { occurrenceProducts } from './occurrenceProducts';
 import { Occurrence, OccurrenceApproval, OccurrenceStage } from '../types';
 
 const SHEET_NAME = 'Controle de Ocorrências';
@@ -21,6 +22,49 @@ function normalized(value: string) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
+}
+
+function occurrenceIdentityKeys(item: Pick<Occurrence, 'date' | 'orderNumber' | 'uniqueNumber' | 'sacCode' | 'companyName' | 'occurrenceType' | 'product' | 'quantity' | 'products'>) {
+  const uniqueNumber = normalized(item.uniqueNumber || '');
+  const sacCode = normalized(item.sacCode || '');
+  const products = occurrenceProducts(item)
+    .map((entry) => `${normalized(entry.product)}:${entry.quantity}`)
+    .sort()
+    .join('|');
+  const strongKeys = [uniqueNumber ? `unique:${uniqueNumber}` : '', sacCode ? `sac:${sacCode}` : ''].filter(Boolean);
+  if (strongKeys.length) return strongKeys;
+  return [`details:${[
+    normalized(item.date || ''),
+    normalized(item.orderNumber || ''),
+    normalized(item.companyName || ''),
+    normalized(item.occurrenceType || ''),
+    products,
+  ].join('|')}`];
+}
+
+function shortHash(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+export function onlyNewImportedOccurrences(imported: ImportedOccurrence[], existing: Occurrence[]) {
+  const knownKeys = new Set(existing.flatMap(occurrenceIdentityKeys));
+  const newItems: ImportedOccurrence[] = [];
+  let ignored = 0;
+  imported.forEach((item) => {
+    const keys = occurrenceIdentityKeys(item);
+    if (keys.some((key) => knownKeys.has(key))) {
+      ignored += 1;
+      return;
+    }
+    keys.forEach((key) => knownKeys.add(key));
+    newItems.push(item);
+  });
+  return { newItems, ignored };
 }
 
 function formatDate(date: Date) {
@@ -127,8 +171,8 @@ export async function readOccurrencesSpreadsheet(file: File, currentUser: Curren
     const consultant = text(row[15]);
     const createdAt = createdAtFromDate(date, rowNumber);
 
-    imported.push({
-      id: `xlsx_controle_cx_${String(rowNumber).padStart(4, '0')}`,
+    const importedOccurrence: ImportedOccurrence = {
+      id: '',
       date,
       agentName,
       companyName,
@@ -140,6 +184,7 @@ export async function readOccurrencesSpreadsheet(file: File, currentUser: Curren
       occurrenceType,
       product,
       quantity: itemQuantity,
+      products: [{ product, quantity: Math.max(1, itemQuantity || 1) }],
       stage: occurrenceStage,
       approvalStatus,
       carrier,
@@ -157,7 +202,9 @@ export async function readOccurrencesSpreadsheet(file: File, currentUser: Curren
       importRow: rowNumber,
       createdAt,
       updatedAt: createdAt,
-    });
+    };
+    importedOccurrence.id = `xlsx_occ_${shortHash(occurrenceIdentityKeys(importedOccurrence).join('|'))}`;
+    imported.push(importedOccurrence);
   });
 
   if (imported.length === 0) throw new Error('Nenhuma ocorrência preenchida foi encontrada nessa planilha.');

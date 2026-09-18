@@ -33,6 +33,14 @@ export function wouldDoBusinessValue(item: RACase) {
   return percentage === null ? null : percentage >= 50;
 }
 
+export function hasCompleteRaEvaluation(item: RACase) {
+  return customerScoreValue(item) !== null && wouldDoBusinessValue(item) !== null;
+}
+
+export function isRaCaseIncludedInReputation(item: RACase) {
+  return (item.status === 'Resolvido' || item.status === 'Cancelado') && hasCompleteRaEvaluation(item);
+}
+
 export function classifyRaScore(score: number | null, responseRate: number) : RaReputation['classification'] {
   if (score === null) return 'Sem avaliações';
   if (score < 5 || responseRate < 50) return 'Não recomendada';
@@ -43,11 +51,12 @@ export function classifyRaScore(score: number | null, responseRate: number) : Ra
 }
 
 export function calculateRaReputation(cases: RACase[]): RaReputation {
-  const total = cases.length;
-  const responseRate = total ? (cases.filter((item) => item.status !== 'Aberto').length / total) * 100 : 0;
-  const solutionRate = total ? (cases.filter((item) => item.status === 'Resolvido').length / total) * 100 : 0;
-  const scores = cases.map(customerScoreValue).filter((value): value is number => value !== null);
-  const recommendations = cases.map(wouldDoBusinessValue).filter((value): value is boolean => value !== null);
+  const evaluated = cases.filter(isRaCaseIncludedInReputation);
+  const total = evaluated.length;
+  const responseRate = total ? 100 : 0;
+  const solutionRate = total ? (evaluated.filter((item) => item.status === 'Resolvido').length / total) * 100 : 0;
+  const scores = evaluated.map(customerScoreValue).filter((value): value is number => value !== null);
+  const recommendations = evaluated.map(wouldDoBusinessValue).filter((value): value is boolean => value !== null);
   const customerScore = scores.length ? scores.reduce((sum, value) => sum + value, 0) / scores.length : null;
   const wouldDoBusinessRate = recommendations.length
     ? (recommendations.filter(Boolean).length / recommendations.length) * 100
@@ -62,14 +71,14 @@ export function calculateRaReputation(cases: RACase[]): RaReputation {
     customerScore,
     wouldDoBusinessRate,
     finalScore,
-    evaluatedCases: Math.min(scores.length, recommendations.length),
+    evaluatedCases: total,
     classification: classifyRaScore(finalScore, responseRate),
   };
 }
 
 export function calculateSingleRaScore(status: RACase['status'], customerScore: number | null, wouldDoBusiness: boolean | null) {
-  if (customerScore === null || wouldDoBusiness === null) return null;
-  const responseRate = status === 'Aberto' ? 0 : 100;
+  if ((status !== 'Resolvido' && status !== 'Cancelado') || customerScore === null || wouldDoBusiness === null) return null;
+  const responseRate = 100;
   const solutionRate = status === 'Resolvido' ? 100 : 0;
   return ((responseRate * 2) + (customerScore * 10 * 3) + (solutionRate * 3) + ((wouldDoBusiness ? 100 : 0) * 2)) / 100;
 }

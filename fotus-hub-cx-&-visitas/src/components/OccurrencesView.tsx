@@ -26,7 +26,8 @@ import {
 } from 'lucide-react';
 import { updateData } from '../lib/dataMutations';
 import { exportOccurrencesExcel } from '../lib/excelExport';
-import { readOccurrencesSpreadsheet, saveImportedOccurrences } from '../lib/occurrenceImport';
+import { onlyNewImportedOccurrences, readOccurrencesSpreadsheet, saveImportedOccurrences } from '../lib/occurrenceImport';
+import { occurrenceProducts, occurrenceProductsLabel } from '../lib/occurrenceProducts';
 import { Occurrence, OccurrenceStage, OrganizationUnit } from '../types';
 import OccurrenceModal from './OccurrenceModal';
 import PillBarChart from './PillBarChart';
@@ -147,7 +148,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
         occurrence.sacCode,
         occurrence.carrier,
         occurrence.consultant,
-        occurrence.product,
+        occurrenceProductsLabel(occurrence),
         occurrence.state,
       ].some((value) => value?.toLowerCase().includes(query));
     });
@@ -159,7 +160,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
 
   const insights = useMemo(() => ({
     carriers: rankBy(periodOccurrences.map((item) => item.carrier)),
-    products: rankBy(periodOccurrences.map((item) => item.product)),
+    products: rankBy(periodOccurrences.flatMap((item) => occurrenceProducts(item).map((entry) => entry.product))),
     regions: rankBy(periodOccurrences.map((item) => item.region)),
     types: rankBy(periodOccurrences.map((item) => item.occurrenceType)),
   }), [periodOccurrences]);
@@ -243,8 +244,13 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
 
     try {
       const imported = await readOccurrencesSpreadsheet(file, currentUser);
+      const { newItems, ignored } = onlyNewImportedOccurrences(imported, occurrences);
+      if (!newItems.length) {
+        setImportMessage(`Nenhum registro novo encontrado. As ${ignored} ocorrência(s) da planilha já estavam cadastradas e foram ignoradas.`);
+        return;
+      }
       const confirmed = window.confirm(
-        `Encontramos ${imported.length} ocorrências na planilha. Deseja enviá-las agora para a base central?`,
+        `Encontramos ${newItems.length} ocorrência(s) nova(s). ${ignored} registro(s) já cadastrado(s) serão ignorados. Deseja importar somente os novos?`,
       );
 
       if (!confirmed) {
@@ -252,10 +258,11 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
         return;
       }
 
-      const saved = await saveImportedOccurrences(imported, currentUser, (current, total) => {
+      const result = await saveImportedOccurrences(newItems, currentUser, (current, total) => {
         setImportMessage(`Importando ${current} de ${total} ocorrências...`);
       });
-      setImportMessage(`${saved} ocorrências da planilha foram sincronizadas com sucesso. As datas foram normalizadas no padrão brasileiro.`);
+      const totalIgnored = ignored + result.skipped;
+      setImportMessage(`${result.inserted} ocorrência(s) nova(s) importada(s). ${totalIgnored} registro(s) repetido(s) foram ignorados.`);
     } catch (error) {
       console.error('Erro ao importar ocorrências:', error);
       setImportError(true);
@@ -393,7 +400,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div className="rounded-xl bg-gray-50 p-2.5"><span className="block text-[9px] font-extrabold uppercase text-gray-400">Pedido</span><strong className="mt-0.5 block truncate text-gray-800">{occurrence.orderNumber}</strong></div>
-                        <div className="rounded-xl bg-gray-50 p-2.5"><span className="block text-[9px] font-extrabold uppercase text-gray-400">Produto</span><strong className="mt-0.5 block truncate text-gray-800">{occurrence.product} ×{occurrence.quantity}</strong></div>
+                        <div className="rounded-xl bg-gray-50 p-2.5"><span className="block text-[9px] font-extrabold uppercase text-gray-400">Produtos</span><strong className="mt-0.5 block line-clamp-2 text-gray-800">{occurrenceProductsLabel(occurrence) || 'Não informado'}</strong></div>
                       </div>
                       <div className="mt-3 space-y-2 text-[11px] text-gray-600">
                         <p className="flex items-center gap-2"><CircleDot className="h-3.5 w-3.5 text-gray-400" /><span className="truncate">{occurrence.occurrenceType}</span></p>

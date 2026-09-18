@@ -1,7 +1,8 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import type { CurrentUser } from '../lib/currentUser';
-import { Building2, CalendarDays, CheckCircle2, CircleDollarSign, Hash, MapPin, Package, Route, Save, ShieldAlert, Truck, UserRound, X } from 'lucide-react';
+import { Building2, CalendarDays, CheckCircle2, CircleDollarSign, Hash, MapPin, Package, Plus, Route, Save, ShieldAlert, Trash2, Truck, UserRound, X } from 'lucide-react';
 import { createData, updateData } from '../lib/dataMutations';
+import { occurrenceProducts } from '../lib/occurrenceProducts';
 import {
   BRAZIL_STATES,
   getRegionFromState,
@@ -9,7 +10,7 @@ import {
   OCCURRENCE_PRODUCTS,
   OCCURRENCE_TYPES,
 } from '../lib/occurrences';
-import { Occurrence, OccurrenceApproval, OccurrenceStage, OrganizationUnit } from '../types';
+import { Occurrence, OccurrenceApproval, OccurrenceProduct, OccurrenceStage, OrganizationUnit } from '../types';
 
 interface OccurrenceModalProps {
   isOpen: boolean;
@@ -40,8 +41,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
   const [uniqueNumber, setUniqueNumber] = useState('');
   const [sacCode, setSacCode] = useState('');
   const [occurrenceType, setOccurrenceType] = useState('Material Faltando');
-  const [product, setProduct] = useState('Módulo');
-  const [quantity, setQuantity] = useState(1);
+  const [products, setProducts] = useState<OccurrenceProduct[]>([{ product: 'Módulo', quantity: 1 }]);
   const [stage, setStage] = useState<OccurrenceStage>('Recebida');
   const [approvalStatus, setApprovalStatus] = useState<OccurrenceApproval>('Pendente');
   const [carrier, setCarrier] = useState('');
@@ -73,8 +73,8 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
     setUniqueNumber(occurrence?.uniqueNumber || '');
     setSacCode(occurrence?.sacCode || '');
     setOccurrenceType(occurrence?.occurrenceType || 'Material Faltando');
-    setProduct(occurrence?.product || 'Módulo');
-    setQuantity(occurrence?.quantity || 1);
+    const savedProducts = occurrence ? occurrenceProducts(occurrence) : [];
+    setProducts(savedProducts.length ? savedProducts : [{ product: 'Módulo', quantity: 1 }]);
     setStage(occurrence?.stage || 'Recebida');
     setApprovalStatus(occurrence?.approvalStatus || 'Pendente');
     setCarrier(occurrence?.carrier || '');
@@ -95,6 +95,14 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
     setErrorMessage('');
     const selectedUnit = activeUnits.find((unit) => unit.id === organizationUnitId);
     const now = Date.now();
+    const normalizedProducts = products
+      .map((item) => ({ product: item.product.replace(/\s+/g, ' ').trim(), quantity: Math.max(1, Math.trunc(Number(item.quantity) || 1)) }))
+      .filter((item) => item.product);
+    if (!normalizedProducts.length) {
+      setSaving(false);
+      setErrorMessage('Adicione pelo menos um produto à ocorrência.');
+      return;
+    }
     const payload = {
       date,
       agentName: agentName.trim(),
@@ -105,8 +113,9 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
       uniqueNumber: uniqueNumber.trim(),
       sacCode: sacCode.trim(),
       occurrenceType: occurrenceType.trim(),
-      product: product.trim(),
-      quantity: Math.max(1, Math.trunc(Number(quantity) || 1)),
+      product: normalizedProducts.map((item) => item.product).join(', '),
+      quantity: normalizedProducts.reduce((sum, item) => sum + item.quantity, 0),
+      products: normalizedProducts,
       stage,
       approvalStatus,
       carrier: carrier.trim(),
@@ -184,13 +193,22 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
           </section>
 
           <section className="border-t border-gray-100 pt-6">
-            <SectionTitle number="2" title="Ocorrência" description="Classifique o problema e o produto envolvido." />
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <SectionTitle number="2" title="Ocorrência" description="Classifique o problema e adicione todos os produtos envolvidos." />
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Tipo de ocorrência" icon={Route}><select required value={occurrenceType} onChange={(event) => setOccurrenceType(event.target.value)} className="field-input">{OCCURRENCE_TYPES.map((type) => <option key={type}>{type}</option>)}</select></Field>
-              <Field label="Produto" icon={Package}><input required list="products-list" value={product} onChange={(event) => setProduct(event.target.value)} className="field-input" /><datalist id="products-list">{OCCURRENCE_PRODUCTS.map((item) => <option key={item} value={item} />)}</datalist></Field>
-              <Field label="Quantidade" icon={Package}><input required min={1} step={1} type="number" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} className="field-input" /></Field>
               <Field label="Transportadora" icon={Truck}><input required list="carriers-list" value={carrier} onChange={(event) => setCarrier(event.target.value)} className="field-input" placeholder="Selecione ou digite" /><datalist id="carriers-list">{OCCURRENCE_CARRIERS.map((item) => <option key={item} value={item} />)}</datalist></Field>
               {isDamage && <Field label="Valor da avaria" icon={CircleDollarSign}><input required min={0.01} step={0.01} type="number" value={damageAmount || ''} onChange={(event) => setDamageAmount(Number(event.target.value))} className="field-input" placeholder="0,00" /></Field>}
+            </div>
+            <div className="mt-4 rounded-2xl border border-[#385041]/10 bg-[#f7f9f6] p-3 sm:p-4">
+              <div className="flex items-center justify-between gap-3"><div><h4 className="text-xs font-extrabold text-gray-900">Produtos envolvidos</h4><p className="mt-0.5 text-[10px] text-gray-500">Use o botão + para incluir quantos produtos forem necessários.</p></div><button type="button" onClick={() => setProducts((current) => [...current, { product: '', quantity: 1 }])} className="flex shrink-0 items-center gap-1.5 rounded-xl bg-[#385041] px-3 py-2 text-[10px] font-extrabold text-white shadow-sm"><Plus className="h-3.5 w-3.5" />Adicionar produto</button></div>
+              <datalist id="products-list">{OCCURRENCE_PRODUCTS.map((item) => <option key={item} value={item} />)}</datalist>
+              <div className="mt-3 space-y-2">
+                {products.map((item, index) => <div key={index} className="grid grid-cols-[minmax(0,1fr)_92px_36px] items-end gap-2 rounded-xl border border-white bg-white p-2 shadow-sm">
+                  <Field label={`Produto ${index + 1}`} icon={Package}><input required list="products-list" value={item.product} onChange={(event) => setProducts((current) => current.map((productItem, itemIndex) => itemIndex === index ? { ...productItem, product: event.target.value } : productItem))} className="field-input" placeholder="Selecione ou digite" /></Field>
+                  <Field label="Qtd."><input required min={1} step={1} type="number" value={item.quantity} onChange={(event) => setProducts((current) => current.map((productItem, itemIndex) => itemIndex === index ? { ...productItem, quantity: Number(event.target.value) } : productItem))} className="field-input" /></Field>
+                  <button type="button" disabled={products.length === 1} onClick={() => setProducts((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="mb-0.5 flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-25" title="Remover produto"><Trash2 className="h-4 w-4" /></button>
+                </div>)}
+              </div>
             </div>
           </section>
 

@@ -34,6 +34,41 @@ const time = (value: unknown, fallback = new Date()) => {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 };
 
+type OccurrenceProductPayload = { product: string; quantity: number };
+
+function occurrenceProducts(data: Payload): OccurrenceProductPayload[] {
+  const received = Array.isArray(data.products) ? data.products : [];
+  const products = received.map((raw) => {
+    const item = raw && typeof raw === 'object' ? raw as Payload : {};
+    const product = s(item.product);
+    return product ? { product, quantity: i(item.quantity, 1, 1) } : null;
+  }).filter((item): item is OccurrenceProductPayload => item !== null);
+  const fallbackProduct = s(data.product);
+  return products.length ? products : fallbackProduct ? [{ product: fallbackProduct, quantity: i(data.quantity, 1, 1) }] : [];
+}
+
+function identityPart(value: unknown) {
+  return s(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function occurrenceIdentityKeys(data: Payload) {
+  const uniqueNumber = identityPart(data.uniqueNumber);
+  const sacCode = identityPart(data.sacCode);
+  const products = occurrenceProducts(data)
+    .map((item) => `${identityPart(item.product)}:${item.quantity}`)
+    .sort()
+    .join('|');
+  const strongKeys = [uniqueNumber ? `unique:${uniqueNumber}` : '', sacCode ? `sac:${sacCode}` : ''].filter(Boolean);
+  if (strongKeys.length) return strongKeys;
+  return [`details:${[
+    identityPart(data.date),
+    identityPart(data.orderNumber),
+    identityPart(data.companyName),
+    identityPart(data.occurrenceType),
+    products,
+  ].join('|')}`];
+}
+
 async function access(pool: Pool, email: string, resource: Resource, action: Action) {
   const result = await pool.query<{
     id: string;
@@ -95,22 +130,25 @@ async function assertAgentOwnsOccurrence(
 
 async function upsertOccurrence(client: PoolClient, legacyId: string, data: Payload, actorEmail: string, actorUserId: string, forceAgent?: string) {
   const agentName = forceAgent || s(data.agentName, 'Não informado');
+  const products = occurrenceProducts(data);
+  const productLabel = products.map((item) => item.product).join(', ') || s(data.product, 'Não informado');
+  const totalQuantity = products.reduce((sum, item) => sum + item.quantity, 0) || i(data.quantity);
   await client.query(`insert into public.occurrences (
     legacy_firestore_id,occurrence_date,agent_id,agent_name_snapshot,company_name,state,city,region,order_number,unique_number,
-    sac_code,occurrence_type,product,quantity,stage,approval_status,carrier,comments,consultant,is_damage,damage_amount,
+    sac_code,occurrence_type,product,quantity,products,stage,approval_status,carrier,comments,consultant,is_damage,damage_amount,
     organization_unit_id,routed_to_name_snapshot,routed_to_email_snapshot,created_by_user_id,created_by_email,created_by_name,
     import_source,import_row,created_at,updated_at)
-    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
+    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)
     on conflict (legacy_firestore_id) do update set occurrence_date=excluded.occurrence_date,agent_id=excluded.agent_id,
       agent_name_snapshot=excluded.agent_name_snapshot,company_name=excluded.company_name,state=excluded.state,city=excluded.city,
       region=excluded.region,order_number=excluded.order_number,unique_number=excluded.unique_number,sac_code=excluded.sac_code,
-      occurrence_type=excluded.occurrence_type,product=excluded.product,quantity=excluded.quantity,stage=excluded.stage,
+      occurrence_type=excluded.occurrence_type,product=excluded.product,quantity=excluded.quantity,products=excluded.products,stage=excluded.stage,
       approval_status=excluded.approval_status,carrier=excluded.carrier,comments=excluded.comments,consultant=excluded.consultant,
       is_damage=excluded.is_damage,damage_amount=excluded.damage_amount,organization_unit_id=excluded.organization_unit_id,
       routed_to_name_snapshot=excluded.routed_to_name_snapshot,routed_to_email_snapshot=excluded.routed_to_email_snapshot,
       updated_at=excluded.updated_at`, [legacyId, s(data.date), await agentId(client, agentName), agentName, s(data.companyName, 'Não informada'),
     s(data.state).toUpperCase().slice(0, 2), s(data.city), s(data.region), s(data.orderNumber), s(data.uniqueNumber), s(data.sacCode),
-    s(data.occurrenceType, 'Não informado'), s(data.product, 'Não informado'), i(data.quantity),
+    s(data.occurrenceType, 'Não informado'), productLabel, totalQuantity, JSON.stringify(products),
     s(data.stage, 'Recebida'), s(data.approvalStatus, 'Pendente'), s(data.carrier), s(data.comments), s(data.consultant), b(data.isDamage),
     Math.max(0, n(data.damageAmount)), await unitId(client, data.organizationUnitId), s(data.routedToName) || null,
     e(data.routedToEmail) || null, actorUserId, actorEmail, s(data.createdByName) || null, s(data.importSource) || null,
@@ -193,6 +231,7 @@ export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationB
   if (!(resource in RESOURCE_SECTION) || !['create', 'update', 'delete', 'bulk-upsert', 'replace'].includes(action)) throw new Error('invalid-mutation');
   const profile = await access(pool, actorEmail, resource, action);
   const client = await pool.connect();
+  let bulkOccurrenceResult: { inserted: number; skipped: number } | null = null;
   try {
     await client.query('begin');
     await client.query("set local statement_timeout='30s'");
@@ -214,13 +253,29 @@ export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationB
     } else {
       const records = action === 'bulk-upsert' && Array.isArray(body.records) ? body.records : [{ id, ...payload }];
       if (records.length > 1500) throw new Error('too-many-records');
+      const occurrenceKeys = new Set<string>();
+      if (resource === 'occurrences' && action === 'bulk-upsert') {
+        const existing = await client.query(`select occurrence_date::text as date,company_name as "companyName",
+          order_number as "orderNumber",unique_number as "uniqueNumber",sac_code as "sacCode",
+          occurrence_type as "occurrenceType",product,quantity,products from public.occurrences`);
+        existing.rows.forEach((row) => occurrenceIdentityKeys(row as Payload).forEach((key) => occurrenceKeys.add(key)));
+      }
+      let inserted = 0;
+      let skipped = 0;
       for (const raw of records) {
         const record = raw && typeof raw === 'object' ? raw as Payload : {};
         const legacyId = s(record.id) || randomUUID();
         const forcedAgent = profile.role === 'Agente' ? profile.agentName || profile.displayName : undefined;
         if (resource === 'occurrences') {
+          const keys = occurrenceIdentityKeys(record);
+          if (action === 'bulk-upsert' && keys.some((key) => occurrenceKeys.has(key))) {
+            skipped += 1;
+            continue;
+          }
           if (forcedAgent) await assertAgentOwnsOccurrence(client, legacyId, actorEmail, forcedAgent);
           await upsertOccurrence(client, legacyId, record, actorEmail, profile.id, forcedAgent);
+          keys.forEach((key) => occurrenceKeys.add(key));
+          inserted += 1;
         }
         else if (resource === 'extra_costs') await upsertExtraCost(client, legacyId, record, actorEmail, profile.id);
         else if (resource === 'ra_cases') await upsertRaCase(client, legacyId, record, actorEmail, profile.id);
@@ -228,10 +283,16 @@ export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationB
         else if (resource === 'organization_people') await upsertOrganizationPerson(client, legacyId, record, actorEmail);
         else if (resource === 'organization_units') throw new Error('invalid-mutation');
       }
+      if (resource === 'occurrences' && action === 'bulk-upsert') {
+        bulkOccurrenceResult = { inserted, skipped };
+        await client.query(`insert into public.audit_events (actor_user_id,actor_email,action,entity_type,entity_id,after_data)
+          values ($1,$2,'bulk-import-result','occurrences',null,$3::jsonb)`, [profile.id, actorEmail, JSON.stringify({ inserted, skipped })]);
+      }
     }
     await client.query(`insert into public.audit_events (actor_user_id,actor_email,action,entity_type,entity_id,after_data)
       values ($1,$2,$3,$4,$5,$6::jsonb)`, [profile.id, actorEmail, action, resource, s(body.id) || null, JSON.stringify(action === 'bulk-upsert' ? { count: Array.isArray(body.records) ? body.records.length : 0 } : payload)]);
     await client.query('commit');
+    if (bulkOccurrenceResult) return { ok: true, id, ...bulkOccurrenceResult };
     return { ok: true, id };
   } catch (error) {
     await client.query('rollback');

@@ -127,7 +127,7 @@ export async function loadBootstrap(email: string) {
     canView('ocorrencias') ? pool.query(`
       select legacy_firestore_id as id,occurrence_date::text as date,agent_name_snapshot as "agentName",company_name as "companyName",
         state,city,region,order_number as "orderNumber",unique_number as "uniqueNumber",sac_code as "sacCode",
-        occurrence_type as "occurrenceType",product,quantity,stage,approval_status as "approvalStatus",carrier,comments,consultant,
+        occurrence_type as "occurrenceType",product,quantity,products,stage,approval_status as "approvalStatus",carrier,comments,consultant,
         is_damage as "isDamage",damage_amount::float8 as "damageAmount",
         (select legacy_firestore_id from public.organization_units where id=occurrences.organization_unit_id) as "organizationUnitId",
         routed_to_name_snapshot as "routedToName",routed_to_email_snapshot::text as "routedToEmail",
