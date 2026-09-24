@@ -336,7 +336,7 @@ export default function App() {
         <VisitModal isOpen={isVisitModalOpen} onClose={() => setIsVisitModalOpen(false)} visitToEdit={visitToEdit} currentUser={user} />
         <AgentManagerModal isOpen={isAgentManagerOpen} onClose={() => setIsAgentManagerOpen(false)} agents={occurrenceAgents} currentUser={user} />
         <AccessControlModal isOpen={isAccessControlOpen} onClose={() => setIsAccessControlOpen(false)} profiles={accessProfiles} units={organizationUnits} agents={occurrenceAgents} currentUser={user} />
-        <IsaChatModal isOpen={isIsaChatOpen} onClose={() => setIsIsaChatOpen(false)} cases={access.isDeveloper ? cases : []} raCases={visibleRaCases} visits={visits} occurrences={visibleOccurrences} extraCosts={visibleCosts} organizationUnits={visibleOrganizationUnits} organizationPeople={organizationPeople} />
+        <IsaChatModal currentUser={user} isOpen={isIsaChatOpen} onClose={() => setIsIsaChatOpen(false)} cases={access.isDeveloper ? cases : []} raCases={visibleRaCases} visits={visits} occurrences={visibleOccurrences} extraCosts={visibleCosts} organizationUnits={visibleOrganizationUnits} organizationPeople={organizationPeople} />
       </div>
     </div>
   );

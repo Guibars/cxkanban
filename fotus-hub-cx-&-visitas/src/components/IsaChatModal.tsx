@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, RefreshCw, Send, X } from 'lucide-react';
 import { CXCase, ExtraCost, IntegratorVisit, Occurrence, OrganizationPerson, OrganizationUnit, RACase } from '../types';
+import type { CurrentUser } from '../lib/currentUser';
 import { calculateRaReputation } from '../lib/raReputation';
 import { occurrenceProducts } from '../lib/occurrenceProducts';
 
 interface IsaChatModalProps {
+  currentUser: CurrentUser;
   isOpen: boolean;
   onClose: () => void;
   cases: CXCase[];
@@ -83,7 +85,7 @@ function buildIsaContext(cases: CXCase[], raCases: RACase[], visits: IntegratorV
   });
 }
 
-export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, occurrences, extraCosts, organizationUnits, organizationPeople }: IsaChatModalProps) {
+export default function IsaChatModal({ currentUser, isOpen, onClose, cases, raCases, visits, occurrences, extraCosts, organizationUnits, organizationPeople }: IsaChatModalProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -243,9 +245,10 @@ export default function IsaChatModal({ isOpen, onClose, cases, raCases, visits, 
     if (!suggestion) setInput('');
     setIsTyping(true);
     try {
+      const token = await currentUser.getIdToken();
       const apiResponse = await fetch('/api/isa', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ question, context: buildIsaContext(cases, raCases, visits, occurrences, extraCosts, organizationUnits, organizationPeople) }),
       });
       if (!apiResponse.ok) throw new Error('ISA API indisponível');

@@ -88,7 +88,10 @@ async function access(pool: Pool, email: string, resource: Resource, action: Act
   const profile = result.rows[0];
   if (!profile?.active) throw new Error('forbidden');
   if (MASTER_EMAILS.has(email)) return profile;
-  const allowed = action === 'delete' ? profile.canDelete : action === 'update' ? profile.canEdit : profile.canCreate;
+  const allowed = action === 'delete' ? profile.canDelete
+    : action === 'update' ? profile.canEdit
+      : action === 'bulk-upsert' ? profile.canCreate && profile.canEdit
+        : profile.canCreate;
   if (!allowed) throw new Error('forbidden');
   if (resource === 'occurrence_agents' && !['Administrador', 'Coordenador', 'Líder'].includes(profile.role)) throw new Error('forbidden');
   return profile;
@@ -233,7 +236,9 @@ async function upsertOrganizationPerson(client: PoolClient, legacyId: string, da
 export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationBody) {
   const resource = s(body.resource) as Resource;
   const action = s(body.action) as Action;
-  if (!(resource in RESOURCE_SECTION) || !['create', 'update', 'delete', 'bulk-upsert', 'replace'].includes(action)) throw new Error('invalid-mutation');
+  if (!Object.hasOwn(RESOURCE_SECTION, resource) || !['create', 'update', 'delete', 'bulk-upsert', 'replace'].includes(action)) throw new Error('invalid-mutation');
+  if ((action === 'replace') !== (resource === 'occurrence_agents')
+    || (action === 'bulk-upsert' && resource !== 'occurrences' && resource !== 'extra_costs')) throw new Error('invalid-mutation');
   const profile = await access(pool, actorEmail, resource, action);
   const client = await pool.connect();
   let bulkOccurrenceResult: { inserted: number; skipped: number } | null = null;
@@ -241,7 +246,12 @@ export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationB
     await client.query('begin');
     await client.query("set local statement_timeout='30s'");
     const payload = body.data && typeof body.data === 'object' ? body.data as Payload : {};
-    const id = s(body.id) || randomUUID();
+    const id = action === 'create' ? randomUUID() : s(body.id);
+    if (action === 'update') {
+      if (!id) throw new Error('invalid-mutation');
+      const existing = await client.query(`select 1 from public.${resource} where legacy_firestore_id=$1 for update`, [id]);
+      if (!existing.rowCount) throw new Error('invalid-mutation');
+    }
     if (action === 'delete') {
       if (resource === 'occurrence_agents') throw new Error('invalid-mutation');
       if (resource === 'occurrences' && profile.role === 'Agente') {
@@ -256,7 +266,7 @@ export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationB
       for (let index = 0; index < names.length; index += 1) await client.query(`insert into public.occurrence_agents (name,active,sort_order,created_by_email)
         values ($1,true,$2,$3) on conflict (name) do update set active=true,sort_order=excluded.sort_order`, [names[index], index, actorEmail]);
     } else {
-      const records = action === 'bulk-upsert' && Array.isArray(body.records) ? body.records : [{ id, ...payload }];
+      const records = action === 'bulk-upsert' && Array.isArray(body.records) ? body.records : [{ ...payload, id }];
       if (records.length > 1500) throw new Error('too-many-records');
       const occurrenceKeys = new Set<string>();
       if (resource === 'occurrences' && action === 'bulk-upsert') {
