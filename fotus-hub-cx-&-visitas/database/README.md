@@ -14,6 +14,7 @@ Execute no SQL Editor do Neon, nesta ordem:
 5. `migrations/005_fix_neon_auth_registration.sql` — corrige a criação da conta de primeiro acesso no Neon Auth.
 6. `migrations/006_open_corporate_registration.sql` — libera o auto cadastro para colaboradores `@fotus.com.br` e cria o perfil inicial automaticamente.
 7. `migrations/007_occurrence_products.sql` — permite vários produtos em uma mesma ocorrência e preserva os cards antigos.
+8. `migrations/008_ra_status_and_resolution.sql` — separa o status da reclamação da resposta “Resolvido?” e adapta os registros antigos.
 
 O Neon Auth cria a identidade e a senha. O acesso aos dados permanece bloqueado
 até que o e-mail tenha um perfil ativo em `public.app_users`. Essa verificação é

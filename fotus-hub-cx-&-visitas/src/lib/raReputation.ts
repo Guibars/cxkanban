@@ -34,11 +34,12 @@ export function wouldDoBusinessValue(item: RACase) {
 }
 
 export function hasCompleteRaEvaluation(item: RACase) {
-  return customerScoreValue(item) !== null && wouldDoBusinessValue(item) !== null;
+  return item.resolved !== null && item.resolved !== undefined
+    && customerScoreValue(item) !== null && wouldDoBusinessValue(item) !== null;
 }
 
 export function isRaCaseIncludedInReputation(item: RACase) {
-  return (item.status === 'Resolvido' || item.status === 'Cancelado') && hasCompleteRaEvaluation(item);
+  return item.status === 'Finalizado' && hasCompleteRaEvaluation(item);
 }
 
 export function classifyRaScore(score: number | null, responseRate: number) : RaReputation['classification'] {
@@ -54,7 +55,7 @@ export function calculateRaReputation(cases: RACase[]): RaReputation {
   const evaluated = cases.filter(isRaCaseIncludedInReputation);
   const total = evaluated.length;
   const responseRate = total ? 100 : 0;
-  const solutionRate = total ? (evaluated.filter((item) => item.status === 'Resolvido').length / total) * 100 : 0;
+  const solutionRate = total ? (evaluated.filter((item) => item.resolved === true).length / total) * 100 : 0;
   const scores = evaluated.map(customerScoreValue).filter((value): value is number => value !== null);
   const recommendations = evaluated.map(wouldDoBusinessValue).filter((value): value is boolean => value !== null);
   const customerScore = scores.length ? scores.reduce((sum, value) => sum + value, 0) / scores.length : null;
@@ -76,9 +77,9 @@ export function calculateRaReputation(cases: RACase[]): RaReputation {
   };
 }
 
-export function calculateSingleRaScore(status: RACase['status'], customerScore: number | null, wouldDoBusiness: boolean | null) {
-  if ((status !== 'Resolvido' && status !== 'Cancelado') || customerScore === null || wouldDoBusiness === null) return null;
+export function calculateSingleRaScore(status: RACase['status'], resolved: boolean | null, customerScore: number | null, wouldDoBusiness: boolean | null) {
+  if (status !== 'Finalizado' || resolved === null || customerScore === null || wouldDoBusiness === null) return null;
   const responseRate = 100;
-  const solutionRate = status === 'Resolvido' ? 100 : 0;
+  const solutionRate = resolved ? 100 : 0;
   return ((responseRate * 2) + (customerScore * 10 * 3) + (solutionRate * 3) + ((wouldDoBusiness ? 100 : 0) * 2)) / 100;
 }

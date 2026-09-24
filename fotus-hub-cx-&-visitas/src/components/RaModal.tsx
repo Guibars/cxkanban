@@ -3,7 +3,7 @@ import { Check, FileText, Mail, Phone, Save, Smile, Star, X } from 'lucide-react
 import type { CurrentUser } from '../lib/currentUser';
 import { createData, updateData } from '../lib/dataMutations';
 import { calculateSingleRaScore, classifyRaScore, customerScoreValue, wouldDoBusinessValue } from '../lib/raReputation';
-import type { CaseStatus, RACase } from '../types';
+import type { RACase, RaStatus } from '../types';
 
 interface RaModalProps {
   isOpen: boolean;
@@ -12,7 +12,7 @@ interface RaModalProps {
   currentUser: CurrentUser | null;
 }
 
-const statusOptions: CaseStatus[] = ['Aberto', 'Em Andamento', 'Resolvido', 'Cancelado'];
+const statusOptions: RaStatus[] = ['Em Andamento', 'Finalizado', 'Moderado', 'Desativado'];
 
 export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: RaModalProps) {
   const [raNumber, setRaNumber] = useState('');
@@ -20,7 +20,8 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [information, setInformation] = useState('');
-  const [status, setStatus] = useState<CaseStatus>('Aberto');
+  const [status, setStatus] = useState<RaStatus>('Em Andamento');
+  const [resolved, setResolved] = useState<boolean | null>(null);
   const [customerScore, setCustomerScore] = useState<number | ''>('');
   const [wouldDoBusiness, setWouldDoBusiness] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,7 +42,8 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
     setPhone(caseToEdit?.phone || '');
     setEmail(caseToEdit?.email || '');
     setInformation(caseToEdit?.information || '');
-    setStatus(caseToEdit?.status || 'Aberto');
+    setStatus(caseToEdit?.status || 'Em Andamento');
+    setResolved(caseToEdit?.resolved ?? null);
     setCustomerScore(caseToEdit ? customerScoreValue(caseToEdit) ?? '' : '');
     setWouldDoBusiness(caseToEdit ? wouldDoBusinessValue(caseToEdit) : null);
   }, [caseToEdit?.id, isOpen]);
@@ -49,8 +51,8 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
   if (!isOpen) return null;
 
   const normalizedScore = typeof customerScore === 'number' && Number.isFinite(customerScore) ? customerScore : null;
-  const previewScore = calculateSingleRaScore(status, normalizedScore, wouldDoBusiness);
-  const previewClass = classifyRaScore(previewScore, status === 'Resolvido' || status === 'Cancelado' ? 100 : 0);
+  const previewScore = calculateSingleRaScore(status, resolved, normalizedScore, wouldDoBusiness);
+  const previewClass = classifyRaScore(previewScore, status === 'Finalizado' ? 100 : 0);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -58,8 +60,8 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
     setLoading(true);
     setSaveError('');
     try {
-      const finalScore = calculateSingleRaScore(status, normalizedScore, wouldDoBusiness);
-      const readyForReputation = (status === 'Resolvido' || status === 'Cancelado') && normalizedScore !== null && wouldDoBusiness !== null;
+      const finalScore = calculateSingleRaScore(status, resolved, normalizedScore, wouldDoBusiness);
+      const readyForReputation = status === 'Finalizado' && resolved !== null && normalizedScore !== null && wouldDoBusiness !== null;
       const caseData = {
         raNumber: raNumber.trim(),
         customerName: customerName.trim(),
@@ -67,8 +69,9 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
         email: email.trim(),
         information: information.trim(),
         status,
+        resolved,
         indicatorIR: readyForReputation ? 100 : 0,
-        indicatorIS: readyForReputation && status === 'Resolvido' ? 100 : 0,
+        indicatorIS: readyForReputation && resolved ? 100 : 0,
         indicatorMA: normalizedScore,
         indicatorIN: wouldDoBusiness === null ? null : wouldDoBusiness ? 100 : 0,
         finalScore,
@@ -118,12 +121,13 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
           <Field label="Relato da reclamação e tratativa"><textarea rows={4} value={information} onChange={(event) => setInformation(event.target.value)} placeholder="Descreva a situação e as providências tomadas..." className="field-input resize-none" /></Field>
 
           <section className="rounded-3xl border border-[#385041]/15 bg-[#f5f8f4] p-4 sm:p-5">
-            <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#385041] shadow-sm"><Star className="h-4 w-4" /></span><div><h3 className="text-sm font-extrabold text-gray-950">Avaliação do cliente</h3><p className="mt-0.5 text-[11px] text-gray-500">Preencha somente o que o consumidor respondeu. O card entra na reputação quando estiver encerrado e com as duas respostas completas.</p></div></div>
+            <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#385041] shadow-sm"><Star className="h-4 w-4" /></span><div><h3 className="text-sm font-extrabold text-gray-950">Avaliação do cliente</h3><p className="mt-0.5 text-[11px] text-gray-500">Preencha somente o que o consumidor respondeu. O card entra na reputação quando estiver finalizado e com as três respostas completas.</p></div></div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div><span className="mb-1.5 block text-xs font-bold text-gray-700">Resolvido?</span><div className="grid grid-cols-2 gap-2">{[{ label: 'Sim', value: true }, { label: 'Não', value: false }].map((option) => <button key={option.label} type="button" onClick={() => setResolved(resolved === option.value ? null : option.value)} aria-pressed={resolved === option.value} className={`rounded-xl border px-4 py-3 text-xs font-extrabold transition-all ${resolved === option.value ? option.value ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-red-500 bg-red-500 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-[#385041]/30'}`}>{option.label}</button>)}</div></div>
               <Field label="Nota do cliente (0 a 10)"><input type="number" min="0" max="10" step="0.1" value={customerScore} onChange={(event) => setCustomerScore(event.target.value === '' ? '' : Number(event.target.value))} placeholder="Ex.: 8,5" className="field-input" /></Field>
-              <div><span className="mb-1.5 block text-xs font-bold text-gray-700">Voltaria a fazer negócio?</span><div className="grid grid-cols-2 gap-2">{[{ label: 'Sim', value: true }, { label: 'Não', value: false }].map((option) => <button key={option.label} type="button" onClick={() => setWouldDoBusiness(option.value)} className={`rounded-xl border px-4 py-3 text-xs font-extrabold transition-all ${wouldDoBusiness === option.value ? option.value ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-red-500 bg-red-500 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-[#385041]/30'}`}>{option.label}</button>)}</div></div>
+              <div><span className="mb-1.5 block text-xs font-bold text-gray-700">Voltaria a fazer negócio?</span><div className="grid grid-cols-2 gap-2">{[{ label: 'Sim', value: true }, { label: 'Não', value: false }].map((option) => <button key={option.label} type="button" onClick={() => setWouldDoBusiness(wouldDoBusiness === option.value ? null : option.value)} aria-pressed={wouldDoBusiness === option.value} className={`rounded-xl border px-4 py-3 text-xs font-extrabold transition-all ${wouldDoBusiness === option.value ? option.value ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-red-500 bg-red-500 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-[#385041]/30'}`}>{option.label}</button>)}</div></div>
             </div>
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white bg-white p-3 shadow-sm"><div className="flex items-center gap-2"><Smile className={`h-5 w-5 ${previewScore === null ? 'text-gray-300' : previewScore >= 7 ? 'text-emerald-500' : previewScore >= 5 ? 'text-amber-500' : 'text-red-500'}`} /><div><span className="block text-[9px] font-extrabold uppercase tracking-wide text-gray-400">Prévia automática do card</span><strong className="text-xs text-gray-800">{previewScore === null ? 'Aguardando avaliação' : previewClass}</strong></div></div><strong className="text-xl text-[#385041]">{previewScore === null ? '—' : previewScore.toFixed(1)}</strong></div>
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white bg-white p-3 shadow-sm"><div className="flex items-center gap-2"><Smile className={`h-5 w-5 ${previewScore === null ? 'text-gray-300' : previewScore >= 7 ? 'text-emerald-500' : previewScore >= 5 ? 'text-amber-500' : 'text-red-500'}`} /><div><span className="block text-[9px] font-extrabold uppercase tracking-wide text-gray-400">Prévia automática do card</span><strong className="text-xs text-gray-800">{previewScore === null ? 'Aguardando finalização ou avaliação' : previewClass}</strong></div></div><strong className="text-xl text-[#385041]">{previewScore === null ? '—' : previewScore.toFixed(1)}</strong></div>
           </section>
         </form>
 

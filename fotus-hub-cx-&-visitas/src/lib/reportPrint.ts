@@ -208,9 +208,9 @@ function strategicRaReading(cases: RACase[]) {
     .slice(0, 3)
     .map(([topic, count]) => `${plural(count, 'reclamação', 'reclamações')} sobre ${topic}`)
     .join(', ');
-  const resolved = cases.filter((item) => item.status === 'Resolvido').length;
-  const inProgress = cases.filter((item) => item.status === 'Aberto' || item.status === 'Em Andamento').length;
-  const missingEvaluation = cases.filter((item) => customerScoreValue(item) === null || wouldDoBusinessValue(item) === null).length;
+  const resolved = cases.filter((item) => item.resolved === true).length;
+  const inProgress = cases.filter((item) => item.status === 'Em Andamento').length;
+  const missingEvaluation = cases.filter((item) => item.resolved == null || customerScoreValue(item) === null || wouldDoBusinessValue(item) === null).length;
   const statusReading = `${plural(resolved, 'caso resolvido', 'casos resolvidos')}${inProgress ? ` e ${plural(inProgress, 'caso ainda em tratativa', 'casos ainda em tratativa')}` : ''}`;
   const evaluationReading = missingEvaluation
     ? `${plural(missingEvaluation, 'reclamação ainda não possui avaliação completa', 'reclamações ainda não possuem avaliação completa')}`
@@ -222,7 +222,9 @@ function attentionAnalysis(item: RACase) {
   const score = customerScoreValue(item);
   const wouldReturn = wouldDoBusinessValue(item);
   const reasons: string[] = [];
-  if (item.status !== 'Resolvido') reasons.push(`tratativa ${item.status.toLocaleLowerCase('pt-BR')}`);
+  if (item.status !== 'Finalizado') reasons.push(`reclamação ${item.status.toLocaleLowerCase('pt-BR')}`);
+  if (item.resolved === null || item.resolved === undefined) reasons.push('resolução ainda não informada');
+  else if (!item.resolved) reasons.push('cliente informou que não foi resolvido');
   if (score === null) reasons.push('nota do cliente ainda não informada');
   else if (score < 7) reasons.push(`nota baixa (${score.toFixed(1)})`);
   if (wouldReturn === null) reasons.push('resposta sobre voltar a fazer negócio pendente');
@@ -232,13 +234,13 @@ function attentionAnalysis(item: RACase) {
 
 export function buildRaReport(cases: RACase[], periodLabel = 'Período selecionado') {
   const reputation = calculateRaReputation(cases);
-  const resolved = cases.filter((item) => item.status === 'Resolvido').length;
+  const resolved = cases.filter((item) => item.resolved === true).length;
   const attentionCases = cases.filter((item) => {
     const score = customerScoreValue(item);
     const wouldReturn = wouldDoBusinessValue(item);
-    return score === null || score < 7 || wouldReturn === null || wouldReturn === false || item.status !== 'Resolvido';
+    return score === null || score < 7 || wouldReturn === null || wouldReturn === false || item.resolved !== true || item.status !== 'Finalizado';
   });
-  const caseRows = attentionCases.slice(0, 14).map((item) => `<tr><td>${escapeHtml(item.raNumber)}</td><td>${escapeHtml(item.customerName)}</td><td>${escapeHtml(item.status)}</td><td>${customerScoreValue(item) === null ? 'Sem nota' : customerScoreValue(item)?.toFixed(1)}</td><td>${wouldDoBusinessValue(item) === null ? 'Sem resposta' : wouldDoBusinessValue(item) ? 'Sim' : 'Não'}</td><td>${escapeHtml(attentionAnalysis(item))}</td></tr>`).join('');
+  const caseRows = attentionCases.slice(0, 14).map((item) => `<tr><td>${escapeHtml(item.raNumber)}</td><td>${escapeHtml(item.customerName)}</td><td>${escapeHtml(item.status)}</td><td>${item.resolved == null ? 'Sem resposta' : item.resolved ? 'Sim' : 'Não'}</td><td>${customerScoreValue(item) === null ? 'Sem nota' : customerScoreValue(item)?.toFixed(1)}</td><td>${wouldDoBusinessValue(item) === null ? 'Sem resposta' : wouldDoBusinessValue(item) ? 'Sim' : 'Não'}</td><td>${escapeHtml(attentionAnalysis(item))}</td></tr>`).join('');
   const achievedMetrics = [
     reputation.responseRate >= RA_TARGETS.indicatorIR,
     reputation.solutionRate >= RA_TARGETS.indicatorIS,
@@ -258,15 +260,15 @@ export function buildRaReport(cases: RACase[], periodLabel = 'Período seleciona
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1).getTime();
   const currentWindow = cases.filter((item) => item.createdAt >= sixMonthsAgo);
   const previousWindow = cases.filter((item) => item.createdAt >= twelveMonthsAgo && item.createdAt < sixMonthsAgo);
-  const currentResolvedRate = currentWindow.length ? Math.round((currentWindow.filter((item) => item.status === 'Resolvido').length / currentWindow.length) * 100) : 0;
-  const previousResolvedRate = previousWindow.length ? Math.round((previousWindow.filter((item) => item.status === 'Resolvido').length / previousWindow.length) * 100) : 0;
+  const currentResolvedRate = currentWindow.length ? Math.round((currentWindow.filter((item) => item.resolved === true).length / currentWindow.length) * 100) : 0;
+  const previousResolvedRate = previousWindow.length ? Math.round((previousWindow.filter((item) => item.resolved === true).length / previousWindow.length) * 100) : 0;
 
   return shell('Relatório Estratégico RA', 'Reclame Aqui · Consolidado dos registros reais', `
     <header class="plain-header"><h1>Relatório Estratégico RA · ${escapeHtml(periodLabel)}</h1><p class="subtitle">Fotus Distribuidora Solar · Emitido em ${escapeHtml(reportDate())}</p><p style="font-weight:800;margin:7px 0 0">Total de reclamações: ${cases.length} | Resolvidas: ${resolved} | Respondidas e avaliadas: ${reputation.evaluatedCases} | Reputação: ${reputation.finalScore === null ? 'sem avaliações' : `${reputation.finalScore.toFixed(1)} · ${reputation.classification}`}</p></header>
     <div class="band band-blue">Indicadores e reputação calculada</div><table><thead><tr><th>Índice</th><th class="center">Peso</th><th class="center">Real</th><th class="center">Mínimo</th><th class="center">Farol</th></tr></thead><tbody>${raMetric('Reclamações respondidas (IR)', '20%', reputation.responseRate, RA_TARGETS.indicatorIR)}${raMetric('Índice de solução (IS)', '30%', reputation.solutionRate, RA_TARGETS.indicatorIS)}${raMetric('Nota do cliente (MA)', '30%', reputation.customerScore, RA_TARGETS.indicatorMA, '')}${raMetric('Voltaria a fazer negócio (IN)', '20%', reputation.wouldDoBusinessRate, RA_TARGETS.indicatorIN)}</tbody></table>
-    <p class="positive">A reputação considera somente casos encerrados com nota e resposta sobre voltar a fazer negócio. ${achievedMetrics === 4 ? 'Os 4 índices bateram a meta do período.' : `${achievedMetrics} de 4 índices atingiram a meta do período.`}</p>
+    <p class="positive">A reputação considera somente reclamações finalizadas com resolução, nota e resposta sobre voltar a fazer negócio informadas. ${achievedMetrics === 4 ? 'Os 4 índices bateram a meta do período.' : `${achievedMetrics} de 4 índices atingiram a meta do período.`}</p>
     <div class="band band-orange">Leitura estratégica</div><div class="callout">${escapeHtml(strategicRaReading(cases))}</div>
-    <div class="band band-red">Casos que precisam de atenção</div><table><thead><tr><th>RA</th><th>Cliente</th><th>Status</th><th>Nota</th><th>Voltaria</th><th>Resumo / análise</th></tr></thead><tbody>${caseRows || '<tr><td colspan="6" class="center muted">Nenhum caso precisa de atenção no período</td></tr>'}</tbody></table>
+    <div class="band band-red">Casos que precisam de atenção</div><table><thead><tr><th>RA</th><th>Cliente</th><th>Status</th><th>Resolvido?</th><th>Nota</th><th>Voltaria</th><th>Resumo / análise</th></tr></thead><tbody>${caseRows || '<tr><td colspan="7" class="center muted">Nenhum caso precisa de atenção no período</td></tr>'}</tbody></table>
     <div class="band band-navy">Comparativo: janela anterior vs. janela atual</div>${modernReportChart('Reclame Aqui · Comparativo móvel de 6 meses', [{ label: 'Janela anterior', value: previousWindow.length, display: `${previousWindow.length} · ${previousResolvedRate}% resolvidos` }, { label: 'Janela atual', value: currentWindow.length, display: `${currentWindow.length} · ${currentResolvedRate}% resolvidos` }])}<p class="positive">Taxa de resolução: ${previousResolvedRate}% → ${currentResolvedRate}% (${currentResolvedRate - previousResolvedRate >= 0 ? '+' : ''}${currentResolvedRate - previousResolvedRate} p.p.)</p><p>A leitura compara duas janelas móveis de seis meses para reduzir distorções de um único mês e evidenciar a direção mais recente do atendimento.</p>
     <div class="page-break"></div>${modernReportChart('Reputação RA · Evolução mês a mês', scoreMonths.map((item) => ({ label: new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date(`${item.key}-01T12:00:00`)).replace('.', ''), value: item.value, display: item.value.toFixed(1) })), { label: 'Faixa ótima 8,0', value: 8 })}<p>A evolução mensal considera as avaliações registradas em cada período e ajuda a identificar melhora, estabilidade ou queda na experiência dos clientes.</p>`);
 }

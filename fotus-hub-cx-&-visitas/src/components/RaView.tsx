@@ -5,7 +5,7 @@ import { deleteData } from '../lib/dataMutations';
 import { exportRaExcel } from '../lib/excelExport';
 import { calculateRaReputation, customerScoreValue, isRaCaseIncludedInReputation, wouldDoBusinessValue } from '../lib/raReputation';
 import { buildRaReport, openA4PrintWindow } from '../lib/reportPrint';
-import type { CaseStatus, RACase } from '../types';
+import type { RACase, RaStatus } from '../types';
 
 interface RaViewProps {
   cases: RACase[];
@@ -15,7 +15,7 @@ interface RaViewProps {
 }
 
 type DatePreset = 'month' | 'custom' | 'all';
-const statuses: Array<'Todos' | CaseStatus> = ['Todos', 'Aberto', 'Em Andamento', 'Resolvido', 'Cancelado'];
+const statuses: Array<'Todos' | RaStatus> = ['Todos', 'Em Andamento', 'Finalizado', 'Moderado', 'Desativado'];
 
 function localDate(timestamp: number) {
   const date = new Date(timestamp);
@@ -30,7 +30,7 @@ export default function RaView({ cases, currentUser, onNew, onEdit }: RaViewProp
   const [datePreset, setDatePreset] = useState<DatePreset>('month');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'Todos' | CaseStatus>('Todos');
+  const [statusFilter, setStatusFilter] = useState<'Todos' | RaStatus>('Todos');
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
   const [deletingId, setDeletingId] = useState('');
@@ -93,7 +93,7 @@ export default function RaView({ cases, currentUser, onNew, onEdit }: RaViewProp
         <div className="relative z-10 mx-3 -mt-4 grid gap-5 rounded-[26px] border border-white/90 bg-white p-5 shadow-[0_18px_45px_rgba(27,54,76,0.12)] sm:mx-6 sm:-mt-6 lg:grid-cols-[1.1fr_1fr] lg:p-6">
           <div>
             <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#385041] text-white"><ArchiveRestore className="h-5 w-5" /></span><div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#385041]">Reputação do período</p><h2 className="text-xl font-extrabold text-gray-950">Calculadora Reclame Aqui</h2></div></div>
-            <p className="mt-3 max-w-2xl text-xs leading-relaxed text-gray-500">Nota automática com os pesos oficiais. Entram no cálculo somente casos encerrados e com avaliação completa; chamados abertos ou em andamento ficam fora da reputação.</p>
+            <p className="mt-3 max-w-2xl text-xs leading-relaxed text-gray-500">Nota automática com os pesos oficiais. Entram no cálculo somente reclamações finalizadas e com avaliação completa.</p>
             <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4"><Metric label="Resposta" value={`${reputation.responseRate.toFixed(0)}%`} /><Metric label="Solução" value={`${reputation.solutionRate.toFixed(0)}%`} /><Metric label="Nota do cliente" value={reputation.customerScore === null ? '—' : reputation.customerScore.toFixed(1)} /><Metric label="Voltaria" value={reputation.wouldDoBusinessRate === null ? '—' : `${reputation.wouldDoBusinessRate.toFixed(0)}%`} /></div>
             <p className="mt-3 text-[10px] font-bold text-[#385041]">{reputation.evaluatedCases} caso(s) respondido(s) e avaliado(s) considerado(s) nesta nota.</p>
           </div>
@@ -123,10 +123,10 @@ export default function RaView({ cases, currentUser, onNew, onEdit }: RaViewProp
         const wouldReturn = wouldDoBusinessValue(item);
         const includedInReputation = isRaCaseIncludedInReputation(item);
         return <article key={item.id} className="group relative mt-2 rounded-3xl border border-white bg-white/85 p-5 pt-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-          <span title={includedInReputation ? 'Caso encerrado e com avaliação completa' : 'Aguardando encerramento ou avaliação completa'} className={`absolute -top-2.5 left-5 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-wide ${includedInReputation ? 'border-emerald-200 bg-emerald-100 text-emerald-800 shadow-[0_0_18px_rgba(16,185,129,0.35)]' : 'border-amber-200 bg-amber-100 text-amber-900 shadow-[0_0_18px_rgba(245,158,11,0.4)]'}`}><span className={`h-2 w-2 rounded-full ${includedInReputation ? 'bg-emerald-500' : 'animate-pulse bg-amber-500'}`} />{includedInReputation ? 'Respondido' : 'Falta resposta'}</span>
-          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><span className={`inline-flex rounded-full px-2.5 py-1 text-[9px] font-extrabold ${item.status === 'Resolvido' ? 'bg-emerald-50 text-emerald-700' : item.status === 'Cancelado' ? 'bg-red-50 text-red-700' : item.status === 'Em Andamento' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'}`}>{item.status}</span><p className="mt-3 text-[9px] font-extrabold uppercase tracking-wide text-gray-400">Reclamação</p><h3 className="truncate text-lg font-extrabold text-gray-950">{item.raNumber}</h3></div><div className="flex gap-1"><button onClick={() => onEdit(item)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 hover:text-[#385041]" title="Editar"><Pencil className="h-4 w-4" /></button><button disabled={deletingId === item.id} onClick={() => void remove(item)} className="rounded-xl p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40" title="Excluir"><Trash2 className="h-4 w-4" /></button></div></div>
+          <span title={includedInReputation ? 'Reclamação finalizada e com avaliação completa' : 'Fora do cálculo da reputação'} className={`absolute -top-2.5 left-5 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-wide ${includedInReputation ? 'border-emerald-200 bg-emerald-100 text-emerald-800 shadow-[0_0_18px_rgba(16,185,129,0.35)]' : 'border-amber-200 bg-amber-100 text-amber-900 shadow-[0_0_18px_rgba(245,158,11,0.4)]'}`}><span className={`h-2 w-2 rounded-full ${includedInReputation ? 'bg-emerald-500' : 'bg-amber-500'}`} />{includedInReputation ? 'Na reputação' : 'Fora da reputação'}</span>
+          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><span className={`inline-flex rounded-full px-2.5 py-1 text-[9px] font-extrabold ${item.status === 'Finalizado' ? 'bg-emerald-50 text-emerald-700' : item.status === 'Desativado' ? 'bg-red-50 text-red-700' : item.status === 'Moderado' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700'}`}>{item.status}</span><p className="mt-3 text-[9px] font-extrabold uppercase tracking-wide text-gray-400">Reclamação</p><h3 className="truncate text-lg font-extrabold text-gray-950">{item.raNumber}</h3></div><div className="flex gap-1"><button onClick={() => onEdit(item)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 hover:text-[#385041]" title="Editar"><Pencil className="h-4 w-4" /></button><button disabled={deletingId === item.id} onClick={() => void remove(item)} className="rounded-xl p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40" title="Excluir"><Trash2 className="h-4 w-4" /></button></div></div>
           <div className="mt-4 rounded-2xl bg-gray-50 p-3"><strong className="block truncate text-sm text-gray-900">{item.customerName}</strong><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500">{item.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{item.phone}</span>}{item.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{item.email}</span>}</div></div>
-          <div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-xl border border-gray-100 p-3"><span className="text-[9px] font-bold uppercase text-gray-400">Nota do cliente</span><strong className="mt-1 block text-lg text-[#385041]">{customerScore === null ? '—' : customerScore.toFixed(1)}</strong></div><div className="rounded-xl border border-gray-100 p-3"><span className="text-[9px] font-bold uppercase text-gray-400">Voltaria</span><strong className={`mt-1 block text-sm ${wouldReturn === null ? 'text-gray-400' : wouldReturn ? 'text-emerald-600' : 'text-red-600'}`}>{wouldReturn === null ? 'Sem resposta' : wouldReturn ? 'Sim' : 'Não'}</strong></div></div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3"><div className="rounded-xl border border-gray-100 p-3"><span className="text-[9px] font-bold uppercase text-gray-400">Resolvido?</span><strong className={`mt-1 block text-sm ${item.resolved == null ? 'text-gray-400' : item.resolved ? 'text-emerald-600' : 'text-red-600'}`}>{item.resolved == null ? 'Sem resposta' : item.resolved ? 'Sim' : 'Não'}</strong></div><div className="rounded-xl border border-gray-100 p-3"><span className="text-[9px] font-bold uppercase text-gray-400">Nota do cliente</span><strong className="mt-1 block text-lg text-[#385041]">{customerScore === null ? '—' : customerScore.toFixed(1)}</strong></div><div className="col-span-2 rounded-xl border border-gray-100 p-3 sm:col-span-1"><span className="text-[9px] font-bold uppercase text-gray-400">Voltaria</span><strong className={`mt-1 block text-sm ${wouldReturn === null ? 'text-gray-400' : wouldReturn ? 'text-emerald-600' : 'text-red-600'}`}>{wouldReturn === null ? 'Sem resposta' : wouldReturn ? 'Sim' : 'Não'}</strong></div></div>
           {item.information && <p className="mt-3 line-clamp-3 text-xs leading-relaxed text-gray-500">{item.information}</p>}
           <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-[10px] text-gray-400"><span>{displayDate(item.createdAt)}</span><span>{item.assigneeName || 'Sem responsável'}</span></div>
         </article>;

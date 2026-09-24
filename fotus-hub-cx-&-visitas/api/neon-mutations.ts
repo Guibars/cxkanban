@@ -173,16 +173,17 @@ async function upsertExtraCost(client: PoolClient, legacyId: string, data: Paylo
 async function upsertRaCase(client: PoolClient, legacyId: string, data: Payload, actorEmail: string, actorUserId: string) {
   const assigneeEmail = e(data.assigneeEmail) || actorEmail;
   await client.query(`insert into public.ra_cases (
-    legacy_firestore_id,ra_number,customer_name,phone,customer_email,information,status,indicator_ir,indicator_is,indicator_ma,
+    legacy_firestore_id,ra_number,customer_name,phone,customer_email,information,status,resolved,indicator_ir,indicator_is,indicator_ma,
     indicator_in,final_score,assignee_user_id,assignee_email_snapshot,assignee_name_snapshot,created_by_user_id,created_by_email,
     created_by_name,created_at,updated_at)
-    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
     on conflict (legacy_firestore_id) do update set ra_number=excluded.ra_number,customer_name=excluded.customer_name,phone=excluded.phone,
-      customer_email=excluded.customer_email,information=excluded.information,status=excluded.status,indicator_ir=excluded.indicator_ir,
+      customer_email=excluded.customer_email,information=excluded.information,status=excluded.status,resolved=excluded.resolved,indicator_ir=excluded.indicator_ir,
       indicator_is=excluded.indicator_is,indicator_ma=excluded.indicator_ma,indicator_in=excluded.indicator_in,final_score=excluded.final_score,
       assignee_user_id=excluded.assignee_user_id,assignee_email_snapshot=excluded.assignee_email_snapshot,
       assignee_name_snapshot=excluded.assignee_name_snapshot,updated_at=excluded.updated_at`, [legacyId, s(data.raNumber, legacyId),
-    s(data.customerName, 'Não informado'), s(data.phone), e(data.email) || null, s(data.information), s(data.status, 'Aberto'),
+    s(data.customerName, 'Não informado'), s(data.phone), e(data.email) || null, s(data.information), s(data.status, 'Em Andamento'),
+    data.resolved === true ? true : data.resolved === false ? false : null,
     data.indicatorIR == null ? null : n(data.indicatorIR), data.indicatorIS == null ? null : n(data.indicatorIS),
     data.indicatorMA == null ? null : n(data.indicatorMA), data.indicatorIN == null ? null : n(data.indicatorIN),
     data.finalScore == null ? null : n(data.finalScore), await appUserId(client, assigneeEmail), assigneeEmail,

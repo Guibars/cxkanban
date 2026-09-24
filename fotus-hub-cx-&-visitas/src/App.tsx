@@ -211,7 +211,7 @@ export default function App() {
     { id: 'visao-geral', label: 'Visão Geral', icon: LayoutDashboard },
     { id: 'ocorrencias', label: 'Ocorrências', icon: ClipboardList, alert: visibleOccurrences.some((item) => item.stage !== 'Finalizada') },
     { id: 'custos', label: 'Custo Extra', icon: CircleDollarSign, alert: visibleCosts.some((item) => item.totalCost > 1000) },
-    { id: 'ra', label: 'Reclame Aqui', icon: ArchiveRestore, alert: visibleRaCases.some((item) => item.status === 'Aberto') },
+    { id: 'ra', label: 'Reclame Aqui', icon: ArchiveRestore, alert: visibleRaCases.some((item) => item.status === 'Em Andamento') },
     { id: 'visitas', label: 'Visitas', icon: Building2, alert: visits.some((item) => item.status === 'Agendada') },
     { id: 'estrutura', label: 'Estrutura', icon: Network, alert: organizationPeople.length === 0 },
   ];

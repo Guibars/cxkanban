@@ -1,4 +1,5 @@
 export type CaseStatus = 'Aberto' | 'Em Andamento' | 'Resolvido' | 'Cancelado';
+export type RaStatus = 'Em Andamento' | 'Finalizado' | 'Moderado' | 'Desativado';
 
 export type Department = string;
 
@@ -41,7 +42,8 @@ export interface RACase {
   phone: string;
   email: string;
   information: string;
-  status: CaseStatus;
+  status: RaStatus;
+  resolved?: boolean | null;
   indicatorIR?: number | null;
   indicatorIS?: number | null;
   indicatorMA?: number | null;
