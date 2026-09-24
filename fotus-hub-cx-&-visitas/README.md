@@ -31,6 +31,16 @@ usadas pelas funções seguras do servidor.
 As migrações e o processo de primeiro acesso estão documentados em
 [`database/README.md`](database/README.md).
 
+## Chat da equipe
+
+O chat geral e as conversas privadas usam uma tabela pequena no Neon, criada pela
+migração `database/migrations/009_internal_chat.sql`. Somente usuários ativos podem
+enviar e ler mensagens. O chat carrega as últimas 50 mensagens por conversa e busca
+novidades a cada 30 segundos enquanto a aba está aberta e visível. Após 5 minutos
+sem interação, as atualizações pausam até a pessoa retomar o chat. As mensagens
+ficam disponíveis por 30 dias; os registros vencidos são apagados quando uma
+conversa é aberta.
+
 ## Validação
 
 ```bash

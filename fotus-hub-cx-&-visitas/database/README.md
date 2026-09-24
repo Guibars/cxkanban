@@ -15,6 +15,7 @@ Execute no SQL Editor do Neon, nesta ordem:
 6. `migrations/006_open_corporate_registration.sql` — libera o auto cadastro para colaboradores `@fotus.com.br` e cria o perfil inicial automaticamente.
 7. `migrations/007_occurrence_products.sql` — permite vários produtos em uma mesma ocorrência e preserva os cards antigos.
 8. `migrations/008_ra_status_and_resolution.sql` — separa o status da reclamação da resposta “Resolvido?” e adapta os registros antigos.
+9. `migrations/009_internal_chat.sql` — cria o chat geral e privado; as mensagens ficam disponíveis por 30 dias e os registros vencidos são removidos quando uma conversa é aberta.
 
 O Neon Auth cria a identidade e a senha. O acesso aos dados permanece bloqueado
 até que o e-mail tenha um perfil ativo em `public.app_users`. Essa verificação é

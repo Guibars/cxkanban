@@ -6,6 +6,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  MessageCircle,
   Network,
   RefreshCw,
   Settings2,
@@ -29,6 +30,7 @@ import {
 } from './types';
 import AccessControlModal from './components/AccessControlModal';
 import Auth from './components/Auth';
+import ChatView from './components/ChatView';
 import AgentManagerModal from './components/AgentManagerModal';
 import ExtraCostsView from './components/ExtraCostsView';
 import IsaChatModal from './components/IsaChatModal';
@@ -40,7 +42,7 @@ import RaView from './components/RaView';
 import VisitModal from './components/VisitModal';
 import VisitsView from './components/VisitsView';
 
-type MainTab = AppSection;
+type MainTab = AppSection | 'chat';
 
 const DEVELOPER_EMAIL = 'guilhermebarbosars@gmail.com';
 const ALL_TABS: MainTab[] = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura'];
@@ -56,6 +58,7 @@ const TAB_COPY: Record<MainTab, { title: string; subtitle: string }> = {
   ra: { title: 'Painel Reclame Aqui', subtitle: 'Monitoramento das reclamações, indicadores e resolução' },
   visitas: { title: 'Visitas de Integradores', subtitle: 'Agenda, recepção e acompanhamento dos parceiros' },
   estrutura: { title: 'Estrutura Organizacional', subtitle: 'Organograma em cadeia: Head, Gerente, Coordenador e Líder' },
+  chat: { title: 'Chat da equipe', subtitle: 'Converse no grupo geral ou em particular com colegas da plataforma' },
 };
 
 export default function App() {
@@ -181,7 +184,7 @@ export default function App() {
 
   const visibleOccurrences = occurrences;
   const visibleTabs = access.tabs;
-  const canView = (tab: MainTab) => visibleTabs.includes(tab);
+  const canView = (tab: MainTab) => tab === 'chat' || visibleTabs.includes(tab);
   const visibleCosts = extraCosts;
   const visibleRaCases = raCases;
   const visibleOrganizationUnits = organizationUnits;
@@ -195,7 +198,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (user && !visibleTabs.includes(activeTab)) setActiveTab(visibleTabs[0] || 'visao-geral');
+    if (user && !canView(activeTab)) setActiveTab(visibleTabs[0] || 'visao-geral');
   }, [activeTab, user, visibleTabs.join('|')]);
 
   if (authLoading || (user && accessProfileLoading)) {
@@ -214,6 +217,7 @@ export default function App() {
     { id: 'ra', label: 'Reclame Aqui', icon: ArchiveRestore, alert: visibleRaCases.some((item) => item.status === 'Em Andamento') },
     { id: 'visitas', label: 'Visitas', icon: Building2, alert: visits.some((item) => item.status === 'Agendada') },
     { id: 'estrutura', label: 'Estrutura', icon: Network, alert: organizationPeople.length === 0 },
+    { id: 'chat', label: 'Chat', icon: MessageCircle },
   ];
   const tabs = allNavigationTabs.filter((tab) => canView(tab.id));
 
@@ -274,6 +278,7 @@ export default function App() {
 
           {canView('visitas') && <section hidden={activeTab !== 'visitas'}><VisitsView visits={visits} currentUser={user} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} /></section>}
           {canView('estrutura') && <section hidden={activeTab !== 'estrutura'}><OrganizationView units={organizationUnits} people={organizationPeople} currentUser={user} canManage={canManageAgents} canDeleteLegacy={access.isDeveloper} /></section>}
+          <section hidden={activeTab !== 'chat'}><ChatView currentUser={user} active={activeTab === 'chat'} /></section>
         </main>
 
         <RaModal isOpen={isRaModalOpen} onClose={() => setIsRaModalOpen(false)} caseToEdit={raCaseToEdit} currentUser={user} />

@@ -30,6 +30,7 @@ export interface NeonIdentity {
   authUserId: string;
   email: string;
   name: string;
+  appUserId?: string;
 }
 
 function bearerToken(request: RequestLike) {
@@ -41,7 +42,7 @@ function bearerToken(request: RequestLike) {
   return token;
 }
 
-export async function verifyNeonIdentity(request: RequestLike, pool: Pool): Promise<NeonIdentity> {
+export async function verifyNeonIdentity(request: RequestLike, pool: Pool, options?: { readOnly?: boolean }): Promise<NeonIdentity> {
   const token = bearerToken(request);
   const remoteJwks = getJwks();
   let payload;
@@ -65,6 +66,14 @@ export async function verifyNeonIdentity(request: RequestLike, pool: Pool): Prom
   if (!email) throw new Error('unauthenticated');
 
   const name = authUser.rows[0].name?.trim() || email;
+  if (options?.readOnly) {
+    const profile = await pool.query<{ id: string; active: boolean }>(
+      'select id,active from public.app_users where lower(email::text)=$1', [email],
+    );
+    if (!profile.rows[0]) throw new Error('profile-not-found');
+    if (!profile.rows[0].active) throw new Error('profile-disabled');
+    return { authUserId, email, name, appUserId: profile.rows[0].id };
+  }
   const client = await pool.connect();
   try {
     await client.query('begin');
