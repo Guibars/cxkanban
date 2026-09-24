@@ -144,7 +144,7 @@ export async function loadBootstrap(email: string) {
         import_source as "importSource",import_row as "importRow",created_at as "createdAt",updated_at as "updatedAt"
       from public.extra_costs order by created_at desc`) : Promise.resolve({ rows: [] }),
     canView('ra') ? pool.query(`
-      select legacy_firestore_id as id,ra_number as "raNumber",customer_name as "customerName",phone,customer_email::text as email,
+      select legacy_firestore_id as id,complaint_date::text as "complaintDate",ra_number as "raNumber",customer_name as "customerName",phone,customer_email::text as email,
         information,status,resolved,indicator_ir::float8 as "indicatorIR",indicator_is::float8 as "indicatorIS",indicator_ma::float8 as "indicatorMA",
         indicator_in::float8 as "indicatorIN",final_score::float8 as "finalScore",assignee_email_snapshot::text as "assigneeEmail",
         assignee_name_snapshot as "assigneeName",created_by_email::text as "createdByEmail",created_by_name as "createdByName",

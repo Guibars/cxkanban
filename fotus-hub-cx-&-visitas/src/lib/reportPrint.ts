@@ -249,8 +249,8 @@ export function buildRaReport(cases: RACase[], periodLabel = 'Período seleciona
   ].filter(Boolean).length;
   const monthGroups = new Map<string, RACase[]>();
   cases.forEach((item) => {
-    if (!item.createdAt) return;
-    const date = new Date(item.createdAt);
+    const date = item.complaintDate ? new Date(`${item.complaintDate}T12:00:00`) : new Date(item.createdAt);
+    if (Number.isNaN(date.getTime())) return;
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     monthGroups.set(key, [...(monthGroups.get(key) || []), item]);
   });
@@ -258,8 +258,9 @@ export function buildRaReport(cases: RACase[], periodLabel = 'Período seleciona
   const now = new Date();
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).getTime();
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1).getTime();
-  const currentWindow = cases.filter((item) => item.createdAt >= sixMonthsAgo);
-  const previousWindow = cases.filter((item) => item.createdAt >= twelveMonthsAgo && item.createdAt < sixMonthsAgo);
+  const complaintTime = (item: RACase) => item.complaintDate ? new Date(`${item.complaintDate}T12:00:00`).getTime() : item.createdAt;
+  const currentWindow = cases.filter((item) => complaintTime(item) >= sixMonthsAgo);
+  const previousWindow = cases.filter((item) => complaintTime(item) >= twelveMonthsAgo && complaintTime(item) < sixMonthsAgo);
   const currentResolvedRate = currentWindow.length ? Math.round((currentWindow.filter((item) => item.resolved === true).length / currentWindow.length) * 100) : 0;
   const previousResolvedRate = previousWindow.length ? Math.round((previousWindow.filter((item) => item.resolved === true).length / previousWindow.length) * 100) : 0;
 

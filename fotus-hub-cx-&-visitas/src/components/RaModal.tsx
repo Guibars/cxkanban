@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Check, FileText, Mail, Phone, Save, Smile, Star, X } from 'lucide-react';
+import { CalendarDays, Check, FileText, Mail, Phone, Save, Smile, Star, X } from 'lucide-react';
 import type { CurrentUser } from '../lib/currentUser';
 import { createData, updateData } from '../lib/dataMutations';
 import { calculateSingleRaScore, classifyRaScore, customerScoreValue, wouldDoBusinessValue } from '../lib/raReputation';
@@ -13,9 +13,14 @@ interface RaModalProps {
 }
 
 const statusOptions: RaStatus[] = ['Em Andamento', 'Finalizado', 'Moderado', 'Desativado'];
+const localDate = (timestamp: number) => {
+  const date = new Date(timestamp);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
 
 export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: RaModalProps) {
   const [raNumber, setRaNumber] = useState('');
+  const [complaintDate, setComplaintDate] = useState(localDate(Date.now()));
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -38,6 +43,7 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
     initializedRecord.current = recordKey;
     setSaveError('');
     setRaNumber(caseToEdit?.raNumber || '');
+    setComplaintDate(caseToEdit?.complaintDate || localDate(caseToEdit?.createdAt || Date.now()));
     setCustomerName(caseToEdit?.customerName || '');
     setPhone(caseToEdit?.phone || '');
     setEmail(caseToEdit?.email || '');
@@ -63,6 +69,7 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
       const finalScore = calculateSingleRaScore(status, resolved, normalizedScore, wouldDoBusiness);
       const readyForReputation = status === 'Finalizado' && resolved !== null && normalizedScore !== null && wouldDoBusiness !== null;
       const caseData = {
+        complaintDate,
         raNumber: raNumber.trim(),
         customerName: customerName.trim(),
         phone: phone.trim(),
@@ -113,6 +120,7 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="ID / Nº da reclamação"><input required value={raNumber} onChange={(event) => setRaNumber(event.target.value)} placeholder="Ex.: RA-984210" className="field-input" /></Field>
+            <Field label="Data da reclamação" icon={CalendarDays}><input required type="date" value={complaintDate} onChange={(event) => setComplaintDate(event.target.value)} className="field-input" /></Field>
             <Field label="Nome do consumidor"><input required value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Nome completo" className="field-input" /></Field>
             <Field label="Telefone / WhatsApp" icon={Phone}><input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="(00) 00000-0000" className="field-input" /></Field>
             <Field label="E-mail" icon={Mail}><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="cliente@email.com" className="field-input" /></Field>

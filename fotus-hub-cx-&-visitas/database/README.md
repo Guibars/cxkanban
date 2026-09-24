@@ -18,6 +18,8 @@ Execute no SQL Editor do Neon, nesta ordem:
 9. `migrations/009_internal_chat.sql` — cria o chat geral e privado; as mensagens ficam disponíveis por 30 dias e os registros vencidos são removidos quando uma conversa é aberta.
 10. `migrations/010_chat_presence_notifications_isa_avatars.sql` — adiciona presença, avisos de mensagens, resposta da ISA no grupo e fotos pequenas dos usuários.
 11. `migrations/011_chat_private_clear.sql` — permite que cada pessoa limpe apenas o próprio histórico de uma conversa privada.
+12. `migrations/012_ra_complaint_date.sql` — adiciona a data da reclamação aos cards; os registros antigos recebem inicialmente a data do cadastro, que pode ser corrigida no editor.
+13. `migrations/013_chat_encryption.sql` — prepara a coluna de mensagens para conteúdo cifrado e identifica mensagens antigas para conversão pelo servidor.
 
 O Neon Auth cria a identidade e a senha. O acesso aos dados permanece bloqueado
 até que o e-mail tenha um perfil ativo em `public.app_users`. Essa verificação é
@@ -27,12 +29,27 @@ feita no servidor em todas as consultas e alterações do sistema.
 
 ```dotenv
 DATABASE_URL=conexao_pooler_do_neon
+CHAT_ENCRYPTION_KEY=chave_aleatoria_de_32_bytes_em_base64
 NEON_AUTH_BASE_URL=https://ep-falling-waterfall-b5oiundt.neonauth.c-7.us-east-2.aws.neon.tech/neondb/auth
 VITE_NEON_AUTH_URL=https://ep-falling-waterfall-b5oiundt.neonauth.c-7.us-east-2.aws.neon.tech/neondb/auth
 ```
 
 `DATABASE_URL` é segredo de servidor. Nunca coloque essa conexão em uma variável
 iniciada por `VITE_` nem publique o arquivo `.env`.
+
+`CHAT_ENCRYPTION_KEY` também é segredo do servidor: gere uma vez com
+`node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`
+e cadastre o valor nas variáveis de ambiente da Vercel antes de publicar o novo
+código. Não use o prefixo `VITE_`, não cole a chave no SQL Editor e guarde uma
+cópia segura: perdê-la impede a leitura das mensagens cifradas. O servidor cifra
+mensagens novas antes de gravar no Neon e converte até 100 mensagens antigas
+por atualização do chat. Confira o progresso com:
+
+```sql
+select count(*) as mensagens_antigas_visiveis
+from public.chat_messages
+where body_is_encrypted = false;
+```
 
 ## Primeiro acesso
 

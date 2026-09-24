@@ -37,6 +37,7 @@ export interface CXCase {
 
 export interface RACase {
   id: string;
+  complaintDate: string;
   raNumber: string;
   customerName: string;
   phone: string;

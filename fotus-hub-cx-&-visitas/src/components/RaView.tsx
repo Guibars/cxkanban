@@ -51,7 +51,7 @@ export default function RaView({ cases, currentUser, onNew, onEdit }: RaViewProp
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleLowerCase('pt-BR');
     return cases.filter((item) => {
-      const date = localDate(item.createdAt);
+      const date = item.complaintDate || localDate(item.createdAt);
       if (period.start && date < period.start) return false;
       if (period.end && date > period.end) return false;
       if (statusFilter !== 'Todos' && item.status !== statusFilter) return false;
@@ -128,7 +128,7 @@ export default function RaView({ cases, currentUser, onNew, onEdit }: RaViewProp
           <div className="mt-4 rounded-2xl bg-gray-50 p-3"><strong className="block truncate text-sm text-gray-900">{item.customerName}</strong><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500">{item.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{item.phone}</span>}{item.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{item.email}</span>}</div></div>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3"><div className="rounded-xl border border-gray-100 p-3"><span className="text-[9px] font-bold uppercase text-gray-400">Resolvido?</span><strong className={`mt-1 block text-sm ${item.resolved == null ? 'text-gray-400' : item.resolved ? 'text-emerald-600' : 'text-red-600'}`}>{item.resolved == null ? 'Sem resposta' : item.resolved ? 'Sim' : 'Não'}</strong></div><div className="rounded-xl border border-gray-100 p-3"><span className="text-[9px] font-bold uppercase text-gray-400">Nota do cliente</span><strong className="mt-1 block text-lg text-[#385041]">{customerScore === null ? '—' : customerScore.toFixed(1)}</strong></div><div className="col-span-2 rounded-xl border border-gray-100 p-3 sm:col-span-1"><span className="text-[9px] font-bold uppercase text-gray-400">Voltaria</span><strong className={`mt-1 block text-sm ${wouldReturn === null ? 'text-gray-400' : wouldReturn ? 'text-emerald-600' : 'text-red-600'}`}>{wouldReturn === null ? 'Sem resposta' : wouldReturn ? 'Sim' : 'Não'}</strong></div></div>
           {item.information && <p className="mt-3 line-clamp-3 text-xs leading-relaxed text-gray-500">{item.information}</p>}
-          <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-[10px] text-gray-400"><span>{displayDate(item.createdAt)}</span><span>{item.assigneeName || 'Sem responsável'}</span></div>
+          <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-[10px] text-gray-400"><span>Reclamação: {item.complaintDate ? item.complaintDate.split('-').reverse().join('/') : displayDate(item.createdAt)}</span><span>{item.assigneeName || 'Sem responsável'}</span></div>
         </article>;
       })}</div>}
     </div>

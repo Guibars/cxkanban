@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import { GoogleGenAI } from '@google/genai';
 import { verifyNeonIdentity } from '../src/server/neonAuth.js';
+import { chatEncryptionKey, decryptChatBody, encryptChatBody } from '../src/server/chatCrypto.js';
 
 type ApiRequest = {
   method?: string;
@@ -18,6 +19,8 @@ type ApiResponse = {
 type MessageRow = {
   id: string;
   body: string;
+  bodyIsEncrypted: boolean;
+  channelKey: string;
   senderId: string;
   senderName: string;
   senderEmail: string;
@@ -67,7 +70,7 @@ async function recipient(pool: Pool, userId: string, recipientId: string | null)
 function present(row: MessageRow, userId: string) {
   return {
     id: row.id,
-    body: row.body,
+    body: row.bodyIsEncrypted ? decryptChatBody(row.body, row.channelKey) : row.body,
     senderName: row.senderName,
     senderEmail: row.senderEmail,
     senderAvatar: row.isIsa ? ISA_AVATAR : row.senderAvatar,
@@ -78,7 +81,8 @@ function present(row: MessageRow, userId: string) {
 }
 
 const selectMessages = `
-  select messages.id::text, messages.body, messages.sender_user_id as "senderId",
+  select messages.id::text, messages.body, messages.body_is_encrypted as "bodyIsEncrypted",
+    messages.channel_key as "channelKey", messages.sender_user_id as "senderId",
     case when messages.is_isa then 'ISA' else users.display_name end as "senderName",
     users.email::text as "senderEmail",users.avatar_data_url as "senderAvatar",
     messages.is_isa as "isIsa",
@@ -92,7 +96,25 @@ function validCursor(value: unknown): value is string {
   return typeof value === 'string' && CURSOR.test(value) && BigInt(value) <= MAX_ID;
 }
 
+async function encryptLegacyChatBatch(pool: Pool) {
+  const pending = await pool.query<{ id: string; channelKey: string; body: string }>(`
+    select id::text,channel_key as "channelKey",body
+    from public.chat_messages where body_is_encrypted=false
+    order by id limit 100
+  `);
+  if (!pending.rows.length) return;
+  const values = pending.rows.flatMap((row) => [row.id, encryptChatBody(row.body, row.channelKey)]);
+  const slots = pending.rows.map((_, index) => `($${index * 2 + 1}::bigint,$${index * 2 + 2}::text)`).join(',');
+  await pool.query(`
+    update public.chat_messages as messages
+    set body=encrypted.body,body_is_encrypted=true
+    from (values ${slots}) as encrypted(id,body)
+    where messages.id=encrypted.id and messages.body_is_encrypted=false
+  `, values);
+}
+
 async function syncChat(pool: Pool, userId: string) {
+  await encryptLegacyChatBatch(pool);
   await pool.query(`
     insert into public.chat_presence (user_id,last_seen_at) values ($1,now())
     on conflict (user_id) do update set last_seen_at=now()
@@ -217,13 +239,15 @@ async function sharedOccurrenceSummary(pool: Pool) {
 
 async function askIsa(pool: Pool, userId: string, messageId: unknown) {
   if (!validCursor(messageId) || messageId === '0') throw new Error('invalid-isa');
-  const original = await pool.query<{ body: string }>(`
-    select body from public.chat_messages
+  const original = await pool.query<{ body: string; bodyIsEncrypted: boolean }>(`
+    select body,body_is_encrypted as "bodyIsEncrypted" from public.chat_messages
     where id=$1::bigint and channel_key='general' and sender_user_id=$2
       and is_isa=false and created_at > now() - interval '10 minutes'
   `, [messageId, userId]);
-  const question = original.rows[0]?.body?.replace(ISA_MENTION, '').trim();
-  if (!question || !ISA_MENTION.test(original.rows[0].body)) throw new Error('invalid-isa');
+  const originalBody = original.rows[0] ? (original.rows[0].bodyIsEncrypted
+    ? decryptChatBody(original.rows[0].body, 'general') : original.rows[0].body) : '';
+  const question = originalBody.replace(ISA_MENTION, '').trim();
+  if (!question || !ISA_MENTION.test(originalBody)) throw new Error('invalid-isa');
   const existing = await pool.query<MessageRow>(
     selectMessages + ' and messages.isa_reply_to_id=$2::bigint', ['general', messageId],
   );
@@ -239,15 +263,17 @@ async function askIsa(pool: Pool, userId: string, messageId: unknown) {
       `• Total de cards: ${occurrenceSummary.total}; finalizados: ${occurrenceSummary.finalizedTotal}.`;
   } else {
     if (!process.env.GEMINI_API_KEY) throw new Error('isa-not-configured');
-    const recentGroup = await pool.query<{ speaker: string; body: string }>(`
+    const recentGroup = await pool.query<{ speaker: string; body: string; bodyIsEncrypted: boolean }>(`
       select case when messages.is_isa then 'ISA' else users.display_name end as speaker,
-        messages.body
+        messages.body,messages.body_is_encrypted as "bodyIsEncrypted"
       from public.chat_messages messages
       join public.app_users users on users.id=messages.sender_user_id
       where messages.channel_key='general' and messages.created_at >= now() - interval '30 days'
       order by messages.id desc limit 16
     `);
-    const context = recentGroup.rows.reverse().map((row) => `${row.speaker}: ${row.body}`).join('\n');
+    const context = recentGroup.rows.reverse().map((row) =>
+      `${row.speaker}: ${row.bodyIsEncrypted ? decryptChatBody(row.body, 'general') : row.body}`,
+    ).join('\n');
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const answer = await ai.models.generateContent({
       model: 'gemini-3.5-flash-lite',
@@ -258,10 +284,10 @@ async function askIsa(pool: Pool, userId: string, messageId: unknown) {
   if (!body) throw new Error('isa-unavailable');
   await pool.query(`
     insert into public.chat_messages
-      (channel_key,sender_user_id,recipient_user_id,body,is_isa,isa_reply_to_id)
-    values ('general',$1,null,$2,true,$3::bigint)
+      (channel_key,sender_user_id,recipient_user_id,body,body_is_encrypted,is_isa,isa_reply_to_id)
+    values ('general',$1,null,$2,true,true,$3::bigint)
     on conflict do nothing
-  `, [userId, body, messageId]);
+  `, [userId, encryptChatBody(body, 'general'), messageId]);
   const saved = await pool.query<MessageRow>(
     selectMessages + ' and messages.isa_reply_to_id=$2::bigint', ['general', messageId],
   );
@@ -280,6 +306,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     const identity = await verifyNeonIdentity(request, pool, { readOnly: true });
     const userId = identity.appUserId;
     if (!userId) throw new Error('profile-not-found');
+    chatEncryptionKey();
 
     if (request.method === 'POST' && request.body?.action === 'sync') {
       return response.status(200).json(await syncChat(pool, userId));
@@ -325,16 +352,17 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       if (!body || body.length > 1200) throw new Error('invalid-message');
       const result = await pool.query<MessageRow>(`
         with inserted as (
-          insert into public.chat_messages (channel_key,sender_user_id,recipient_user_id,body)
-          values ($1,$2,$3,$4)
-          returning id,body,sender_user_id,created_at
+          insert into public.chat_messages (channel_key,sender_user_id,recipient_user_id,body,body_is_encrypted)
+          values ($1,$2,$3,$4,true)
+          returning id,body,body_is_encrypted,channel_key,sender_user_id,created_at
         )
-        select inserted.id::text,inserted.body,inserted.sender_user_id as "senderId",
+        select inserted.id::text,inserted.body,inserted.body_is_encrypted as "bodyIsEncrypted",
+          inserted.channel_key as "channelKey", inserted.sender_user_id as "senderId",
           users.display_name as "senderName",users.email::text as "senderEmail",
           users.avatar_data_url as "senderAvatar",false as "isIsa",
           inserted.created_at as "createdAt"
         from inserted join public.app_users users on users.id=inserted.sender_user_id
-      `, [channelKey, userId, recipientId, body]);
+      `, [channelKey, userId, recipientId, encryptChatBody(body, channelKey)]);
       return response.status(201).json({ message: present(result.rows[0], userId) });
     }
 
@@ -376,6 +404,8 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     if (message === 'invalid-avatar') return response.status(400).json({ error: 'Foto inválida. Escolha uma imagem pequena.' });
     if (message === 'invalid-isa') return response.status(400).json({ error: 'Mencione @isa no chat geral junto com sua pergunta.' });
     if (message === 'isa-not-configured' || message === 'isa-unavailable') return response.status(503).json({ error: 'A ISA não está disponível agora.' });
+    if (message === 'chat-key-not-configured') return response.status(503).json({ error: 'A chave de proteção do chat não está configurada no servidor.' });
+    if (message === 'chat-decryption-failed') return response.status(503).json({ error: 'Não foi possível abrir uma mensagem protegida. Verifique a chave do chat no servidor.' });
     if (message === 'database-not-configured') return response.status(503).json({ error: 'A conexão com o Neon não está configurada.' });
     console.error('Erro no chat:', error);
     return response.status(500).json({ error: 'Não foi possível carregar o chat.' });
