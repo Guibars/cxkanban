@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
-import { Camera, Check, ImagePlus, MessageCircle, RefreshCw, Search, Send, Sparkles, Users, X } from 'lucide-react';
+import { Camera, Check, ImagePlus, MessageCircle, RefreshCw, Search, Send, Sparkles, Trash2, Users, X } from 'lucide-react';
 import type { CurrentUser } from '../lib/currentUser';
 import {
-  askIsaInChat, loadChatMessages, loadChatPeople, markChatRead,
+  askIsaInChat, clearChatConversation, loadChatMessages, loadChatPeople, markChatRead,
   saveChatAvatar, sendChatMessage, type ChatMessage, type ChatPerson, type ChatUnread,
 } from '../lib/chat';
 
@@ -86,6 +86,7 @@ export default function ChatView({ currentUser, active, onlineUserIds, unread, t
   const [sending, setSending] = useState(false);
   const [isaThinking, setIsaThinking] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
   const [paused, setPaused] = useState(false);
   const [reload, setReload] = useState(0);
@@ -260,6 +261,26 @@ export default function ChatView({ currentUser, active, onlineUserIds, unread, t
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); }
   };
 
+  const clearConversation = async () => {
+    if (!recipientId || clearing || loadingOlder || sending || !window.confirm('Limpar esta conversa apenas para você? O histórico da outra pessoa continuará disponível.')) return;
+    const conversation = selected;
+    touch();
+    setClearing(true);
+    setError('');
+    try {
+      await clearChatConversation(currentUser, recipientId);
+      if (selectedRef.current === conversation) {
+        setMessages([]);
+        setHasOlder(false);
+        onReadRef.current(conversation);
+        setReload((value) => value + 1);
+      }
+      window.dispatchEvent(new Event('fotus:chat-changed'));
+    } catch (cause) {
+      if (selectedRef.current === conversation) setError(cause instanceof Error ? cause.message : 'Não foi possível limpar a conversa.');
+    } finally { setClearing(false); }
+  };
+
   const choosePhoto = (id: string) => { photoTargetRef.current = id; setPhotoError(''); fileInputRef.current?.click(); };
   const onPhotoSelected = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -301,7 +322,7 @@ export default function ChatView({ currentUser, active, onlineUserIds, unread, t
       </aside>
 
       <section className="flex min-h-[540px] min-w-0 flex-col bg-[#fbfcfb]">
-        <header className="flex items-center gap-3 border-b border-[#e6ece8] bg-white px-4 py-3 sm:px-5"><Avatar name={selectedPerson?.displayName || GROUP_NAME} src={selectedPerson?.avatarUrl || (selected === 'general' ? GROUP_IMAGE : null)} online={Boolean(selectedPerson && online.has(selectedPerson.id))} size="lg" /><div className="min-w-0 flex-1"><h3 className="truncate text-sm font-black text-[#203f33]">{selectedPerson?.displayName || (selected === 'general' ? GROUP_NAME : 'Conversa privada')}</h3><p className="mt-0.5 truncate text-[10px] text-gray-500">{selectedPerson ? (online.has(selectedPerson.id) ? 'Online agora' : selectedPerson.email) : `${onlineCount} pessoas online · mencione @isa para perguntar`}</p></div><button type="button" onClick={() => { touch(); setReload((value) => value + 1); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#385041] hover:bg-[#edf4eb]" title={paused ? 'Retomar atualizações' : 'Atualizar conversa'} aria-label={paused ? 'Retomar atualizações' : 'Atualizar conversa'}><RefreshCw className="h-4 w-4" /></button></header>
+        <header className="flex items-center gap-3 border-b border-[#e6ece8] bg-white px-4 py-3 sm:px-5"><Avatar name={selectedPerson?.displayName || GROUP_NAME} src={selectedPerson?.avatarUrl || (selected === 'general' ? GROUP_IMAGE : null)} online={Boolean(selectedPerson && online.has(selectedPerson.id))} size="lg" /><div className="min-w-0 flex-1"><h3 className="truncate text-sm font-black text-[#203f33]">{selectedPerson?.displayName || (selected === 'general' ? GROUP_NAME : 'Conversa privada')}</h3><p className="mt-0.5 truncate text-[10px] text-gray-500">{selectedPerson ? (online.has(selectedPerson.id) ? 'Online agora' : selectedPerson.email) : `${onlineCount} pessoas online · mencione @isa para perguntar`}</p></div>{selectedPerson && <button type="button" onClick={() => void clearConversation()} disabled={clearing || loading || loadingOlder || sending} className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-2 text-[10px] font-bold text-red-600 hover:bg-red-50 disabled:opacity-50" title="Limpar conversa apenas para você" aria-label="Limpar conversa apenas para você"><Trash2 className="h-4 w-4" /><span className="hidden sm:inline">Limpar para mim</span></button>}<button type="button" onClick={() => { touch(); setReload((value) => value + 1); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#385041] hover:bg-[#edf4eb]" title={paused ? 'Retomar atualizações' : 'Atualizar conversa'} aria-label={paused ? 'Retomar atualizações' : 'Atualizar conversa'}><RefreshCw className="h-4 w-4" /></button></header>
         <div ref={listRef} onScroll={() => { const list = listRef.current; if (list && list.scrollHeight - list.scrollTop - list.clientHeight < 80) void markVisibleRead(latestId.current, selected, recipientId); }} className="h-[420px] flex-1 space-y-3 overflow-y-auto bg-[radial-gradient(circle_at_top_right,#eaf4ed_0,transparent_46%)] px-4 py-4 sm:px-6">
           {hasOlder && <div className="text-center"><button type="button" disabled={loadingOlder} onClick={() => void loadOlder()} className="rounded-full border border-[#dce8df] bg-white px-4 py-2 text-[10px] font-bold text-[#385041] hover:bg-[#f2f8f3] disabled:opacity-50">{loadingOlder ? 'Carregando...' : 'Ver mensagens anteriores'}</button></div>}
           {loading && <div className="flex justify-center py-16 text-gray-400"><RefreshCw className="h-5 w-5 animate-spin" /></div>}

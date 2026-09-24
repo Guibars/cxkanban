@@ -17,6 +17,7 @@ Execute no SQL Editor do Neon, nesta ordem:
 8. `migrations/008_ra_status_and_resolution.sql` — separa o status da reclamação da resposta “Resolvido?” e adapta os registros antigos.
 9. `migrations/009_internal_chat.sql` — cria o chat geral e privado; as mensagens ficam disponíveis por 30 dias e os registros vencidos são removidos quando uma conversa é aberta.
 10. `migrations/010_chat_presence_notifications_isa_avatars.sql` — adiciona presença, avisos de mensagens, resposta da ISA no grupo e fotos pequenas dos usuários.
+11. `migrations/011_chat_private_clear.sql` — permite que cada pessoa limpe apenas o próprio histórico de uma conversa privada.
 
 O Neon Auth cria a identidade e a senha. O acesso aos dados permanece bloqueado
 até que o e-mail tenha um perfil ativo em `public.app_users`. Essa verificação é

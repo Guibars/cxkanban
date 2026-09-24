@@ -69,6 +69,10 @@ export async function markChatRead(user: CurrentUser, recipientId: string | null
   await chatRequest(user, '/api/chat', { action: 'read', recipientId, messageId });
 }
 
+export async function clearChatConversation(user: CurrentUser, recipientId: string) {
+  return chatRequest<{ clearedBeforeId: string }>(user, '/api/chat', { action: 'clear', recipientId });
+}
+
 export async function askIsaInChat(user: CurrentUser, messageId: string) {
   return (await chatRequest<{ message: ChatMessage }>(user, '/api/chat', { action: 'ask-isa', messageId })).message;
 }

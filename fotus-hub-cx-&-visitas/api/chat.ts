@@ -110,7 +110,7 @@ async function syncChat(pool: Pool, userId: string) {
       left join public.chat_reads reads
         on reads.user_id=$1 and reads.channel_key=messages.channel_key
       where messages.created_at >= now() - interval '30 days'
-        and messages.id > coalesce(reads.last_read_id,0)
+        and messages.id > greatest(coalesce(reads.last_read_id,0),coalesce(reads.cleared_before_id,0))
         and messages.sender_user_id<>$1
         and ((messages.recipient_user_id is null and messages.channel_key='general')
           or messages.recipient_user_id=$1)
@@ -137,6 +137,25 @@ async function markRead(pool: Pool, userId: string, recipientId: string | null, 
       updated_at=now()
     where chat_reads.last_read_id < excluded.last_read_id
   `, [userId, channelKey, messageId]);
+}
+
+async function clearPrivateConversation(pool: Pool, userId: string, recipientId: string | null) {
+  if (!recipientId) throw new Error('invalid-recipient');
+  const channelKey = conversationKey(userId, recipientId);
+  const latest = await pool.query<{ id: string }>(
+    'select coalesce(max(id),0)::text as id from public.chat_messages where channel_key=$1',
+    [channelKey],
+  );
+  const clearedBeforeId = latest.rows[0].id;
+  await pool.query(`
+    insert into public.chat_reads (user_id,channel_key,last_read_id,cleared_before_id)
+    values ($1,$2,$3::bigint,$3::bigint)
+    on conflict (user_id,channel_key) do update
+    set last_read_id=greatest(chat_reads.last_read_id,excluded.last_read_id),
+      cleared_before_id=greatest(chat_reads.cleared_before_id,excluded.cleared_before_id),
+      updated_at=now()
+  `, [userId, channelKey, clearedBeforeId]);
+  return { clearedBeforeId };
 }
 
 async function saveAvatar(pool: Pool, email: string, targetUserId: unknown, dataUrl: unknown) {
@@ -250,6 +269,9 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       await markRead(pool, userId, recipientId, request.body.messageId as string);
       return response.status(200).json({ ok: true });
     }
+    if (request.method === 'POST' && request.body?.action === 'clear') {
+      return response.status(200).json(await clearPrivateConversation(pool, userId, recipientId));
+    }
 
     if (request.method === 'POST') {
       const submittedBody = request.body?.body;
@@ -283,13 +305,16 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     }
 
     const suffix = after
-      ? ' and messages.id > $2::bigint order by messages.id asc limit 100'
+      ? ' and messages.id > $3::bigint order by messages.id asc limit 100'
       : before
-        ? ' and messages.id < $2::bigint order by messages.id desc limit 50'
+        ? ' and messages.id < $3::bigint order by messages.id desc limit 50'
         : ' order by messages.id desc limit 50';
     const result = await pool.query<MessageRow>(
-      selectMessages + suffix,
-      after || before ? [channelKey, after || before] : [channelKey],
+      selectMessages + ` and messages.id > coalesce((
+        select cleared_before_id from public.chat_reads
+        where user_id=$2 and channel_key=$1
+      ),0)` + suffix,
+      after || before ? [channelKey, userId, after || before] : [channelKey, userId],
     );
     const rows = after ? result.rows : result.rows.reverse();
     return response.status(200).json({ messages: rows.map((row) => present(row, userId)) });
