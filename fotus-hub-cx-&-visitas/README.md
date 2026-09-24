@@ -41,6 +41,18 @@ sem interação, as atualizações pausam até a pessoa retomar o chat. As mensa
 ficam disponíveis por 30 dias; os registros vencidos são apagados quando uma
 conversa é aberta.
 
+A migração `database/migrations/010_chat_presence_notifications_isa_avatars.sql`
+adiciona indicadores de mensagens não lidas, presença de usuários ativos e fotos
+de perfil. O grupo geral se chama **Experiência que Gera Resultado - CX**.
+Uma pessoa aparece online quando esteve ativa na plataforma nos últimos 3 minutos;
+as consultas de presença e notificações param após 5 minutos sem interação.
+No grupo, uma mensagem com `@isa` seguida de uma pergunta chama a ISA existente
+e usa a chave `GEMINI_API_KEY` já configurada para ela. A resposta no grupo pode
+usar perguntas gerais e mensagens do próprio grupo; dados restritos das abas
+continuam disponíveis somente na ISA individual. Somente
+`guilhermebarbosars@gmail.com` pode atribuir ou remover as fotos dos usuários;
+as imagens são reduzidas no navegador antes de serem salvas no Neon.
+
 ## Validação
 
 ```bash

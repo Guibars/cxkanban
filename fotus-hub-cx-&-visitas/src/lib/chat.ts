@@ -4,6 +4,7 @@ export interface ChatPerson {
   id: string;
   displayName: string;
   email: string;
+  avatarUrl: string | null;
 }
 
 export interface ChatMessage {
@@ -11,6 +12,8 @@ export interface ChatMessage {
   body: string;
   senderName: string;
   senderEmail: string;
+  senderAvatar: string | null;
+  isIsa: boolean;
   isMine: boolean;
   createdAt: number;
 }
@@ -32,7 +35,21 @@ async function chatRequest<T>(user: CurrentUser, url: string, body?: Record<stri
 }
 
 export async function loadChatPeople(user: CurrentUser) {
-  return (await chatRequest<{ people: ChatPerson[] }>(user, '/api/chat?mode=people')).people;
+  return chatRequest<{ people: ChatPerson[]; selfId: string }>(user, '/api/chat?mode=people');
+}
+
+export interface ChatUnread {
+  conversationId: string;
+  count: number;
+}
+
+export interface ChatSync {
+  onlineUserIds: string[];
+  unread: ChatUnread[];
+}
+
+export async function syncChat(user: CurrentUser) {
+  return chatRequest<ChatSync>(user, '/api/chat', { action: 'sync' });
 }
 
 export async function loadChatMessages(user: CurrentUser, recipientId: string | null, cursor?: { after?: string; before?: string }) {
@@ -46,4 +63,16 @@ export async function loadChatMessages(user: CurrentUser, recipientId: string | 
 
 export async function sendChatMessage(user: CurrentUser, recipientId: string | null, body: string) {
   return (await chatRequest<{ message: ChatMessage }>(user, '/api/chat', { recipientId, body })).message;
+}
+
+export async function markChatRead(user: CurrentUser, recipientId: string | null, messageId: string) {
+  await chatRequest(user, '/api/chat', { action: 'read', recipientId, messageId });
+}
+
+export async function askIsaInChat(user: CurrentUser, messageId: string) {
+  return (await chatRequest<{ message: ChatMessage }>(user, '/api/chat', { action: 'ask-isa', messageId })).message;
+}
+
+export async function saveChatAvatar(user: CurrentUser, targetUserId: string, dataUrl: string | null) {
+  await chatRequest(user, '/api/chat', { action: 'avatar', targetUserId, dataUrl });
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArchiveRestore,
+  Bell,
   Building2,
   CircleDollarSign,
   ClipboardList,
@@ -17,6 +18,7 @@ import { cn } from './lib/utils';
 import { DEFAULT_OCCURRENCE_AGENTS } from './lib/occurrences';
 import { loadNeonBootstrap } from './lib/neonData';
 import { getNeonAccessToken, neonAuth } from './lib/neonAuth';
+import { syncChat, type ChatSync } from './lib/chat';
 import {
   CXCase,
   ExtraCost,
@@ -77,6 +79,8 @@ export default function App() {
   const [accessProfiles, setAccessProfiles] = useState<UserAccessProfile[]>([]);
   const [accessProfileLoading, setAccessProfileLoading] = useState(true);
   const [dataError, setDataError] = useState('');
+  const [chatOverview, setChatOverview] = useState<ChatSync>({ onlineUserIds: [], unread: [] });
+  const [chatTarget, setChatTarget] = useState<{ conversationId: string; nonce: number } | null>(null);
 
   const [isRaModalOpen, setIsRaModalOpen] = useState(false);
   const [raCaseToEdit, setRaCaseToEdit] = useState<RACase | null>(null);
@@ -188,6 +192,7 @@ export default function App() {
   const visibleCosts = extraCosts;
   const visibleRaCases = raCases;
   const visibleOrganizationUnits = organizationUnits;
+  const chatUnreadTotal = chatOverview.unread.reduce((total, item) => total + item.count, 0);
   const canManageAgents = access.isDeveloper || ['Administrador', 'Coordenador', 'Líder'].includes(access.role);
   const scopeLabel = access.isMasterOperator
     ? `operador mestre · ${visibleTabs.length} ${visibleTabs.length === 1 ? 'área liberada' : 'áreas liberadas'}`
@@ -200,6 +205,51 @@ export default function App() {
   useEffect(() => {
     if (user && !canView(activeTab)) setActiveTab(visibleTabs[0] || 'visao-geral');
   }, [activeTab, user, visibleTabs.join('|')]);
+
+  useEffect(() => {
+    if (!user) { setChatOverview({ onlineUserIds: [], unread: [] }); return; }
+    if (accessProfileLoading || !access.active || access.tabs.length === 0) return;
+    let cancelled = false;
+    let busy = false;
+    let lastActivity = Date.now();
+    let lastSync = 0;
+    const refresh = async (force = false) => {
+      const now = Date.now();
+      if (cancelled || busy || document.visibilityState !== 'visible' || now - lastActivity > 5 * 60_000) return;
+      if (!force && now - lastSync < 55_000) return;
+      busy = true;
+      lastSync = now;
+      try {
+        const result = await syncChat(user);
+        if (!cancelled) setChatOverview(result);
+      } catch {
+        // The main app remains usable if chat presence is temporarily unavailable.
+      } finally {
+        busy = false;
+      }
+    };
+    const onActivity = () => {
+      const wasIdle = Date.now() - lastActivity > 5 * 60_000;
+      lastActivity = Date.now();
+      if (wasIdle) void refresh(true);
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') { lastActivity = Date.now(); void refresh(true); } };
+    const onChatChanged = () => { lastActivity = Date.now(); void refresh(true); };
+    void refresh(true);
+    const timer = window.setInterval(() => void refresh(), 60_000);
+    window.addEventListener('pointerdown', onActivity);
+    window.addEventListener('keydown', onActivity);
+    window.addEventListener('fotus:chat-changed', onChatChanged);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener('pointerdown', onActivity);
+      window.removeEventListener('keydown', onActivity);
+      window.removeEventListener('fotus:chat-changed', onChatChanged);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [user, accessProfileLoading, access.active, access.tabs.join('|')]);
 
   if (authLoading || (user && accessProfileLoading)) {
     return <div className="flex min-h-screen items-center justify-center bg-[#f4f7f6]"><RefreshCw className="h-8 w-8 animate-spin text-[#385041]" /></div>;
@@ -217,7 +267,7 @@ export default function App() {
     { id: 'ra', label: 'Reclame Aqui', icon: ArchiveRestore, alert: visibleRaCases.some((item) => item.status === 'Em Andamento') },
     { id: 'visitas', label: 'Visitas', icon: Building2, alert: visits.some((item) => item.status === 'Agendada') },
     { id: 'estrutura', label: 'Estrutura', icon: Network, alert: organizationPeople.length === 0 },
-    { id: 'chat', label: 'Chat', icon: MessageCircle },
+    { id: 'chat', label: 'Chat', icon: MessageCircle, alert: chatUnreadTotal > 0 },
   ];
   const tabs = allNavigationTabs.filter((tab) => canView(tab.id));
 
@@ -231,7 +281,7 @@ export default function App() {
             return <button key={id} type="button" onClick={() => setActiveTab(id)} title={label} aria-label={label} aria-current={selected ? 'page' : undefined} className={cn('group relative flex h-12 w-12 items-center justify-center rounded-[15px] transition-all duration-200', selected ? 'bg-[#385041] text-white shadow-[0_8px_18px_rgba(56,80,65,0.22)]' : 'text-[#8a958c] hover:bg-[#eef4eb] hover:text-[#385041]')}>
               {id === 'ra' ? <img src={RA_LOGO} alt="" className={cn('h-7 w-7 rounded-lg object-contain', selected && 'ring-2 ring-white/70')} /> : <Icon className="h-[22px] w-[22px]" strokeWidth={selected ? 2.25 : 2} />}
               <span className="sr-only">{label}</span>
-              {alert && <span className={cn('absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full border-2', selected ? 'border-[#385041] bg-amber-300' : 'border-white bg-amber-500')} aria-label="Há itens que precisam de atenção" />}
+              {id === 'chat' && chatUnreadTotal > 0 ? <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-extrabold text-white" aria-label={`${chatUnreadTotal} mensagens novas`}>{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span> : alert && <span className={cn('absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full border-2', selected ? 'border-[#385041] bg-amber-300' : 'border-white bg-amber-500')} aria-label="Há itens que precisam de atenção" />}
             </button>;
           })}
         </nav>
@@ -244,6 +294,7 @@ export default function App() {
             <div className="flex min-w-0 items-center gap-3"><img src={FOTUS_LOGO} alt="Fotus" className="h-9 w-auto object-contain sm:hidden" /><div className="min-w-0"><h1 className="truncate text-base font-extrabold tracking-tight text-gray-950 sm:text-lg">{TAB_COPY[activeTab].title}</h1><p className="hidden truncate text-xs text-gray-500 md:block">{TAB_COPY[activeTab].subtitle}</p></div></div>
             <div className="flex items-center gap-2 sm:gap-3">
               <button type="button" onClick={() => setIsIsaChatOpen(true)} title="Falar com a ISA" className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#385041]/20"><img src={ISA_LOGO} alt="Abrir ISA" className="h-11 w-11 object-contain drop-shadow-sm" /></button>
+              <button type="button" onClick={() => { setChatTarget({ conversationId: chatOverview.unread[0]?.conversationId || 'general', nonce: Date.now() }); setActiveTab('chat'); }} title={chatUnreadTotal ? `${chatUnreadTotal} ${chatUnreadTotal === 1 ? 'mensagem nova' : 'mensagens novas'}` : 'Abrir chat'} aria-label={chatUnreadTotal ? `Abrir ${chatUnreadTotal} ${chatUnreadTotal === 1 ? 'mensagem nova' : 'mensagens novas'} no chat` : 'Abrir chat'} className="relative flex h-10 w-10 items-center justify-center rounded-xl text-[#385041] hover:bg-[#eef5eb]"><Bell className="h-5 w-5" />{chatUnreadTotal > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-extrabold text-white">{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span>}</button>
               <div className="relative border-l border-gray-200 pl-2 sm:pl-3">
                 <button type="button" onClick={() => setIsProfileMenuOpen((current) => !current)} className="flex items-center gap-2 rounded-xl p-1.5 text-left transition-colors hover:bg-gray-50" aria-expanded={isProfileMenuOpen}>
                   <div className="hidden text-right lg:block"><p className="text-xs font-bold text-gray-800">{user.displayName || user.email}</p><p className="text-[10px] text-gray-500">{access.role} · {user.email}</p></div>
@@ -260,7 +311,7 @@ export default function App() {
 
           <nav className="mt-3 flex gap-1.5 overflow-x-auto rounded-2xl border border-gray-200/70 bg-[#f4f7f3] p-1.5 sm:hidden" aria-label="Navegação principal">
             {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab === id ? 'page' : undefined} className={cn('flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all', activeTab === id ? 'bg-[#385041] text-white shadow-sm' : 'text-gray-500')}>
-              {id === 'ra' ? <img src={RA_LOGO} alt="" className="h-4 w-4 rounded object-contain" /> : <Icon className="h-3.5 w-3.5" />}{label}
+              {id === 'ra' ? <img src={RA_LOGO} alt="" className="h-4 w-4 rounded object-contain" /> : <Icon className="h-3.5 w-3.5" />}{label}{id === 'chat' && chatUnreadTotal > 0 && <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] text-white">{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span>}
             </button>)}
           </nav>
         </header>
@@ -278,7 +329,7 @@ export default function App() {
 
           {canView('visitas') && <section hidden={activeTab !== 'visitas'}><VisitsView visits={visits} currentUser={user} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} /></section>}
           {canView('estrutura') && <section hidden={activeTab !== 'estrutura'}><OrganizationView units={organizationUnits} people={organizationPeople} currentUser={user} canManage={canManageAgents} canDeleteLegacy={access.isDeveloper} /></section>}
-          <section hidden={activeTab !== 'chat'}><ChatView currentUser={user} active={activeTab === 'chat'} /></section>
+          <section hidden={activeTab !== 'chat'}><ChatView currentUser={user} active={activeTab === 'chat'} onlineUserIds={chatOverview.onlineUserIds} unread={chatOverview.unread} target={chatTarget} onRead={(conversationId) => setChatOverview((current) => ({ ...current, unread: current.unread.filter((item) => item.conversationId !== conversationId) }))} /></section>
         </main>
 
         <RaModal isOpen={isRaModalOpen} onClose={() => setIsRaModalOpen(false)} caseToEdit={raCaseToEdit} currentUser={user} />
