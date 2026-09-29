@@ -36,6 +36,7 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
   const stats = useMemo(() => {
     return {
       total: visits.length,
+      solicitadas: visits.filter(v => v.status === 'Solicitada').length,
       agendadas: visits.filter(v => v.status === 'Agendada').length,
       emAndamento: visits.filter(v => v.status === 'Em Andamento').length,
       concluidas: visits.filter(v => v.status === 'Concluída').length,
@@ -57,6 +58,8 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
 
   const getStatusBadge = (status: VisitStatus) => {
     switch (status) {
+      case 'Solicitada':
+        return 'bg-violet-50 text-violet-800 border-violet-200/80';
       case 'Agendada':
         return 'bg-amber-50 text-amber-800 border-amber-200/80';
       case 'Em Andamento':
@@ -72,7 +75,12 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
     <div className="space-y-6">
       
       {/* Top Metrics Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
+        <div className="bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-violet-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-violet-50 text-violet-700 flex items-center justify-center"><Calendar className="w-5 h-5" /></div>
+          <div><p className="text-[11px] font-bold text-violet-700 uppercase tracking-wider">Solicitadas</p><p className="text-xl font-extrabold text-gray-900">{stats.solicitadas}</p></div>
+        </div>
+
         <div className="bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-white/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-xl bg-gray-100 text-gray-700 flex items-center justify-center font-bold">
             <Building2 className="w-5 h-5" />
@@ -118,7 +126,7 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         {/* Status Filter Pills */}
         <div className="flex flex-wrap gap-1.5 p-1 bg-white/60 backdrop-blur-md rounded-2xl border border-white/80 shadow-xs">
-          {(['Todas', 'Agendada', 'Em Andamento', 'Concluída', 'Cancelada'] as const).map((st) => (
+          {(['Todas', 'Solicitada', 'Agendada', 'Em Andamento', 'Concluída', 'Cancelada'] as const).map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
@@ -186,6 +194,7 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
               >
                 {/* Status Bar Top Line */}
                 <div className={`h-1.5 w-full absolute top-0 left-0 ${
+                  visit.status === 'Solicitada' ? 'bg-violet-500' :
                   visit.status === 'Agendada' ? 'bg-amber-400' :
                   visit.status === 'Em Andamento' ? 'bg-blue-500' :
                   visit.status === 'Concluída' ? 'bg-emerald-500' : 'bg-gray-400'
@@ -212,7 +221,7 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
                     </h3>
                     <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                       <User className="w-3.5 h-3.5 text-gray-400" />
-                      <span>{visit.contactPerson}</span>
+                      <span>{visit.requestSource === 'conecta' ? `Solicitante: ${visit.requesterName || visit.contactPerson}` : visit.contactPerson}</span>
                       {visit.cityState && <span className="text-gray-400">• {visit.cityState}</span>}
                     </p>
                   </div>
@@ -244,6 +253,7 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
 
                   {/* Quick Status Pill Advancer */}
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    {visit.status === 'Solicitada' && <button onClick={(e) => handleQuickStatusChange(e, visit, 'Agendada')} className="px-2 py-1 bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200 rounded-lg text-[10px] font-bold transition-all">Confirmar</button>}
                     {visit.status === 'Agendada' && (
                       <button
                         onClick={(e) => handleQuickStatusChange(e, visit, 'Em Andamento')}

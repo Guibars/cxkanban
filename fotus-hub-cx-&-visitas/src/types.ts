@@ -58,7 +58,7 @@ export interface RACase {
   updatedAt: number;
 }
 
-export type VisitStatus = 'Agendada' | 'Em Andamento' | 'Concluída' | 'Cancelada';
+export type VisitStatus = 'Solicitada' | 'Agendada' | 'Em Andamento' | 'Concluída' | 'Cancelada';
 
 export interface IntegratorVisit {
   id: string;
@@ -69,6 +69,7 @@ export interface IntegratorVisit {
   cityState?: string;
   visitDate: string;
   visitTime?: string;
+  visitEndTime?: string;
   hostName: string;
   hostEmail?: string;
   objective: string;
@@ -76,6 +77,22 @@ export interface IntegratorVisit {
   status: VisitStatus;
   notes?: string;
   feedback?: string;
+  integratorCnpj?: string;
+  objectives?: string[];
+  objectiveOther?: string;
+  visitorNames?: string;
+  visitorRoles?: string[];
+  visitorRoleOther?: string;
+  relationshipHistory?: string;
+  consultantRegion?: string;
+  giftQuantity?: number;
+  materials?: string[];
+  materialOther?: string;
+  includeMeal?: boolean;
+  requesterName?: string;
+  requesterEmail?: string;
+  requestSource?: string;
+  hasLogo?: boolean;
   createdByEmail?: string;
   createdByName?: string;
   createdAt: number;

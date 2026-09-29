@@ -152,6 +152,16 @@ export default function App() {
     };
   }, [user]);
 
+  // Pedidos chegam de outro site; atualize a agenda enquanto a aba estiver aberta.
+  useEffect(() => {
+    if (!user || activeTab !== 'visitas') return;
+    const refresh = () => { if (document.visibilityState === 'visible') window.dispatchEvent(new Event('fotus:data-changed')); };
+    refresh();
+    window.addEventListener('focus', refresh);
+    const timer = window.setInterval(refresh, 60_000);
+    return () => { window.removeEventListener('focus', refresh); window.clearInterval(timer); };
+  }, [user, activeTab]);
+
   const access = useMemo(() => {
     const email = (user?.email || '').toLowerCase();
     const isDeveloper = email === DEVELOPER_EMAIL;
@@ -265,7 +275,7 @@ export default function App() {
     { id: 'ocorrencias', label: 'Ocorrências', icon: ClipboardList, alert: visibleOccurrences.some((item) => item.stage !== 'Finalizada') },
     { id: 'custos', label: 'Custo Extra', icon: CircleDollarSign, alert: visibleCosts.some((item) => item.totalCost > 1000) },
     { id: 'ra', label: 'Reclame Aqui', icon: ArchiveRestore, alert: visibleRaCases.some((item) => item.status === 'Em Andamento') },
-    { id: 'visitas', label: 'Visitas', icon: Building2, alert: visits.some((item) => item.status === 'Agendada') },
+    { id: 'visitas', label: 'Visitas', icon: Building2, alert: visits.some((item) => item.status === 'Solicitada' || item.status === 'Agendada') },
     { id: 'estrutura', label: 'Estrutura', icon: Network, alert: organizationPeople.length === 0 },
     { id: 'chat', label: 'Chat', icon: MessageCircle, alert: chatUnreadTotal > 0 },
   ];

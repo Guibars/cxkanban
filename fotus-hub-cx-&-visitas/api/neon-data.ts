@@ -156,9 +156,15 @@ export async function loadBootstrap(email: string) {
     canView('visitas') ? pool.query(`
       select legacy_firestore_id as id,integrator_name as "integratorName",contact_person as "contactPerson",contact_phone as "contactPhone",
         contact_email::text as "contactEmail",city_state as "cityState",visit_date::text as "visitDate",
-        to_char(visit_time,'HH24:MI') as "visitTime",host_name_snapshot as "hostName",host_email_snapshot::text as "hostEmail",
+        to_char(visit_time,'HH24:MI') as "visitTime",to_char(visit_end_time,'HH24:MI') as "visitEndTime",host_name_snapshot as "hostName",host_email_snapshot::text as "hostEmail",
         objective,participants_count as "participantsCount",status,notes,feedback,created_by_email::text as "createdByEmail",
-        created_by_name as "createdByName",created_at as "createdAt",updated_at as "updatedAt"
+        created_by_name as "createdByName",integrator_cnpj as "integratorCnpj",objectives,objective_other as "objectiveOther",
+        visitor_names as "visitorNames",visitor_roles as "visitorRoles",visitor_role_other as "visitorRoleOther",
+        relationship_history as "relationshipHistory",consultant_region as "consultantRegion",gift_quantity as "giftQuantity",
+        materials,material_other as "materialOther",include_meal as "includeMeal",requester_name as "requesterName",
+        requester_email as "requesterEmail",request_source as "requestSource",
+        exists(select 1 from public.integrator_visit_logos where visit_id=integrator_visits.id) as "hasLogo",
+        created_at as "createdAt",updated_at as "updatedAt"
       from public.integrator_visits order by created_at desc`) : Promise.resolve({ rows: [] }),
     MASTER_EMAILS.has(email) ? pool.query(`
       select legacy_firestore_id as id,order_number as "orderNumber",product_code as "productCode",quantity,is_replacement as "isReplacement",
@@ -193,6 +199,18 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     if (request.method === 'POST') {
       response.status(200).json(await mutateNeon(getPool(), email, request.body || {}));
       return;
+    }
+    if (request.query?.view === 'visit-logo') {
+      const profile = await loadProfile(email);
+      if (!profile?.active || !profile.visibleTabs?.includes('visitas')) throw new Error('forbidden');
+      const id = request.query.id;
+      if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) return response.status(400).json({ error: 'Visita inválida.' });
+      const logo = await getPool().query<{ mime: string; base64: string }>(`
+        select l.mime_type as mime,encode(l.image_bytes,'base64') as base64
+        from public.integrator_visit_logos l join public.integrator_visits v on v.id=l.visit_id
+        where v.legacy_firestore_id=$1`, [id]);
+      if (!logo.rowCount) return response.status(404).json({ error: 'Logomarca não encontrada.' });
+      return response.status(200).json(logo.rows[0]);
     }
     response.status(200).json(await loadBootstrap(email));
   } catch (error) {

@@ -12,6 +12,7 @@ interface VisitModalProps {
 }
 
 const statusOptions: { value: VisitStatus; label: string; color: string }[] = [
+  { value: 'Solicitada', label: 'Solicitada', color: 'bg-violet-50 text-violet-700 border-violet-200' },
   { value: 'Agendada', label: 'Agendada', color: 'bg-amber-50 text-amber-700 border-amber-200' },
   { value: 'Em Andamento', label: 'Em Andamento', color: 'bg-blue-50 text-blue-700 border-blue-200' },
   { value: 'Concluída', label: 'Concluída', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -32,6 +33,7 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
   const [status, setStatus] = useState<VisitStatus>('Agendada');
   const [notes, setNotes] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const initializedRecord = useRef('');
 
@@ -73,6 +75,21 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
       setFeedback('');
     }
   }, [isOpen, visitToEdit?.id]);
+
+  useEffect(() => {
+    if (!isOpen || !visitToEdit?.hasLogo || !currentUser) { setLogoUrl(''); return; }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const token = await currentUser.getIdToken();
+        const response = await fetch(`/api/neon-data?view=visit-logo&id=${encodeURIComponent(visitToEdit.id)}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+        if (!response.ok) return;
+        const image = await response.json() as { mime: string; base64: string };
+        if (!cancelled && ['image/png', 'image/jpeg'].includes(image.mime)) setLogoUrl(`data:${image.mime};base64,${image.base64}`);
+      } catch { /* O briefing continua disponível sem a imagem. */ }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, visitToEdit?.id, currentUser]);
 
   if (!isOpen) return null;
 
@@ -148,11 +165,28 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
           <form id="visit-form" onSubmit={handleSubmit} className="space-y-5">
+            {visitToEdit?.requestSource === 'conecta' && <section className="rounded-2xl border border-violet-200 bg-violet-50/70 p-4 text-sm text-gray-800 space-y-3">
+              <div className="flex items-center justify-between gap-3"><strong className="text-violet-900">Briefing recebido do Conecta</strong><span className="text-xs text-violet-700">Dados informados pelo solicitante</span></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
+                <p><b>CNPJ:</b> {visitToEdit.integratorCnpj || '—'}</p>
+                <p><b>Horário:</b> {visitToEdit.visitTime || '—'}–{visitToEdit.visitEndTime || '—'}</p>
+                <p><b>Objetivos:</b> {[...(visitToEdit.objectives || []), visitToEdit.objectiveOther].filter(Boolean).join(', ') || '—'}</p>
+                <p><b>Cargos:</b> {[...(visitToEdit.visitorRoles || []), visitToEdit.visitorRoleOther].filter(Boolean).join(', ') || '—'}</p>
+                <p><b>Consultor e região:</b> {visitToEdit.consultantRegion || '—'}</p>
+                <p><b>Brindes:</b> {visitToEdit.giftQuantity ?? '—'}</p>
+                <p><b>Materiais:</b> {[...(visitToEdit.materials || []), visitToEdit.materialOther].filter(Boolean).join(', ') || 'Nenhum informado'}</p>
+                <p><b>Almoço/jantar:</b> {visitToEdit.includeMeal ? 'Solicitado' : 'Não'}</p>
+                <p className="sm:col-span-2 whitespace-pre-wrap"><b>Visitantes:</b> {visitToEdit.visitorNames || '—'}</p>
+                <p className="sm:col-span-2 whitespace-pre-wrap"><b>Histórico:</b> {visitToEdit.relationshipHistory || '—'}</p>
+                <p className="sm:col-span-2"><b>Enviado por:</b> {visitToEdit.requesterName || '—'} · {visitToEdit.requesterEmail || '—'} (não verificado)</p>
+              </div>
+              {logoUrl && <div><p className="font-semibold mb-2">Logomarca enviada</p><img src={logoUrl} alt={`Logomarca de ${visitToEdit.integratorName}`} className="max-h-36 max-w-full rounded-lg bg-white object-contain p-2" /></div>}
+            </section>}
             
             {/* Status Segmented Control */}
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-2">Status da Visita</label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 {statusOptions.map((opt) => (
                   <button
                     key={opt.value}
