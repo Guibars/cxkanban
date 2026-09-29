@@ -160,7 +160,7 @@ export default function App() {
 
     const profile = accessProfiles.find((item) => item.email.toLowerCase() === email);
     const inferredUnits = organizationUnits.filter((unit) => [unit.managerEmail, unit.leaderEmail, unit.coordinatorEmail || ''].some((value) => value.toLowerCase() === email));
-    const organizationPerson = organizationPeople.find((person) => person.email.toLowerCase() === email);
+    const organizationPerson = organizationPeople.find((person) => person.email?.toLowerCase() === email);
     let inferredRole: UserAccessProfile['role'] = 'Agente';
     if (organizationPerson?.role === 'Head') inferredRole = 'Administrador';
     else if (organizationPerson?.role === 'Gerente') inferredRole = 'Gerente';

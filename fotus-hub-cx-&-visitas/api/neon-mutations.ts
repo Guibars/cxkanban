@@ -10,7 +10,7 @@ export type MutationBody = {
 };
 
 type Resource = 'occurrences' | 'extra_costs' | 'ra_cases' | 'integrator_visits' | 'occurrence_agents' | 'organization_people' | 'organization_units';
-type Action = 'create' | 'update' | 'delete' | 'bulk-upsert' | 'replace';
+type Action = 'create' | 'update' | 'delete' | 'bulk-upsert' | 'replace' | 'reorder';
 type Payload = Record<string, unknown>;
 
 const RESOURCE_SECTION: Record<Resource, string> = {
@@ -89,7 +89,7 @@ async function access(pool: Pool, email: string, resource: Resource, action: Act
   if (!profile?.active) throw new Error('forbidden');
   if (MASTER_EMAILS.has(email)) return profile;
   const allowed = action === 'delete' ? profile.canDelete
-    : action === 'update' ? profile.canEdit
+    : action === 'update' || action === 'reorder' ? profile.canEdit
       : action === 'bulk-upsert' ? profile.canCreate && profile.canEdit
         : profile.canCreate;
   if (!allowed) throw new Error('forbidden');
@@ -220,15 +220,28 @@ async function upsertOrganizationPerson(client: PoolClient, legacyId: string, da
   const supervisor = reportsToLegacyId
     ? await client.query<{ id: string }>('select id from public.organization_people where legacy_firestore_id=$1 and active=true', [reportsToLegacyId])
     : null;
-  const normalizedEmail = e(data.email);
-  if (!normalizedEmail) throw new Error('invalid-mutation');
+  const normalizedEmail = e(data.email) || null;
+  const name = s(data.name);
+  const jobTitle = s(data.jobTitle);
+  const phone = s(data.phone);
+  const photoUrl = s(data.photoUrl);
+  if (!name || name.length > 150 || jobTitle.length > 150 || phone.length > 40 || photoUrl.length > 50_000 || (photoUrl &&
+    !/^\/organization\/[a-z0-9-]+\.jpg$/.test(photoUrl) &&
+    !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(photoUrl))) throw new Error('invalid-mutation');
+  if (photoUrl.startsWith('data:')) {
+    const bytes = Buffer.from(photoUrl.split(',')[1], 'base64');
+    if (bytes.length > 37_000 || bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) throw new Error('invalid-mutation');
+  }
+  if (reportsToLegacyId && !supervisor?.rows[0]) throw new Error('invalid-mutation');
   await client.query(`insert into public.organization_people
-    (legacy_firestore_id,app_user_id,name,email,role,reports_to_id,department,regional,active,created_by_email,created_at,updated_at)
-    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-    on conflict (email) do update set legacy_firestore_id=excluded.legacy_firestore_id,app_user_id=excluded.app_user_id,
-      name=excluded.name,role=excluded.role,reports_to_id=excluded.reports_to_id,department=excluded.department,
-      regional=excluded.regional,active=excluded.active,updated_at=excluded.updated_at`, [legacyId,
-    await appUserId(client, normalizedEmail), s(data.name, normalizedEmail), normalizedEmail, s(data.role, 'Líder'),
+    (legacy_firestore_id,app_user_id,name,email,job_title,phone,photo_url,sort_order,role,reports_to_id,department,regional,active,created_by_email,created_at,updated_at)
+    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+    on conflict (legacy_firestore_id) do update set app_user_id=excluded.app_user_id,
+      name=excluded.name,email=excluded.email,job_title=excluded.job_title,phone=excluded.phone,photo_url=excluded.photo_url,
+      sort_order=excluded.sort_order,role=excluded.role,reports_to_id=excluded.reports_to_id,
+      department=excluded.department,regional=excluded.regional,active=excluded.active,updated_at=excluded.updated_at`, [legacyId,
+    await appUserId(client, normalizedEmail), name, normalizedEmail, jobTitle, phone, photoUrl || null,
+    i(data.sortOrder, 0), s(data.role, 'Líder'),
     s(data.role) === 'Head' ? null : supervisor?.rows[0]?.id || null, s(data.department), s(data.regional),
     data.active !== false, actorEmail, time(data.createdAt), time(data.updatedAt)]);
 }
@@ -236,8 +249,9 @@ async function upsertOrganizationPerson(client: PoolClient, legacyId: string, da
 export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationBody) {
   const resource = s(body.resource) as Resource;
   const action = s(body.action) as Action;
-  if (!Object.hasOwn(RESOURCE_SECTION, resource) || !['create', 'update', 'delete', 'bulk-upsert', 'replace'].includes(action)) throw new Error('invalid-mutation');
+  if (!Object.hasOwn(RESOURCE_SECTION, resource) || !['create', 'update', 'delete', 'bulk-upsert', 'replace', 'reorder'].includes(action)) throw new Error('invalid-mutation');
   if ((action === 'replace') !== (resource === 'occurrence_agents')
+    || (action === 'reorder' && resource !== 'organization_people')
     || (action === 'bulk-upsert' && resource !== 'occurrences' && resource !== 'extra_costs')) throw new Error('invalid-mutation');
   const profile = await access(pool, actorEmail, resource, action);
   const client = await pool.connect();
@@ -252,7 +266,16 @@ export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationB
       const existing = await client.query(`select 1 from public.${resource} where legacy_firestore_id=$1 for update`, [id]);
       if (!existing.rowCount) throw new Error('invalid-mutation');
     }
-    if (action === 'delete') {
+    if (action === 'reorder') {
+      const ids = Array.isArray(payload.ids) ? payload.ids.map((value) => s(value)) : [];
+      if (!ids.length || ids.length > 500 || new Set(ids).size !== ids.length) throw new Error('invalid-mutation');
+      const found = await client.query<{ id: string; role: string }>(
+        'select id,role from public.organization_people where legacy_firestore_id=any($1::text[]) for update', [ids]);
+      if (found.rows.length !== ids.length || new Set(found.rows.map((person) => person.role)).size !== 1) throw new Error('invalid-mutation');
+      await client.query(`update public.organization_people as people set sort_order=ordered.position,updated_at=now()
+        from unnest($1::text[]) with ordinality as ordered(legacy_id,position)
+        where people.legacy_firestore_id=ordered.legacy_id`, [ids]);
+    } else if (action === 'delete') {
       if (resource === 'occurrence_agents') throw new Error('invalid-mutation');
       if (resource === 'occurrences' && profile.role === 'Agente') {
         await assertAgentOwnsOccurrence(client, id, actorEmail, profile.agentName || profile.displayName);
@@ -304,8 +327,13 @@ export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationB
           values ($1,$2,'bulk-import-result','occurrences',null,$3::jsonb)`, [profile.id, actorEmail, JSON.stringify({ inserted, skipped })]);
       }
     }
+    const auditData = action === 'bulk-upsert'
+      ? { count: Array.isArray(body.records) ? body.records.length : 0 }
+      : resource === 'organization_people' && 'photoUrl' in payload
+        ? { ...payload, photoUrl: payload.photoUrl ? '[foto]' : null }
+        : payload;
     await client.query(`insert into public.audit_events (actor_user_id,actor_email,action,entity_type,entity_id,after_data)
-      values ($1,$2,$3,$4,$5,$6::jsonb)`, [profile.id, actorEmail, action, resource, s(body.id) || null, JSON.stringify(action === 'bulk-upsert' ? { count: Array.isArray(body.records) ? body.records.length : 0 } : payload)]);
+      values ($1,$2,$3,$4,$5,$6::jsonb)`, [profile.id, actorEmail, action, resource, s(body.id) || null, JSON.stringify(auditData)]);
     await client.query('commit');
     if (bulkOccurrenceResult) return { ok: true, id, ...bulkOccurrenceResult };
     return { ok: true, id };

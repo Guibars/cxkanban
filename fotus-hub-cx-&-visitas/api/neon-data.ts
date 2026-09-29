@@ -105,12 +105,16 @@ export async function loadBootstrap(email: string) {
     master ? loadProfiles() : Promise.resolve(normalizeRows([{ ...profile, id: email }])),
     canView('ocorrencias') ? pool.query(`select name::text from public.occurrence_agents where active order by sort_order,name`) : Promise.resolve({ rows: [] }),
     canView('estrutura') || canView('ocorrencias') ? pool.query(`
-      select people.legacy_firestore_id as id,people.name,people.email::text,people.role,supervisor.legacy_firestore_id as "reportsToId",
+      select people.legacy_firestore_id as id,people.name,coalesce(people.email::text,'') as email,people.job_title as "jobTitle",
+        case when $1::boolean then people.phone else '' end as phone,
+        case when $1::boolean then people.photo_url else null end as "photoUrl",
+        people.sort_order as "sortOrder",people.role,supervisor.legacy_firestore_id as "reportsToId",
+        supervisor.name as "reportsToName",
         people.department,people.regional,people.active,people.created_by_email::text as "createdByEmail",
         people.created_at as "createdAt",people.updated_at as "updatedAt"
       from public.organization_people people
       left join public.organization_people supervisor on supervisor.id=people.reports_to_id
-      order by people.created_at`) : Promise.resolve({ rows: [] }),
+      order by people.sort_order,people.created_at`, [canView('estrutura')]) : Promise.resolve({ rows: [] }),
     canView('estrutura') || canView('ocorrencias') ? pool.query(`
       select units.legacy_firestore_id as id,units.department,units.team_name as "teamName",units.regional,units.active,
         max(people.name) filter (where links.responsibility='Gerente') as "managerName",

@@ -105,6 +105,10 @@ export interface OrganizationPerson {
   id: string;
   name: string;
   email: string;
+  jobTitle?: string;
+  phone?: string;
+  photoUrl?: string | null;
+  sortOrder?: number;
   role: OrganizationRole;
   reportsToId?: string | null;
   reportsToName?: string | null;

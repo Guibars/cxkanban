@@ -26,3 +26,20 @@ Esta é uma revisão do código local. Não inclui teste de invasão, inspeção
 - O arquivo `.gitignore` exclui `.env`, `.env.local`, `dist` e `node_modules`.
 
 Essas proteções reduzem riscos, mas não substituem as conferências de configuração e um teste independente.
+
+## Mapa inicial para OWASP ASVS 5.0 e API Security Top 10 (2023)
+
+Este mapa usa temas dos padrões, não atribui conformidade requisito por requisito. **Parcial** quer dizer que existe proteção no código, mas a verificação está incompleta. **Pendente** quer dizer que falta uma proteção ou evidência. As correções locais só valem no site depois da publicação.
+
+| Tema | Estado | Evidência e próximo passo |
+| --- | --- | --- |
+| Identidade e sessão | Parcial | JWT do Neon é verificado e o perfil ativo é consultado. Confirmar verificação de e-mail, MFA para operadores mestres, expiração/revogação de sessão e as regras de emissor/destinatário do JWT. |
+| Permissões por função e por registro | Parcial | As APIs checam abas, ações e propriedade das ocorrências de agentes. `organizationUnitIds` é retornado no perfil, mas a leitura de ocorrências para outros cargos e de outras coleções não aplica esse escopo por equipe no servidor. Definir com o negócio quem deve ver cada equipe e testar requisições diretas. |
+| Caminho direto ao banco | Pendente | As migrações não incluem políticas RLS. Confirmar se a Data API do Neon está desligada ou protegida, e revisar os privilégios do usuário Postgres do servidor. |
+| Validação e consumo de recursos | Parcial | SQL parametrizado, recursos permitidos e limites na rota da ISA. Faltam limites de frequência para ISA, chat e cadastro e limites consistentes de tamanho para todas as alterações. |
+| Dados sensíveis e criptografia | Parcial | Segredos ficam no servidor; o chat usa AES-256-GCM após a migração 013 e a configuração da chave. Verificar a conversão das mensagens antigas, backups, acesso à chave e retenção. Revisar o envio de dados do Hub ao Gemini. |
+| Configuração do navegador e hospedagem | Parcial | `vercel.json` define cabeçalhos básicos. Confirmar no domínio publicado que estão presentes; avaliar CSP mais restrita após teste funcional. |
+| Logs e resposta a incidentes | Pendente | Há `audit_events` para alterações operacionais, mas não há evidência de alerta, revisão periódica dos logs, rastreamento de falhas de login ou plano de resposta a incidentes. |
+| Dependências e testes | Pendente | Não foi feita instalação, compilação completa, auditoria de dependências, teste com contas de papéis distintos, teste de invasão ou revisão da implantação. |
+
+Fontes: [OWASP ASVS 5.0](https://owasp.org/projects/asvs?tab=main) e [OWASP API Security Top 10 2023](https://api-security.owasp.org/editions/2023/en/0x11-t10/).

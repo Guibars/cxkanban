@@ -81,7 +81,11 @@ function buildIsaContext(cases: CXCase[], raCases: RACase[], visits: IntegratorV
     ocorrencias: occurrences,
     custosExtras: extraCosts,
     estruturaAnterior: organizationUnits,
-    estruturaHierarquica: organizationPeople,
+    estruturaHierarquica: organizationPeople.map((person) => ({
+      name: person.name, role: person.role, jobTitle: person.jobTitle,
+      phone: person.phone, email: person.email, department: person.department,
+      regional: person.regional, reportsToName: person.reportsToName, active: person.active,
+    })),
   });
 }
 

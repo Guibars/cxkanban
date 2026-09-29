@@ -5,10 +5,12 @@ import {
   BriefcaseBusiness,
   Building2,
   Crown,
+  ImagePlus,
   Mail,
   MapPinned,
   Network,
   Pencil,
+  Phone,
   Plus,
   Save,
   Search,
@@ -17,7 +19,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { createData, deleteData, updateData } from '../lib/dataMutations';
+import { createData, deleteData, reorderOrganizationPeople, updateData } from '../lib/dataMutations';
 import { OrganizationPerson, OrganizationRole, OrganizationUnit } from '../types';
 
 interface OrganizationViewProps {
@@ -35,6 +37,7 @@ const SUPERVISOR_ROLE: Partial<Record<OrganizationRole, OrganizationRole>> = {
   Coordenador: 'Gerente',
   Líder: 'Coordenador',
 };
+const normalizeSearch = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
 const ROLE_STYLE: Record<OrganizationRole, { title: string; description: string; icon: typeof Crown; accent: string; soft: string; line: string }> = {
   Head: { title: 'Kanban Head', description: 'Responsáveis pela gestão executiva', icon: Crown, accent: 'text-violet-700', soft: 'bg-violet-50', line: 'border-violet-200' },
   Gerente: { title: 'Kanban Gerência', description: 'Gerentes vinculados a um Head', icon: BriefcaseBusiness, accent: 'text-blue-700', soft: 'bg-blue-50', line: 'border-blue-200' },
@@ -45,6 +48,9 @@ const ROLE_STYLE: Record<OrganizationRole, { title: string; description: string;
 const emptyForm: {
   name: string;
   email: string;
+  jobTitle: string;
+  phone: string;
+  photoUrl: string;
   role: OrganizationRole;
   reportsToId: string;
   department: string;
@@ -53,7 +59,10 @@ const emptyForm: {
 } = {
   name: '',
   email: '',
-  role: 'Head',
+  jobTitle: '',
+  phone: '',
+  photoUrl: '',
+  role: 'Gerente',
   reportsToId: '',
   department: '',
   regional: '',
@@ -67,18 +76,20 @@ export default function OrganizationView({ units, people, currentUser, canManage
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [moving, setMoving] = useState(false);
 
   const filteredPeople = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase('pt-BR');
+    const query = normalizeSearch(search.trim());
     if (!query) return people;
-    return people.filter((person) => [person.name, person.email, person.role, person.department || '', person.regional || '', person.reportsToName || '']
-      .some((value) => value.toLocaleLowerCase('pt-BR').includes(query)));
+    return people.filter((person) => [person.name, person.email || '', person.phone || '', person.jobTitle || '', person.role, person.department || '', person.regional || '', person.reportsToName || '']
+      .some((value) => normalizeSearch(value).includes(query)));
   }, [people, search]);
 
   const personById = useMemo(() => new Map(people.map((person) => [person.id, person])), [people]);
   const supervisorOptions = people.filter((person) => person.active && person.role === SUPERVISOR_ROLE[form.role] && person.id !== editingPerson?.id);
 
-  const openCreateForm = (role: OrganizationRole = 'Head') => {
+  const openCreateForm = (role: OrganizationRole = 'Gerente') => {
     setEditingPerson(null);
     setForm({ ...emptyForm, role });
     setErrorMessage('');
@@ -89,7 +100,10 @@ export default function OrganizationView({ units, people, currentUser, canManage
     setEditingPerson(person);
     setForm({
       name: person.name,
-      email: person.email,
+      email: person.email || '',
+      jobTitle: person.jobTitle || '',
+      phone: person.phone || '',
+      photoUrl: person.photoUrl || '',
       role: person.role,
       reportsToId: person.reportsToId || '',
       department: person.department || '',
@@ -102,11 +116,15 @@ export default function OrganizationView({ units, people, currentUser, canManage
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    const supervisor = form.role === 'Head' ? null : personById.get(form.reportsToId);
-    if (form.role !== 'Head' && !supervisor) {
-      setErrorMessage(`Selecione para qual ${SUPERVISOR_ROLE[form.role]?.toLocaleLowerCase('pt-BR')} esta pessoa responde.`);
-      return;
+    if (editingPerson && (form.role !== editingPerson.role || !form.active)) {
+      const dependents = people.filter((person) => person.reportsToId === editingPerson.id);
+      if (dependents.length) {
+        setErrorMessage(`Reatribua as ${dependents.length} pessoa(s) que respondem a ${editingPerson.name} antes de mudar a função ou desativar este card.`);
+        return;
+      }
     }
+    const supervisor = form.role === 'Head' || !form.reportsToId ? null : personById.get(form.reportsToId);
+    if (form.reportsToId && !supervisor) return setErrorMessage('Selecione um responsável válido.');
 
     setSaving(true);
     setErrorMessage('');
@@ -114,12 +132,16 @@ export default function OrganizationView({ units, people, currentUser, canManage
     const payload = {
       name: form.name.replace(/\s+/g, ' ').trim(),
       email: form.email.trim().toLowerCase(),
+      jobTitle: form.jobTitle.trim(),
+      phone: form.phone.trim(),
+      photoUrl: form.photoUrl,
       role: form.role,
       reportsToId: supervisor?.id || null,
       reportsToName: supervisor?.name || null,
       department: form.department.replace(/\s+/g, ' ').trim(),
       regional: form.regional.trim(),
       active: form.active,
+      sortOrder: editingPerson?.sortOrder ?? people.filter((person) => person.role === form.role).length + 1,
       updatedAt: now,
     };
 
@@ -139,6 +161,69 @@ export default function OrganizationView({ units, people, currentUser, canManage
       setErrorMessage('Não foi possível salvar. Confira sua conexão, a hierarquia e suas permissões.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onPhotoSelected = async (file: File | undefined) => {
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5_000_000) {
+      setErrorMessage('Escolha uma imagem JPG, PNG ou WebP de até 5 MB.');
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    try {
+      const picture = new Image();
+      await new Promise<void>((resolve, reject) => {
+        picture.onload = () => resolve();
+        picture.onerror = () => reject(new Error('Não foi possível abrir a foto.'));
+        picture.src = url;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 128;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Não foi possível preparar a foto.');
+      context.fillStyle = '#fff';
+      context.fillRect(0, 0, 128, 128);
+      const scale = Math.max(128 / picture.width, 128 / picture.height);
+      context.drawImage(picture, (128 - picture.width * scale) / 2, (128 - picture.height * scale) / 2, picture.width * scale, picture.height * scale);
+      const photoUrl = canvas.toDataURL('image/jpeg', 0.7);
+      if (photoUrl.length > 50_000) throw new Error('A foto ficou muito grande. Escolha outra imagem.');
+      setForm((current) => ({ ...current, photoUrl }));
+      setErrorMessage('');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Não foi possível preparar a foto.');
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const moveCard = async (sourceId: string, targetId: string) => {
+    const source = personById.get(sourceId);
+    const target = personById.get(targetId);
+    if (!canManage || moving || !source || !target || source.id === target.id) return;
+    setMoving(true);
+    try {
+      if (source.role === target.role) {
+        const ordered = people.filter((person) => person.role === source.role)
+          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name, 'pt-BR'));
+        const withoutSource = ordered.filter((person) => person.id !== source.id);
+        const targetIndex = withoutSource.findIndex((person) => person.id === target.id);
+        withoutSource.splice(targetIndex, 0, source);
+        await reorderOrganizationPeople(currentUser, withoutSource.map((person) => person.id));
+      } else if (SUPERVISOR_ROLE[source.role] === target.role && target.active) {
+        await updateData(currentUser, 'organization_people', source.id, {
+          ...source, reportsToId: target.id, reportsToName: target.name, updatedAt: Date.now(),
+        });
+      } else {
+        window.alert('Solte o card sobre outro da mesma função para ordenar, ou sobre um responsável do nível acima para mudar o vínculo.');
+      }
+    } catch (error) {
+      console.error('Erro ao mover card:', error);
+      window.alert('Não foi possível mover o card. Confira sua permissão e a hierarquia.');
+    } finally {
+      setMoving(false);
+      setDraggedId(null);
     }
   };
 
@@ -175,12 +260,12 @@ export default function OrganizationView({ units, people, currentUser, canManage
           <div>
             <p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]"><Network className="h-4 w-4" />Cadeia de liderança</p>
             <h2 className="mt-1 text-xl font-extrabold text-gray-950">Head → Gerente → Coordenador → Líder</h2>
-            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-gray-500">Cada card mostra a função e para quem aquela pessoa responde. O vínculo fica salvo na base central.</p>
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-gray-500">Consulte foto, telefone e responsável de cada pessoa. Arraste um card para ordenar ou solte sobre um responsável do nível acima para alterar o vínculo.</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <label className="relative min-w-0 sm:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nome, e-mail ou regional" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#385041]" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nome, telefone ou regional" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#385041]" />
             </label>
             {canManage && <button onClick={() => openCreateForm()} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#2c4033]"><Plus className="h-4 w-4" />Cadastrar pessoa</button>}
           </div>
@@ -201,7 +286,8 @@ export default function OrganizationView({ units, people, currentUser, canManage
           {ROLE_ORDER.map((role, roleIndex) => {
             const config = ROLE_STYLE[role];
             const Icon = config.icon;
-            const rolePeople = filteredPeople.filter((person) => person.role === role);
+            const rolePeople = filteredPeople.filter((person) => person.role === role)
+              .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name, 'pt-BR'));
             return (
               <div key={role} className={`relative min-h-[420px] rounded-3xl border bg-white/65 p-3 shadow-sm ${config.line}`}>
                 {roleIndex < ROLE_ORDER.length - 1 && <span className="absolute -right-3 top-10 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400 shadow-sm"><ArrowDown className="h-3.5 w-3.5 -rotate-90" /></span>}
@@ -211,18 +297,27 @@ export default function OrganizationView({ units, people, currentUser, canManage
                 </div>
 
                 <div className="mt-2 space-y-3">
-                  {rolePeople.map((person) => {
+                  {rolePeople.map((person, personIndex) => {
                     const supervisor = person.reportsToId ? personById.get(person.reportsToId) : null;
-                    return <article key={person.id} className={`rounded-2xl border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${person.active ? 'border-gray-100' : 'border-gray-200 opacity-60'}`}>
+                    return <article key={person.id} draggable={canManage && !moving}
+                      onDragStart={(event) => { setDraggedId(person.id); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', person.id); }}
+                      onDragEnd={() => setDraggedId(null)}
+                      onDragOver={(event) => { if (canManage && draggedId && draggedId !== person.id) event.preventDefault(); }}
+                      onDrop={(event) => { event.preventDefault(); void moveCard(event.dataTransfer.getData('text/plain') || draggedId || '', person.id); }}
+                      className={`rounded-2xl border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${person.active ? 'border-gray-100' : 'border-gray-200 opacity-60'} ${draggedId === person.id ? 'opacity-40' : ''} ${canManage ? 'cursor-grab active:cursor-grabbing' : ''}`}>
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0"><div className="flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${person.active ? 'bg-emerald-500' : 'bg-gray-300'}`} /><h3 className="truncate text-sm font-extrabold text-gray-950">{person.name}</h3></div><p className="mt-1 flex items-center gap-1.5 truncate text-[10px] text-gray-500"><Mail className="h-3 w-3" />{person.email}</p></div>
-                        {canManage && <div className="flex shrink-0 gap-0.5"><button onClick={() => openEditForm(person)} title="Editar card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><Pencil className="h-3.5 w-3.5" /></button><button onClick={() => removePerson(person)} title="Excluir card" className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button></div>}
+                        <div className="flex min-w-0 items-start gap-2.5">
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#e8efe0] text-sm font-black text-[#385041]">{person.photoUrl ? <img src={person.photoUrl} alt={`Foto de ${person.name}`} className="h-full w-full object-cover" loading="lazy" /> : person.name.slice(0, 1).toUpperCase()}</span>
+                          <div className="min-w-0"><div className="flex items-center gap-1.5"><span className={`h-2 w-2 shrink-0 rounded-full ${person.active ? 'bg-emerald-500' : 'bg-gray-300'}`} /><h3 className="truncate text-sm font-extrabold text-gray-950">{person.name}</h3></div><p className="mt-0.5 text-[10px] font-semibold text-gray-500">{person.jobTitle || person.role}</p></div>
+                        </div>
+                        {canManage && <div className="flex shrink-0 gap-0.5"><button type="button" disabled={moving || personIndex === 0} onClick={() => void moveCard(person.id, rolePeople[personIndex - 1].id)} title="Subir card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25"><ArrowDown className="h-3.5 w-3.5 rotate-180" /></button><button type="button" disabled={moving || personIndex === rolePeople.length - 1} onClick={() => void moveCard(rolePeople[personIndex + 1].id, person.id)} title="Descer card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25"><ArrowDown className="h-3.5 w-3.5" /></button><button onClick={() => openEditForm(person)} title="Editar card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><Pencil className="h-3.5 w-3.5" /></button><button onClick={() => removePerson(person)} title="Excluir card" className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button></div>}
                       </div>
+                      {(person.phone || person.email) && <div className="mt-3 space-y-1.5 text-[10px] text-gray-600">{person.phone && <a href={`tel:${person.phone.replace(/[^\d+]/g, '')}`} className="flex items-center gap-1.5 hover:text-[#385041]"><Phone className="h-3 w-3 shrink-0" />{person.phone}</a>}{person.email && <a href={`mailto:${person.email}`} className="flex items-center gap-1.5 truncate hover:text-[#385041]"><Mail className="h-3 w-3 shrink-0" />{person.email}</a>}</div>}
                       {(person.department || person.regional) && <div className="mt-3 flex flex-wrap gap-1.5">{person.department && <span className="rounded-full bg-gray-100 px-2 py-1 text-[9px] font-bold text-gray-600">{person.department}</span>}{person.regional && <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[9px] font-bold text-blue-700"><MapPinned className="h-2.5 w-2.5" />{person.regional}</span>}</div>}
-                      {role !== 'Head' && <div className={`mt-3 rounded-xl border px-3 py-2.5 ${supervisor ? `${config.soft} ${config.line}` : 'border-red-100 bg-red-50'}`}><small className="block text-[8px] font-extrabold uppercase tracking-wide text-gray-400">Responde para</small><strong className={`mt-0.5 block truncate text-[11px] ${supervisor ? 'text-gray-800' : 'text-red-700'}`}>{supervisor?.name || person.reportsToName || 'Responsável não definido'}</strong><span className="mt-0.5 block text-[9px] text-gray-500">{SUPERVISOR_ROLE[role]}</span></div>}
+                      {role !== 'Head' && <div className={`mt-3 rounded-xl border px-3 py-2.5 ${supervisor ? `${config.soft} ${config.line}` : 'border-gray-100 bg-gray-50'}`}><small className="block text-[8px] font-extrabold uppercase tracking-wide text-gray-400">Responde para</small><strong className="mt-0.5 block truncate text-[11px] text-gray-800">{supervisor?.name || person.reportsToName || 'Sem responsável definido'}</strong><span className="mt-0.5 block text-[9px] text-gray-500">{SUPERVISOR_ROLE[role]}</span></div>}
                     </article>;
                   })}
-                  {!rolePeople.length && <div className="rounded-2xl border border-dashed border-gray-200 bg-white/50 px-4 py-10 text-center"><Icon className="mx-auto h-7 w-7 text-gray-300" /><p className="mt-2 text-[10px] font-semibold text-gray-400">Nenhum {role.toLocaleLowerCase('pt-BR')} cadastrado</p>{canManage && <button onClick={() => openCreateForm(role)} className="mt-3 text-[10px] font-extrabold text-[#385041]">+ Adicionar</button>}</div>}
+                  {!rolePeople.length && <div className="rounded-2xl border border-dashed border-gray-200 bg-white/50 px-4 py-10 text-center"><Icon className="mx-auto h-7 w-7 text-gray-300" /><p className="mt-2 text-[10px] font-semibold text-gray-400">{search ? 'Nenhum resultado nesta função' : `Nenhum ${role.toLocaleLowerCase('pt-BR')} cadastrado`}</p>{canManage && !search && <button onClick={() => openCreateForm(role)} className="mt-3 text-[10px] font-extrabold text-[#385041]">+ Adicionar</button>}</div>}
                 </div>
               </div>
             );
@@ -237,13 +332,15 @@ export default function OrganizationView({ units, people, currentUser, canManage
 
       {isFormOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
         <form onSubmit={handleSubmit} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white bg-white shadow-2xl">
-          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-5"><div><h3 className="text-lg font-extrabold text-gray-950">{editingPerson ? 'Editar pessoa' : 'Cadastrar pessoa'}</h3><p className="text-xs text-gray-500">Monte a cadeia informando a função e o responsável direto.</p></div><button type="button" onClick={() => setIsFormOpen(false)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button></div>
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-5"><div><h3 className="text-lg font-extrabold text-gray-950">{editingPerson ? 'Editar pessoa' : 'Cadastrar pessoa'}</h3><p className="text-xs text-gray-500">Atualize os dados e escolha a quem esta pessoa responde.</p></div><button type="button" onClick={() => setIsFormOpen(false)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button></div>
           <div className="space-y-5 p-6">
             {errorMessage && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{errorMessage}</p>}
-            <div className="grid gap-4 sm:grid-cols-2"><Field label="Nome completo" value={form.name} onChange={(value) => setForm({ ...form, name: value })} placeholder="Nome real" icon={Users} /><Field label="E-mail corporativo" value={form.email} onChange={(value) => setForm({ ...form, email: value })} placeholder="nome@fotus.com.br" type="email" icon={Mail} /></div>
+            <div className="grid gap-4 sm:grid-cols-2"><Field label="Nome completo" value={form.name} onChange={(value) => setForm({ ...form, name: value })} placeholder="Nome real" icon={Users} /><Field label="E-mail (opcional)" value={form.email} onChange={(value) => setForm({ ...form, email: value })} placeholder="nome@fotus.com.br" type="email" icon={Mail} required={false} /></div>
+            <Field label="Cargo / função exibida" value={form.jobTitle} onChange={(value) => setForm({ ...form, jobTitle: value })} placeholder="Ex.: Líder Comercial" icon={BriefcaseBusiness} required={false} />
+            <div className="grid gap-4 sm:grid-cols-2"><Field label="Telefone" value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} placeholder="(27) 99999-9999" type="tel" icon={Phone} required={false} /><div className="flex items-end gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#e8efe0] text-[#385041]">{form.photoUrl ? <img src={form.photoUrl} alt="Prévia da foto" className="h-full w-full object-cover" /> : <Users className="h-5 w-5" />}</span><label className="flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 text-xs font-bold text-gray-700 hover:bg-gray-50"><ImagePlus className="h-4 w-4" />Escolher foto<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => { void onPhotoSelected(event.target.files?.[0]); event.target.value = ''; }} /></label>{form.photoUrl && <button type="button" onClick={() => setForm({ ...form, photoUrl: '' })} className="min-h-11 rounded-xl px-2 text-xs font-bold text-red-600 hover:bg-red-50">Remover</button>}</div></div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block"><span className="mb-1.5 block text-xs font-bold text-gray-700">Função no organograma</span><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as OrganizationRole, reportsToId: '' })} className="field-input">{ROLE_ORDER.map((role) => <option key={role} value={role}>{role}</option>)}</select></label>
-              {form.role === 'Head' ? <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3"><small className="block text-[9px] font-extrabold uppercase tracking-wide text-violet-600">Topo da estrutura</small><strong className="mt-1 block text-xs text-violet-950">Head não responde a outro card</strong></div> : <label className="block"><span className="mb-1.5 block text-xs font-bold text-gray-700">Responde para ({SUPERVISOR_ROLE[form.role]})</span><select required value={form.reportsToId} onChange={(event) => setForm({ ...form, reportsToId: event.target.value })} className="field-input"><option value="">Selecione o responsável direto</option>{supervisorOptions.map((person) => <option key={person.id} value={person.id}>{person.name} · {person.email}</option>)}</select>{!supervisorOptions.length && <small className="mt-1.5 block text-[9px] text-amber-700">Cadastre primeiro um {SUPERVISOR_ROLE[form.role]?.toLocaleLowerCase('pt-BR')} ativo.</small>}</label>}
+              {form.role === 'Head' ? <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3"><small className="block text-[9px] font-extrabold uppercase tracking-wide text-violet-600">Topo da estrutura</small><strong className="mt-1 block text-xs text-violet-950">Head não responde a outro card</strong></div> : <label className="block"><span className="mb-1.5 block text-xs font-bold text-gray-700">Responde para ({SUPERVISOR_ROLE[form.role]})</span><select value={form.reportsToId} onChange={(event) => setForm({ ...form, reportsToId: event.target.value })} className="field-input"><option value="">Sem responsável definido</option>{supervisorOptions.map((person) => <option key={person.id} value={person.id}>{person.name}{person.email ? ` · ${person.email}` : ''}</option>)}</select><small className="mt-1.5 block text-[9px] text-gray-500">Você pode deixar no topo e definir o vínculo depois.</small></label>}
             </div>
             <div className="grid gap-4 sm:grid-cols-2"><Field label="Setor" value={form.department} onChange={(value) => setForm({ ...form, department: value })} placeholder="Ex.: CX" icon={Building2} required={false} /><div><Field label="Regional" value={form.regional} onChange={(value) => setForm({ ...form, regional: value })} placeholder="Nacional ou regional" icon={MapPinned} list="organization-regional-options" required={false} /><datalist id="organization-regional-options">{REGIONAL_SUGGESTIONS.map((regional) => <option key={regional} value={regional} />)}</datalist></div></div>
             <label className="flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-sm font-semibold text-gray-700"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} className="h-4 w-4 accent-[#385041]" />Pessoa ativa na estrutura</label>

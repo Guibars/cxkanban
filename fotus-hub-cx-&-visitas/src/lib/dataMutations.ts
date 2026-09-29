@@ -27,6 +27,10 @@ export async function deleteData(user: CurrentUser, resource: Exclude<DataResour
   return neonMutation(user, { resource, action: 'delete', id });
 }
 
+export async function reorderOrganizationPeople(user: CurrentUser, ids: string[]) {
+  return neonMutation(user, { resource: 'organization_people', action: 'reorder', data: { ids } });
+}
+
 export async function replaceOccurrenceAgents(user: CurrentUser, names: string[]) {
   return neonMutation(user, { resource: 'occurrence_agents', action: 'replace', data: { names } });
 }
