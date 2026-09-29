@@ -51,6 +51,7 @@ async function loadProfile(email: string) {
     agentName: string | null;
     active: boolean;
     visibleTabs: SectionKey[] | null;
+    canDeleteVisits: boolean;
     organizationUnitIds: string[] | null;
     createdAt: Date;
     updatedAt: Date;
@@ -59,6 +60,7 @@ async function loadProfile(email: string) {
       users.agent_name as "agentName", users.active,
       coalesce(array_agg(distinct permissions.section_key order by permissions.section_key)
         filter (where permissions.can_view), '{}') as "visibleTabs",
+      coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='visitas'), false) as "canDeleteVisits",
       coalesce(array_agg(distinct units.legacy_firestore_id order by units.legacy_firestore_id)
         filter (where units.legacy_firestore_id is not null), '{}') as "organizationUnitIds",
       users.created_at as "createdAt", users.updated_at as "updatedAt"
@@ -78,6 +80,7 @@ async function loadProfiles() {
       users.agent_name as "agentName", users.active,
       coalesce(array_agg(distinct permissions.section_key order by permissions.section_key)
         filter (where permissions.can_view), '{}') as "visibleTabs",
+      coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='visitas'), false) as "canDeleteVisits",
       coalesce(array_agg(distinct units.legacy_firestore_id order by units.legacy_firestore_id)
         filter (where units.legacy_firestore_id is not null), '{}') as "organizationUnitIds",
       users.created_at as "createdAt", users.updated_at as "updatedAt"

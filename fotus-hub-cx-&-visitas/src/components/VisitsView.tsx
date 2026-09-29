@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Building2, Calendar, Clock, MapPin, User, Users, Plus, Search, Filter, CheckCircle2, AlertCircle, ArrowRight, MessageSquareQuote } from 'lucide-react';
+import { Building2, Calendar, Clock, MapPin, User, Users, Plus, Search, Filter, CheckCircle2, AlertCircle, ArrowRight, MessageSquareQuote, Trash2 } from 'lucide-react';
 import { IntegratorVisit, VisitStatus } from '../types';
 import type { CurrentUser } from '../lib/currentUser';
-import { updateData } from '../lib/dataMutations';
+import { deleteData, updateData } from '../lib/dataMutations';
 import { cn } from '../lib/utils';
 
 interface VisitsViewProps {
@@ -10,11 +10,14 @@ interface VisitsViewProps {
   onNewVisit: () => void;
   onEditVisit: (visit: IntegratorVisit) => void;
   currentUser: CurrentUser;
+  canDeleteVisits: boolean;
 }
 
-export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUser }: VisitsViewProps) {
+export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUser, canDeleteVisits }: VisitsViewProps) {
   const [statusFilter, setStatusFilter] = useState<'Todas' | VisitStatus>('Todas');
   const [search, setSearch] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState('');
 
   const filteredVisits = useMemo(() => {
     return visits.filter(v => {
@@ -56,6 +59,22 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
     }
   };
 
+  const handleDeleteVisit = async (event: React.MouseEvent, visit: IntegratorVisit) => {
+    event.stopPropagation();
+    if (!canDeleteVisits || deletingId) return;
+    const confirmed = window.confirm(`Excluir definitivamente a visita de “${visit.integratorName}” em ${visit.visitDate.split('-').reverse().join('/')}? O card, o briefing e a logomarca serão removidos e não poderão ser recuperados pela plataforma.`);
+    if (!confirmed) return;
+    setDeleteError('');
+    setDeletingId(visit.id);
+    try {
+      await deleteData(currentUser, 'integrator_visits', visit.id);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Não foi possível excluir a visita.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const getStatusBadge = (status: VisitStatus) => {
     switch (status) {
       case 'Solicitada':
@@ -73,6 +92,7 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
 
   return (
     <div className="space-y-6">
+      {deleteError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">{deleteError}</div>}
       
       {/* Top Metrics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
@@ -270,6 +290,14 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
                         Concluir
                       </button>
                     )}
+                    {canDeleteVisits && <button
+                      type="button"
+                      onClick={(event) => void handleDeleteVisit(event, visit)}
+                      disabled={deletingId === visit.id}
+                      aria-label={`Excluir visita de ${visit.integratorName}`}
+                      title="Excluir visita definitivamente"
+                      className="ml-1 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-red-600 disabled:cursor-wait disabled:opacity-40"
+                    ><Trash2 className="h-4 w-4" /></button>}
                   </div>
                 </div>
 

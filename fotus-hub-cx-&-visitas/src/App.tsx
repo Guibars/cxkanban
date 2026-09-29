@@ -166,7 +166,7 @@ export default function App() {
     const email = (user?.email || '').toLowerCase();
     const isDeveloper = email === DEVELOPER_EMAIL;
     const isMasterOperator = isMasterOperatorEmail(email);
-    if (isDeveloper) return { role: 'Administrador' as const, agentName: '', unitIds: organizationUnits.map((unit) => unit.id), tabs: ALL_TABS, active: true, isDeveloper, isMasterOperator };
+    if (isDeveloper) return { role: 'Administrador' as const, agentName: '', unitIds: organizationUnits.map((unit) => unit.id), tabs: ALL_TABS, active: true, isDeveloper, isMasterOperator, canDeleteVisits: true };
 
     const profile = accessProfiles.find((item) => item.email.toLowerCase() === email);
     const inferredUnits = organizationUnits.filter((unit) => [unit.managerEmail, unit.leaderEmail, unit.coordinatorEmail || ''].some((value) => value.toLowerCase() === email));
@@ -192,6 +192,7 @@ export default function App() {
       active: profile?.active ?? true,
       isDeveloper,
       isMasterOperator,
+      canDeleteVisits: isMasterOperator || Boolean(profile?.canDeleteVisits),
     };
   }, [accessProfiles, organizationPeople, organizationUnits, user]);
 
@@ -337,7 +338,7 @@ export default function App() {
 
           {canView('ra') && <section hidden={activeTab !== 'ra'}><RaView cases={visibleRaCases} currentUser={user} onNew={() => { setRaCaseToEdit(null); setIsRaModalOpen(true); }} onEdit={(item) => { setRaCaseToEdit(item); setIsRaModalOpen(true); }} /></section>}
 
-          {canView('visitas') && <section hidden={activeTab !== 'visitas'}><VisitsView visits={visits} currentUser={user} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} /></section>}
+          {canView('visitas') && <section hidden={activeTab !== 'visitas'}><VisitsView visits={visits} currentUser={user} canDeleteVisits={access.canDeleteVisits} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} /></section>}
           {canView('estrutura') && <section hidden={activeTab !== 'estrutura'}><OrganizationView units={organizationUnits} people={organizationPeople} currentUser={user} canManage={canManageAgents} canDeleteLegacy={access.isDeveloper} /></section>}
           <section hidden={activeTab !== 'chat'}><ChatView currentUser={user} active={activeTab === 'chat'} onlineUserIds={chatOverview.onlineUserIds} unread={chatOverview.unread} target={chatTarget} onRead={(conversationId) => setChatOverview((current) => ({ ...current, unread: current.unread.filter((item) => item.conversationId !== conversationId) }))} /></section>
         </main>

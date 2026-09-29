@@ -189,6 +189,7 @@ export interface UserAccessProfile {
   agentName?: string;
   organizationUnitIds: string[];
   visibleTabs: AppSection[];
+  canDeleteVisits?: boolean;
   active: boolean;
   createdAt: number;
   updatedAt: number;

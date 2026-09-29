@@ -281,7 +281,8 @@ export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationB
         await assertAgentOwnsOccurrence(client, id, actorEmail, profile.agentName || profile.displayName);
       }
       const table = resource;
-      await client.query(`delete from public.${table} where legacy_firestore_id=$1`, [id]);
+      const deleted = await client.query(`delete from public.${table} where legacy_firestore_id=$1 returning id`, [id]);
+      if (resource === 'integrator_visits' && !deleted.rowCount) throw new Error('invalid-mutation');
     } else if (resource === 'occurrence_agents' && action === 'replace') {
       const names = Array.isArray(payload.names) ? [...new Set(payload.names.map((item) => s(item)).filter(Boolean))] : [];
       if (!names.length) throw new Error('invalid-mutation');
