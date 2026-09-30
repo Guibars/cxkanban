@@ -84,7 +84,7 @@ function buildIsaContext(cases: CXCase[], raCases: RACase[], visits: IntegratorV
     estruturaHierarquica: organizationPeople.map((person) => ({
       name: person.name, role: person.role, jobTitle: person.jobTitle,
       phone: person.phone, email: person.email, department: person.department,
-      regional: person.regional, reportsToName: person.reportsToName, active: person.active,
+      regional: person.regional, teamName: person.teamName, reportsToName: person.reportsToName, active: person.active,
     })),
   });
 }
@@ -183,6 +183,7 @@ export default function IsaChatModal({ currentUser, isOpen, onClose, cases, raCa
           `• Gerentes: ${activePeople.filter((person) => person.role === 'Gerente').length}\n` +
           `• Coordenadores: ${activePeople.filter((person) => person.role === 'Coordenador').length}\n` +
           `• Líderes: ${activePeople.filter((person) => person.role === 'Líder').length}\n` +
+          `• Consultores: ${activePeople.filter((person) => person.role === 'Consultor').length}\n` +
           `• Cadastros do modelo anterior: ${activeUnits.length}\n` +
           `• Regionais cadastradas: ${new Set(activeUnits.map((item) => item.regional)).size}\n` +
           `• Casos CX direcionados: ${routedCases} de ${cases.length}\n` +

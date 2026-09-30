@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { createData, deleteData, reorderOrganizationPeople, updateData } from '../lib/dataMutations';
+import { ORGANIZATION_ROLES, ORGANIZATION_SUPERVISORS, organizationAncestors, organizationConsultantCounts, organizationScope } from '../lib/organization';
 import { OrganizationPerson, OrganizationRole, OrganizationUnit } from '../types';
 
 interface OrganizationViewProps {
@@ -33,18 +34,16 @@ interface OrganizationViewProps {
 }
 
 const REGIONAL_SUGGESTIONS = ['Nacional', 'Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
-const ROLE_ORDER: OrganizationRole[] = ['Head', 'Gerente', 'Coordenador', 'Líder'];
-const SUPERVISOR_ROLE: Partial<Record<OrganizationRole, OrganizationRole>> = {
-  Gerente: 'Head',
-  Coordenador: 'Gerente',
-  Líder: 'Coordenador',
-};
+const ROLE_ORDER = ORGANIZATION_ROLES;
+const ROLE_PLURAL: Record<OrganizationRole, string> = { Head: 'Heads', Gerente: 'Gerentes', Coordenador: 'Coordenadores', Líder: 'Líderes', Consultor: 'Consultores' };
+const supervisorLabel = (role: OrganizationRole) => ORGANIZATION_SUPERVISORS[role]?.join(' / ') || '';
 const normalizeSearch = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
 const ROLE_STYLE: Record<OrganizationRole, { title: string; description: string; icon: typeof Crown; accent: string; soft: string; line: string }> = {
   Head: { title: 'Kanban Head', description: 'Responsáveis pela gestão executiva', icon: Crown, accent: 'text-violet-700', soft: 'bg-violet-50', line: 'border-violet-200' },
   Gerente: { title: 'Kanban Gerência', description: 'Gerentes vinculados a um Head', icon: BriefcaseBusiness, accent: 'text-blue-700', soft: 'bg-blue-50', line: 'border-blue-200' },
   Coordenador: { title: 'Kanban Coordenadores', description: 'Coordenadores vinculados a um gerente', icon: UserCog, accent: 'text-amber-700', soft: 'bg-amber-50', line: 'border-amber-200' },
   Líder: { title: 'Kanban Líderes', description: 'Líderes vinculados a um coordenador', icon: Users, accent: 'text-emerald-700', soft: 'bg-emerald-50', line: 'border-emerald-200' },
+  Consultor: { title: 'Consultores / Vendedores', description: 'Vendedores e suas equipes comerciais', icon: Users, accent: 'text-cyan-700', soft: 'bg-cyan-50', line: 'border-cyan-200' },
 };
 
 const emptyForm: {
@@ -57,6 +56,7 @@ const emptyForm: {
   reportsToId: string;
   department: string;
   regional: string;
+  teamName: string;
   active: boolean;
 } = {
   name: '',
@@ -68,6 +68,7 @@ const emptyForm: {
   reportsToId: '',
   department: '',
   regional: '',
+  teamName: '',
   active: true,
 };
 
@@ -80,16 +81,36 @@ export default function OrganizationView({ units, people, currentUser, canManage
   const [errorMessage, setErrorMessage] = useState('');
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
+  const [scopeId, setScopeId] = useState('');
+  const personById = useMemo(() => new Map(people.map((person) => [person.id, person])), [people]);
+  const scopeIds = useMemo(() => organizationScope(people, scopeId), [people, scopeId]);
+  const consultantCounts = useMemo(() => organizationConsultantCounts(people), [people]);
 
   const filteredPeople = useMemo(() => {
     const query = normalizeSearch(search.trim());
-    if (!query) return people;
-    return people.filter((person) => [person.name, person.email || '', person.phone || '', person.jobTitle || '', person.role, person.department || '', person.regional || '', person.reportsToName || '']
-      .some((value) => normalizeSearch(value).includes(query)));
-  }, [people, search]);
+    return people.filter((person) => {
+      if (scopeIds && !scopeIds.has(person.id)) return false;
+      if (!query) return true;
+      const ancestors = organizationAncestors(person, personById);
+      return [person.name, person.email || '', person.phone || '', person.jobTitle || '', person.role,
+        person.department || '', person.regional || '', person.teamName || '', person.reportsToName || '',
+        ...ancestors.flatMap((parent) => [parent.name, parent.email || ''])]
+        .some((value) => normalizeSearch(value).includes(query));
+    });
+  }, [people, search, scopeIds, personById]);
 
-  const personById = useMemo(() => new Map(people.map((person) => [person.id, person])), [people]);
-  const supervisorOptions = people.filter((person) => person.active && person.role === SUPERVISOR_ROLE[form.role] && person.id !== editingPerson?.id);
+  const supervisorOptions = people.filter((person) => person.active && ORGANIZATION_SUPERVISORS[form.role]?.includes(person.role) && person.id !== editingPerson?.id);
+  const chooseSupervisor = (id: string) => {
+    const supervisor = personById.get(id);
+    setForm((current) => ({
+      ...current, reportsToId: id,
+      ...(current.role === 'Consultor' && supervisor && current.reportsToId !== id ? {
+        teamName: supervisor.role === 'Líder' ? supervisor.teamName || '' : '',
+        regional: supervisor.regional || current.regional,
+        department: supervisor.department || current.department,
+      } : {}),
+    }));
+  };
 
   const openCreateForm = (role: OrganizationRole = 'Gerente') => {
     if (!canCreate) return;
@@ -112,6 +133,7 @@ export default function OrganizationView({ units, people, currentUser, canManage
       reportsToId: person.reportsToId || '',
       department: person.department || '',
       regional: person.regional || '',
+      teamName: person.teamName || '',
       active: person.active,
     });
     setErrorMessage('');
@@ -144,6 +166,7 @@ export default function OrganizationView({ units, people, currentUser, canManage
       reportsToName: supervisor?.name || null,
       department: form.department.replace(/\s+/g, ' ').trim(),
       regional: form.regional.trim(),
+      teamName: form.teamName.trim(),
       active: form.active,
       sortOrder: editingPerson?.sortOrder ?? people.filter((person) => person.role === form.role).length + 1,
       updatedAt: now,
@@ -205,7 +228,7 @@ export default function OrganizationView({ units, people, currentUser, canManage
   const moveCard = async (sourceId: string, targetId: string) => {
     const source = personById.get(sourceId);
     const target = personById.get(targetId);
-    if (!canManage || moving || !source || !target || source.id === target.id) return;
+    if (!canManage || moving || !source || !target || source.id === target.id || source.reportsToId === target.id) return;
     setMoving(true);
     try {
       if (source.role === target.role) {
@@ -215,9 +238,14 @@ export default function OrganizationView({ units, people, currentUser, canManage
         const targetIndex = withoutSource.findIndex((person) => person.id === target.id);
         withoutSource.splice(targetIndex, 0, source);
         await reorderOrganizationPeople(currentUser, withoutSource.map((person) => person.id));
-      } else if (SUPERVISOR_ROLE[source.role] === target.role && target.active) {
+      } else if (ORGANIZATION_SUPERVISORS[source.role]?.includes(target.role) && target.active) {
         await updateData(currentUser, 'organization_people', source.id, {
           ...source, reportsToId: target.id, reportsToName: target.name, updatedAt: Date.now(),
+          ...(source.role === 'Consultor' ? {
+            teamName: target.role === 'Líder' ? target.teamName || '' : '',
+            regional: target.regional || source.regional,
+            department: target.department || source.department,
+          } : {}),
         });
       } else {
         window.alert('Solte o card sobre outro da mesma função para ordenar, ou sobre um responsável do nível acima para mudar o vínculo.');
@@ -264,30 +292,35 @@ export default function OrganizationView({ units, people, currentUser, canManage
         <div className="flex flex-col gap-4 border-b border-gray-100 bg-[#f4f8f2] p-5 lg:flex-row lg:items-end lg:justify-between sm:p-6">
           <div>
             <p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]"><Network className="h-4 w-4" />Cadeia de liderança</p>
-            <h2 className="mt-1 text-xl font-extrabold text-gray-950">Head → Gerente → Coordenador → Líder</h2>
+            <h2 className="mt-1 text-xl font-extrabold text-gray-950">Head → Gerente → Coordenador → Líder → Consultor</h2>
             <p className="mt-1 max-w-2xl text-xs leading-relaxed text-gray-500">Consulte foto, telefone e responsável de cada pessoa. Arraste um card para ordenar ou solte sobre um responsável do nível acima para alterar o vínculo.</p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <label className="relative min-w-0 sm:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nome, telefone ou regional" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#385041]" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nome, e-mail ou equipe" aria-label="Buscar na estrutura" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#385041]" />
             </label>
+            <select value={scopeId} onChange={(event) => setScopeId(event.target.value)} aria-label="Filtrar equipe por responsável" className="min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs text-gray-700 sm:w-64">
+              <option value="">Todas as equipes</option>
+              {people.filter((person) => person.active && person.role !== 'Consultor').sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) || a.name.localeCompare(b.name, 'pt-BR')).map((person) => <option key={person.id} value={person.id}>{person.role} · {person.name}</option>)}
+            </select>
+            {(scopeId || search) && <button type="button" onClick={() => { setScopeId(''); setSearch(''); }} className="rounded-xl px-3 py-2 text-xs font-bold text-gray-600 hover:bg-white">Limpar filtros</button>}
             {canCreate && <button onClick={() => openCreateForm()} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#2c4033]"><Plus className="h-4 w-4" />Cadastrar pessoa</button>}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-px bg-gray-100 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-px bg-gray-100 lg:grid-cols-5">
           {ROLE_ORDER.map((role) => {
             const config = ROLE_STYLE[role];
             const Icon = config.icon;
             const count = people.filter((person) => person.role === role && person.active).length;
-            return <div key={role} className="bg-white p-4"><div className="flex items-center justify-between gap-3"><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${config.soft} ${config.accent}`}><Icon className="h-5 w-5" /></span><strong className="text-2xl text-gray-950">{count}</strong></div><p className="mt-3 text-[10px] font-extrabold uppercase tracking-wide text-gray-500">{role}s ativos</p></div>;
+            return <div key={role} className="bg-white p-4"><div className="flex items-center justify-between gap-3"><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${config.soft} ${config.accent}`}><Icon className="h-5 w-5" /></span><strong className="text-2xl text-gray-950">{count}</strong></div><p className="mt-3 text-[10px] font-extrabold uppercase tracking-wide text-gray-500">{ROLE_PLURAL[role]} ativos</p></div>;
           })}
         </div>
       </section>
 
       <section className="overflow-x-auto pb-2">
-        <div className="grid min-w-[1120px] grid-cols-4 gap-4">
+        <div className="grid min-w-[1520px] grid-cols-5 gap-4">
           {ROLE_ORDER.map((role, roleIndex) => {
             const config = ROLE_STYLE[role];
             const Icon = config.icon;
@@ -313,16 +346,18 @@ export default function OrganizationView({ units, people, currentUser, canManage
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-start gap-2.5">
                           <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#e8efe0] text-sm font-black text-[#385041]">{person.photoUrl ? <img src={person.photoUrl} alt={`Foto de ${person.name}`} className="h-full w-full object-cover" loading="lazy" /> : person.name.slice(0, 1).toUpperCase()}</span>
-                          <div className="min-w-0"><div className="flex items-center gap-1.5"><span className={`h-2 w-2 shrink-0 rounded-full ${person.active ? 'bg-emerald-500' : 'bg-gray-300'}`} /><h3 className="truncate text-sm font-extrabold text-gray-950">{person.name}</h3></div><p className="mt-0.5 text-[10px] font-semibold text-gray-500">{person.jobTitle || person.role}</p></div>
+                          <div className="min-w-0"><div className="flex items-start gap-1.5"><span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${person.active ? 'bg-emerald-500' : 'bg-gray-300'}`} /><h3 title={person.name} className="break-words text-xs font-extrabold leading-relaxed text-gray-950">{person.name}</h3></div><p className="mt-0.5 text-[10px] font-semibold text-gray-500">{person.jobTitle || person.role}</p></div>
                         </div>
                         {(canManage || canDelete) && <div className="flex shrink-0 gap-0.5">{canManage && <><button type="button" disabled={moving || personIndex === 0} onClick={() => void moveCard(person.id, rolePeople[personIndex - 1].id)} title="Subir card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25"><ArrowDown className="h-3.5 w-3.5 rotate-180" /></button><button type="button" disabled={moving || personIndex === rolePeople.length - 1} onClick={() => void moveCard(rolePeople[personIndex + 1].id, person.id)} title="Descer card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25"><ArrowDown className="h-3.5 w-3.5" /></button><button onClick={() => openEditForm(person)} title="Editar card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><Pencil className="h-3.5 w-3.5" /></button></>}{canDelete && <button onClick={() => removePerson(person)} title="Excluir card" className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>}</div>}
                       </div>
                       {(person.phone || person.email) && <div className="mt-3 space-y-1.5 text-[10px] text-gray-600">{person.phone && <a href={`tel:${person.phone.replace(/[^\d+]/g, '')}`} className="flex items-center gap-1.5 hover:text-[#385041]"><Phone className="h-3 w-3 shrink-0" />{person.phone}</a>}{person.email && <a href={`mailto:${person.email}`} className="flex items-center gap-1.5 truncate hover:text-[#385041]"><Mail className="h-3 w-3 shrink-0" />{person.email}</a>}</div>}
                       {(person.department || person.regional) && <div className="mt-3 flex flex-wrap gap-1.5">{person.department && <span className="rounded-full bg-gray-100 px-2 py-1 text-[9px] font-bold text-gray-600">{person.department}</span>}{person.regional && <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[9px] font-bold text-blue-700"><MapPinned className="h-2.5 w-2.5" />{person.regional}</span>}</div>}
-                      {role !== 'Head' && <div className={`mt-3 rounded-xl border px-3 py-2.5 ${supervisor ? `${config.soft} ${config.line}` : 'border-gray-100 bg-gray-50'}`}><small className="block text-[8px] font-extrabold uppercase tracking-wide text-gray-400">Responde para</small><strong className="mt-0.5 block truncate text-[11px] text-gray-800">{supervisor?.name || person.reportsToName || 'Sem responsável definido'}</strong><span className="mt-0.5 block text-[9px] text-gray-500">{SUPERVISOR_ROLE[role]}</span></div>}
+                      {person.teamName && <p className="mt-2 rounded-lg bg-slate-50 px-2 py-1.5 text-[9px] font-semibold leading-relaxed text-slate-600">{person.teamName}</p>}
+                      {role !== 'Head' && <div className={`mt-3 rounded-xl border px-3 py-2.5 ${supervisor ? `${config.soft} ${config.line}` : 'border-gray-100 bg-gray-50'}`}><small className="block text-[8px] font-extrabold uppercase tracking-wide text-gray-400">Responde para</small><strong className="mt-0.5 block text-[11px] text-gray-800">{supervisor?.name || person.reportsToName || 'Sem responsável definido'}</strong><span className="mt-0.5 block text-[9px] text-gray-500">{supervisor?.role || supervisorLabel(role)}</span></div>}
+                      {role !== 'Consultor' && (consultantCounts.get(person.id) || 0) > 0 && <button type="button" onClick={() => { setScopeId(person.id); setSearch(''); }} className="mt-3 flex w-full items-center justify-between rounded-xl border border-gray-100 px-3 py-2 text-[10px] font-bold text-[#385041] hover:bg-[#edf4eb]"><span>{consultantCounts.get(person.id)} consultores na equipe</span><span>Ver equipe</span></button>}
                     </article>;
                   })}
-                  {!rolePeople.length && <div className="rounded-2xl border border-dashed border-gray-200 bg-white/50 px-4 py-10 text-center"><Icon className="mx-auto h-7 w-7 text-gray-300" /><p className="mt-2 text-[10px] font-semibold text-gray-400">{search ? 'Nenhum resultado nesta função' : `Nenhum ${role.toLocaleLowerCase('pt-BR')} cadastrado`}</p>{canCreate && !search && <button onClick={() => openCreateForm(role)} className="mt-3 text-[10px] font-extrabold text-[#385041]">+ Adicionar</button>}</div>}
+                  {!rolePeople.length && <div className="rounded-2xl border border-dashed border-gray-200 bg-white/50 px-4 py-10 text-center"><Icon className="mx-auto h-7 w-7 text-gray-300" /><p className="mt-2 text-[10px] font-semibold text-gray-400">{search || scopeId ? 'Nenhum resultado nesta função' : `Nenhum ${role.toLocaleLowerCase('pt-BR')} cadastrado`}</p>{canCreate && !search && !scopeId && <button onClick={() => openCreateForm(role)} className="mt-3 text-[10px] font-extrabold text-[#385041]">+ Adicionar</button>}</div>}
                 </div>
               </div>
             );
@@ -345,9 +380,10 @@ export default function OrganizationView({ units, people, currentUser, canManage
             <div className="grid gap-4 sm:grid-cols-2"><Field label="Telefone" value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} placeholder="(27) 99999-9999" type="tel" icon={Phone} required={false} /><div className="flex items-end gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#e8efe0] text-[#385041]">{form.photoUrl ? <img src={form.photoUrl} alt="Prévia da foto" className="h-full w-full object-cover" /> : <Users className="h-5 w-5" />}</span><label className="flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 text-xs font-bold text-gray-700 hover:bg-gray-50"><ImagePlus className="h-4 w-4" />Escolher foto<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => { void onPhotoSelected(event.target.files?.[0]); event.target.value = ''; }} /></label>{form.photoUrl && <button type="button" onClick={() => setForm({ ...form, photoUrl: '' })} className="min-h-11 rounded-xl px-2 text-xs font-bold text-red-600 hover:bg-red-50">Remover</button>}</div></div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block"><span className="mb-1.5 block text-xs font-bold text-gray-700">Função no organograma</span><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as OrganizationRole, reportsToId: '' })} className="field-input">{ROLE_ORDER.map((role) => <option key={role} value={role}>{role}</option>)}</select></label>
-              {form.role === 'Head' ? <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3"><small className="block text-[9px] font-extrabold uppercase tracking-wide text-violet-600">Topo da estrutura</small><strong className="mt-1 block text-xs text-violet-950">Head não responde a outro card</strong></div> : <label className="block"><span className="mb-1.5 block text-xs font-bold text-gray-700">Responde para ({SUPERVISOR_ROLE[form.role]})</span><select value={form.reportsToId} onChange={(event) => setForm({ ...form, reportsToId: event.target.value })} className="field-input"><option value="">Sem responsável definido</option>{supervisorOptions.map((person) => <option key={person.id} value={person.id}>{person.name}{person.email ? ` · ${person.email}` : ''}</option>)}</select><small className="mt-1.5 block text-[9px] text-gray-500">Você pode deixar no topo e definir o vínculo depois.</small></label>}
+              {form.role === 'Head' ? <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3"><small className="block text-[9px] font-extrabold uppercase tracking-wide text-violet-600">Topo da estrutura</small><strong className="mt-1 block text-xs text-violet-950">Head não responde a outro card</strong></div> : <label className="block"><span className="mb-1.5 block text-xs font-bold text-gray-700">Responde para ({supervisorLabel(form.role)})</span><select value={form.reportsToId} onChange={(event) => chooseSupervisor(event.target.value)} className="field-input"><option value="">Sem responsável definido</option>{supervisorOptions.map((person) => <option key={person.id} value={person.id}>{person.name}{person.email ? ` · ${person.email}` : ''}</option>)}</select><small className="mt-1.5 block text-[9px] text-gray-500">{form.role === 'Consultor' ? 'Se a equipe não tem líder, o consultor pode responder diretamente ao coordenador.' : 'Você pode definir o responsável quando essa informação estiver disponível.'}</small></label>}
             </div>
             <div className="grid gap-4 sm:grid-cols-2"><Field label="Setor" value={form.department} onChange={(value) => setForm({ ...form, department: value })} placeholder="Ex.: CX" icon={Building2} required={false} /><div><Field label="Regional" value={form.regional} onChange={(value) => setForm({ ...form, regional: value })} placeholder="Nacional ou regional" icon={MapPinned} list="organization-regional-options" required={false} /><datalist id="organization-regional-options">{REGIONAL_SUGGESTIONS.map((regional) => <option key={regional} value={regional} />)}</datalist></div></div>
+            <Field label="Equipe / time" value={form.teamName} onChange={(value) => setForm({ ...form, teamName: value })} placeholder="Ex.: RG 001 - NORTE - TIME 001" icon={Users} required={false} />
             <label className="flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-sm font-semibold text-gray-700"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} className="h-4 w-4 accent-[#385041]" />Pessoa ativa na estrutura</label>
           </div>
           <div className="sticky bottom-0 flex justify-end gap-2 border-t border-gray-100 bg-white px-6 py-4"><button type="button" onClick={() => setIsFormOpen(false)} className="rounded-xl px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100">Cancelar</button><button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-[#385041] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar card'}</button></div>

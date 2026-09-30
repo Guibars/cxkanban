@@ -59,7 +59,7 @@ const TAB_COPY: Record<MainTab, { title: string; subtitle: string }> = {
   custos: { title: 'Custo Extra', subtitle: 'Controle dos gastos não previstos por pedido, regional, origem e responsabilidade' },
   ra: { title: 'Painel Reclame Aqui', subtitle: 'Monitoramento das reclamações, indicadores e resolução' },
   visitas: { title: 'Visitas de Integradores', subtitle: 'Agenda, recepção e acompanhamento dos parceiros' },
-  estrutura: { title: 'Estrutura Organizacional', subtitle: 'Organograma em cadeia: Head, Gerente, Coordenador e Líder' },
+  estrutura: { title: 'Estrutura Organizacional', subtitle: 'Gestores, equipes e consultores comerciais' },
   chat: { title: 'Chat da equipe', subtitle: 'Converse no grupo geral ou em particular com colegas da plataforma' },
 };
 

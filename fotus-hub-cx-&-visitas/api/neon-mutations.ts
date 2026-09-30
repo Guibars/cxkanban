@@ -224,8 +224,9 @@ async function upsertOrganizationPerson(client: PoolClient, legacyId: string, da
   const name = s(data.name);
   const jobTitle = s(data.jobTitle);
   const phone = s(data.phone);
+  const teamName = s(data.teamName);
   const photoUrl = s(data.photoUrl);
-  if (!name || name.length > 150 || jobTitle.length > 150 || phone.length > 40 || photoUrl.length > 50_000 || (photoUrl &&
+  if (!name || name.length > 150 || jobTitle.length > 150 || teamName.length > 200 || phone.length > 40 || photoUrl.length > 50_000 || (photoUrl &&
     !/^\/organization\/[a-z0-9-]+\.jpg$/.test(photoUrl) &&
     !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(photoUrl))) throw new Error('invalid-mutation');
   if (photoUrl.startsWith('data:')) {
@@ -234,15 +235,15 @@ async function upsertOrganizationPerson(client: PoolClient, legacyId: string, da
   }
   if (reportsToLegacyId && !supervisor?.rows[0]) throw new Error('invalid-mutation');
   await client.query(`insert into public.organization_people
-    (legacy_firestore_id,app_user_id,name,email,job_title,phone,photo_url,sort_order,role,reports_to_id,department,regional,active,created_by_email,created_at,updated_at)
-    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+    (legacy_firestore_id,app_user_id,name,email,job_title,phone,photo_url,sort_order,role,reports_to_id,department,regional,team_name,active,created_by_email,created_at,updated_at)
+    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
     on conflict (legacy_firestore_id) do update set app_user_id=excluded.app_user_id,
       name=excluded.name,email=excluded.email,job_title=excluded.job_title,phone=excluded.phone,photo_url=excluded.photo_url,
       sort_order=excluded.sort_order,role=excluded.role,reports_to_id=excluded.reports_to_id,
-      department=excluded.department,regional=excluded.regional,active=excluded.active,updated_at=excluded.updated_at`, [legacyId,
+      department=excluded.department,regional=excluded.regional,team_name=excluded.team_name,active=excluded.active,updated_at=excluded.updated_at`, [legacyId,
     await appUserId(client, normalizedEmail), name, normalizedEmail, jobTitle, phone, photoUrl || null,
     i(data.sortOrder, 0), s(data.role, 'Líder'),
-    s(data.role) === 'Head' ? null : supervisor?.rows[0]?.id || null, s(data.department), s(data.regional),
+    s(data.role) === 'Head' ? null : supervisor?.rows[0]?.id || null, s(data.department), s(data.regional), teamName,
     data.active !== false, actorEmail, time(data.createdAt), time(data.updatedAt)]);
 }
 

@@ -116,7 +116,7 @@ export interface OrganizationUnit {
   updatedAt: number;
 }
 
-export type OrganizationRole = 'Head' | 'Gerente' | 'Coordenador' | 'Líder';
+export type OrganizationRole = 'Head' | 'Gerente' | 'Coordenador' | 'Líder' | 'Consultor';
 
 export interface OrganizationPerson {
   id: string;
@@ -126,6 +126,7 @@ export interface OrganizationPerson {
   phone?: string;
   photoUrl?: string | null;
   sortOrder?: number;
+  teamName?: string;
   role: OrganizationRole;
   reportsToId?: string | null;
   reportsToName?: string | null;

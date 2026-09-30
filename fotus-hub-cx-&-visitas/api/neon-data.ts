@@ -123,7 +123,7 @@ export async function loadBootstrap(email: string) {
         case when $1::boolean then people.photo_url else null end as "photoUrl",
         people.sort_order as "sortOrder",people.role,supervisor.legacy_firestore_id as "reportsToId",
         supervisor.name as "reportsToName",
-        people.department,people.regional,people.active,people.created_by_email::text as "createdByEmail",
+        people.department,people.regional,people.team_name as "teamName",people.active,people.created_by_email::text as "createdByEmail",
         people.created_at as "createdAt",people.updated_at as "updatedAt"
       from public.organization_people people
       left join public.organization_people supervisor on supervisor.id=people.reports_to_id
