@@ -115,7 +115,7 @@ export default function ExtraCostModal({ isOpen, onClose, cost, currentUser }: E
         </header>
 
         <div className="space-y-6 p-5 sm:p-7">
-          {errorMessage && <p className="rounded-xl border border-fotus-yellow/25 bg-fotus-yellow/7 p-3 text-xs font-semibold text-fotus-ink">{errorMessage}</p>}
+          {errorMessage && <p className="rounded-xl border border-fotus-yellow/25 bg-fotus-yellow/20 p-3 text-xs font-semibold text-fotus-ink">{errorMessage}</p>}
 
           <section>
             <SectionTitle number="1" title="Identificação" description="Informe o pedido, regional e produto relacionado." />
@@ -151,7 +151,7 @@ export default function ExtraCostModal({ isOpen, onClose, cost, currentUser }: E
 
         <footer className="sticky bottom-0 flex justify-end gap-2 border-t border-fotus-blue/10 bg-fotus-neutral/95 px-5 py-4 backdrop-blur-xl sm:px-7">
           <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-fotus-ink hover:bg-fotus-neutral/70">Cancelar</button>
-          <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-fotus-blue px-5 py-2.5 text-xs font-bold text-fotus-neutral disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar custo'}</button>
+          <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl fotus-action px-5 py-2.5 text-xs font-bold disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar custo'}</button>
         </footer>
       </form>
     </div>

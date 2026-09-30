@@ -47,6 +47,9 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
   const finalized = periodOccurrences.filter((item) => item.stage === 'Finalizada').length;
   const open = periodOccurrences.length - finalized;
   const raReputation = calculateRaReputation(raCases);
+  const raScore = raReputation.finalScore;
+  const raValueTone = raScore === null ? 'text-fotus-ink' : raScore >= 8 ? 'text-emerald-700' : raScore >= 7 ? 'text-fotus-blue' : raScore >= 6 ? 'text-amber-700' : raScore >= 5 ? 'text-orange-700' : 'text-red-700';
+  const raIconTone = raScore === null ? 'bg-fotus-neutral text-fotus-ink' : raScore >= 8 ? 'bg-emerald-500/10 text-emerald-700' : raScore >= 7 ? 'bg-fotus-blue/7 text-fotus-blue' : raScore >= 6 ? 'bg-fotus-yellow/20 text-amber-700' : raScore >= 5 ? 'bg-orange-500/10 text-orange-700' : 'bg-red-500/10 text-red-700';
   const damageByCarrier = groupValues(damageOccurrences, (item) => item.carrier, (item) => item.damageAmount || 0).slice(0, 5);
   const maxDamage = damageByCarrier[0]?.value || 1;
 
@@ -64,16 +67,16 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
         <div className="flex flex-col gap-4 border-b border-fotus-blue/10 bg-fotus-neutral p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6">
           <div><p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-fotus-blue"><Activity className="h-4 w-4" />Visão Geral</p><h2 className="mt-1 text-xl font-extrabold text-fotus-ink">O Hub inteiro em uma leitura simples</h2><p className="mt-1 text-xs text-fotus-ink/80">Escopo exibido: <strong className="text-fotus-ink">{scopeLabel}</strong>.</p></div>
           <div className="flex w-fit gap-1 rounded-2xl border border-fotus-neutral bg-fotus-neutral/80 p-1.5 shadow-sm">
-            <button onClick={() => setPeriod('month')} className={`rounded-xl px-4 py-2 text-[10px] font-extrabold ${period === 'month' ? 'bg-fotus-blue text-fotus-neutral' : 'text-fotus-ink/80'}`}>Mês atual</button>
-            <button onClick={() => setPeriod('year')} className={`rounded-xl px-4 py-2 text-[10px] font-extrabold ${period === 'year' ? 'bg-fotus-blue text-fotus-neutral' : 'text-fotus-ink/80'}`}>Ano atual</button>
+            <button onClick={() => setPeriod('month')} className={`rounded-xl px-4 py-2 text-[10px] font-extrabold ${period === 'month' ? 'bg-fotus-yellow text-fotus-ink' : 'text-fotus-ink/80'}`}>Mês atual</button>
+            <button onClick={() => setPeriod('year')} className={`rounded-xl px-4 py-2 text-[10px] font-extrabold ${period === 'year' ? 'bg-fotus-yellow text-fotus-ink' : 'text-fotus-ink/80'}`}>Ano atual</button>
           </div>
         </div>
 
         <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4 sm:p-6">
           {canViewOccurrences ? <OverviewMetric label="Ocorrências no período" value={periodOccurrences.length.toLocaleString('pt-BR')} supporting={`${open} abertas · ${finalized} finalizadas`} icon={ClipboardList} tone="bg-fotus-blue/7 text-fotus-blue" onClick={() => onNavigate('ocorrencias')} /> : <RestrictedMetric label="Ocorrências" />}
-          {canViewOccurrences ? <OverviewMetric label="Custo de avarias" value={currency(damageTotal)} supporting={`${damageOccurrences.length} avarias registradas`} icon={Truck} tone="bg-fotus-yellow/7 text-fotus-ink" onClick={() => onNavigate('ocorrencias')} /> : <RestrictedMetric label="Avarias" />}
-          {canViewCosts ? <OverviewMetric label="Custos extras" value={currency(extraCostTotal)} supporting={`${periodCosts.length} registros no período`} icon={CircleDollarSign} tone="bg-fotus-yellow/7 text-fotus-ink" onClick={() => onNavigate('custos')} /> : <RestrictedMetric label="Custo Extra" />}
-          {canViewRa ? <OverviewMetric label="Reclame Aqui" value={raReputation.finalScore === null ? 'Sem nota' : `${formatRaNumber(raReputation.finalScore)} / 10`} supporting={`${raReputation.classification} · ${raCases.length} reclamações`} icon={Star} tone="bg-fotus-blue/7 text-fotus-blue" onClick={() => onNavigate('ra')} /> : <RestrictedMetric label="Reclame Aqui" />}
+          {canViewOccurrences ? <OverviewMetric label="Custo de avarias" value={currency(damageTotal)} supporting={`${damageOccurrences.length} avarias registradas`} icon={Truck} tone="bg-fotus-yellow/20 text-fotus-ink" onClick={() => onNavigate('ocorrencias')} /> : <RestrictedMetric label="Avarias" />}
+          {canViewCosts ? <OverviewMetric label="Custos extras" value={currency(extraCostTotal)} supporting={`${periodCosts.length} registros no período`} icon={CircleDollarSign} tone="bg-fotus-yellow/20 text-fotus-ink" onClick={() => onNavigate('custos')} /> : <RestrictedMetric label="Custo Extra" />}
+          {canViewRa ? <OverviewMetric label="Reclame Aqui" value={raScore === null ? 'Sem nota' : `${formatRaNumber(raScore)} / 10`} supporting={`${raReputation.classification} · ${raCases.length} reclamações`} icon={Star} tone={raIconTone} valueTone={raValueTone} onClick={() => onNavigate('ra')} /> : <RestrictedMetric label="Reclame Aqui" />}
         </div>
       </section>
 
@@ -103,8 +106,8 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
   );
 }
 
-function OverviewMetric({ label, value, supporting, icon: Icon, tone, onClick }: { label: string; value: string; supporting: string; icon: typeof ClipboardList; tone: string; onClick: () => void }) {
-  return <button onClick={onClick} className="fotus-glass-card group rounded-2xl p-4 text-left"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><span className="text-[9px] font-extrabold uppercase tracking-wider text-fotus-ink/80">{label}</span><strong className="mt-1 block truncate text-xl text-fotus-ink">{value}</strong><span className="mt-1 block text-[10px] text-fotus-ink/80">{supporting}</span></div><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}><Icon className="h-5 w-5" /></span></div><span className="mt-3 flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wide text-fotus-blue opacity-0 transition-opacity group-hover:opacity-100">Abrir área <ArrowUpRight className="h-3 w-3" /></span></button>;
+function OverviewMetric({ label, value, supporting, icon: Icon, tone, valueTone = 'text-fotus-ink', onClick }: { label: string; value: string; supporting: string; icon: typeof ClipboardList; tone: string; valueTone?: string; onClick: () => void }) {
+  return <button onClick={onClick} className="fotus-glass-card group rounded-2xl p-4 text-left"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><span className="text-[9px] font-extrabold uppercase tracking-wider text-fotus-ink/80">{label}</span><strong className={`mt-1 block truncate text-xl ${valueTone}`}>{value}</strong><span className="mt-1 block text-[10px] text-fotus-ink/80">{supporting}</span></div><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}><Icon className="h-5 w-5" /></span></div><span className="mt-3 flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wide text-fotus-blue opacity-0 transition-opacity group-hover:opacity-100">Abrir área <ArrowUpRight className="h-3 w-3" /></span></button>;
 }
 
 function RestrictedMetric({ label }: { label: string }) {

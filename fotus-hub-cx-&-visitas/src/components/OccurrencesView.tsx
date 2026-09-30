@@ -277,7 +277,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           { label: 'Ocorrências no período', value: periodOccurrences.length, icon: CircleDot, tone: 'bg-fotus-neutral/70 text-fotus-ink' },
-          { label: 'Em aberto', value: open, icon: Clock3, tone: 'bg-fotus-yellow/7 text-fotus-ink' },
+          { label: 'Em aberto', value: open, icon: Clock3, tone: 'bg-fotus-yellow/20 text-fotus-ink' },
           { label: 'Finalizadas', value: finalized, icon: CheckCircle2, tone: 'bg-fotus-blue/7 text-fotus-blue' },
           { label: 'Taxa de conclusão', value: `${completionRate}%`, icon: BarChart3, tone: 'bg-fotus-blue/7 text-fotus-blue' },
         ].map(({ label, value, icon: Icon, tone }) => (
@@ -304,7 +304,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-wrap gap-1.5 rounded-2xl border border-fotus-neutral/90 bg-fotus-neutral/60 p-1.5">
           {(['Todas', ...STAGES.map((item) => item.id)] as const).map((item) => (
-            <button key={item} onClick={() => setStageFilter(item)} className={`rounded-xl px-3 py-2 text-xs font-bold transition-all ${stageFilter === item ? 'bg-fotus-blue text-fotus-neutral shadow-sm' : 'text-fotus-ink hover:bg-fotus-neutral'}`}>{item}</button>
+            <button key={item} onClick={() => setStageFilter(item)} className={`rounded-xl px-3 py-2 text-xs font-bold transition-all ${stageFilter === item ? 'bg-fotus-yellow text-fotus-ink shadow-sm' : 'text-fotus-ink hover:bg-fotus-neutral'}`}>{item}</button>
           ))}
         </div>
 
@@ -313,7 +313,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fotus-ink/80" />
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Empresa, pedido, SAC, transportadora..." className="w-full rounded-xl border border-fotus-blue/20 bg-fotus-neutral py-2.5 pl-9 pr-3 text-xs outline-none focus:border-fotus-blue" />
           </label>
-          <button onClick={() => setShowInsights((current) => !current)} className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-extrabold transition-all ${showInsights ? 'border-fotus-yellow/45 bg-fotus-yellow/7 text-fotus-ink' : 'border-fotus-blue/20 bg-fotus-neutral text-fotus-blue hover:bg-fotus-blue/6'}`}>
+          <button onClick={() => setShowInsights((current) => !current)} className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-extrabold transition-all ${showInsights ? 'border-fotus-yellow/45 bg-fotus-yellow/20 text-fotus-ink' : 'border-fotus-blue/20 bg-fotus-neutral text-fotus-blue hover:bg-fotus-blue/6'}`}>
             <Sparkles className="h-4 w-4" /> Insights Gerais
           </button>
           <button onClick={() => exportOccurrencesExcel(filtered, periodLabel)} className="flex items-center justify-center gap-2 rounded-xl border border-fotus-blue/25 bg-fotus-neutral px-4 py-2.5 text-xs font-extrabold text-fotus-blue transition-all hover:bg-fotus-blue/7"><FileSpreadsheet className="h-4 w-4" />Exportar Excel</button>
@@ -324,17 +324,17 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
           {canManageAgents && <button disabled={isImporting} onClick={() => spreadsheetInput.current?.click()} className="flex items-center justify-center gap-2 rounded-xl border border-fotus-blue/20 bg-fotus-neutral px-4 py-2.5 text-xs font-extrabold text-fotus-blue transition-all hover:bg-fotus-blue/6 disabled:cursor-wait disabled:opacity-60">
             {isImporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />} {isImporting ? 'Importando...' : 'Importar planilha'}
           </button>}
-          <button onClick={openNew} className="flex items-center justify-center gap-2 rounded-xl bg-fotus-blue px-4 py-2.5 text-xs font-extrabold text-fotus-neutral shadow-sm hover:bg-fotus-blue"><Plus className="h-4 w-4" /> Nova ocorrência</button>
+          <button onClick={openNew} className="flex items-center justify-center gap-2 rounded-xl fotus-action px-4 py-2.5 text-xs font-extrabold shadow-sm"><Plus className="h-4 w-4" /> Nova ocorrência</button>
         </div>
       </div>
 
       {importMessage && (
-        <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-xs font-semibold ${importError ? 'border-fotus-yellow/25 bg-fotus-yellow/7 text-fotus-ink' : 'border-fotus-blue/25 bg-fotus-blue/7 text-fotus-blue'}`}>
+        <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-xs font-semibold ${importError ? 'border-fotus-yellow/25 bg-fotus-yellow/20 text-fotus-ink' : 'border-fotus-blue/25 bg-fotus-blue/7 text-fotus-blue'}`}>
           {isImporting ? <LoaderCircle className="h-4 w-4 shrink-0 animate-spin" /> : <FileUp className="h-4 w-4 shrink-0" />}
           <span>{importMessage}</span>
         </div>
       )}
-      {futureDates > 0 && <div className="rounded-2xl border border-fotus-yellow/25 bg-fotus-yellow/7 px-4 py-3 text-xs font-semibold text-fotus-ink">{futureDates} data(s) histórica(s) parecem estar no futuro. Reimporte a planilha para aplicar a correção automática de dia e mês.</div>}
+      {futureDates > 0 && <div className="rounded-2xl border border-fotus-yellow/25 bg-fotus-yellow/20 px-4 py-3 text-xs font-semibold text-fotus-ink">{futureDates} data(s) histórica(s) parecem estar no futuro. Reimporte a planilha para aplicar a correção automática de dia e mês.</div>}
 
       {showInsights && (
         <section className="rounded-3xl border border-fotus-blue/10 bg-gradient-to-br from-fotus-blue/6 via-fotus-neutral to-fotus-yellow/4 p-5 shadow-sm sm:p-6">
@@ -376,7 +376,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
           <p className="mx-auto mt-1 max-w-lg text-xs leading-relaxed text-fotus-ink/80">Importe a planilha atual para trazer todo o histórico ou cadastre uma nova ocorrência manualmente.</p>
           <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
             {canManageAgents && <button disabled={isImporting} onClick={() => spreadsheetInput.current?.click()} className="flex items-center justify-center gap-2 rounded-xl border border-fotus-blue/20 bg-fotus-neutral px-4 py-2.5 text-xs font-bold text-fotus-blue disabled:opacity-60"><FileUp className="h-4 w-4" />Importar histórico</button>}
-            <button onClick={openNew} className="rounded-xl bg-fotus-blue px-4 py-2.5 text-xs font-bold text-fotus-neutral">Cadastrar primeira ocorrência</button>
+            <button onClick={openNew} className="rounded-xl fotus-action px-4 py-2.5 text-xs font-bold">Cadastrar primeira ocorrência</button>
           </div>
         </div>
       ) : (
@@ -406,7 +406,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
                         <p className="flex items-center gap-2"><CircleDot className="h-3.5 w-3.5 text-fotus-ink/80" /><span className="truncate">{occurrence.occurrenceType}</span></p>
                         <p className="flex items-center gap-2"><Truck className="h-3.5 w-3.5 text-fotus-ink/80" /><span className="truncate">{occurrence.carrier}</span></p>
                         <p className="flex items-center gap-2"><MapPinned className="h-3.5 w-3.5 text-fotus-ink/80" />{occurrence.city ? `${occurrence.city} · ` : ''}{occurrence.state} • {occurrence.region}</p>
-                        {(occurrence.isDamage || occurrence.occurrenceType?.toLocaleLowerCase('pt-BR').includes('avari')) && <p className="flex items-center gap-2 rounded-lg bg-fotus-yellow/7 px-2 py-1.5 font-bold text-fotus-ink"><CircleDollarSign className="h-3.5 w-3.5" />Avaria · {(occurrence.damageAmount || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>}
+                        {(occurrence.isDamage || occurrence.occurrenceType?.toLocaleLowerCase('pt-BR').includes('avari')) && <p className="flex items-center gap-2 rounded-lg bg-fotus-yellow/20 px-2 py-1.5 font-bold text-fotus-ink"><CircleDollarSign className="h-3.5 w-3.5" />Avaria · {(occurrence.damageAmount || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>}
                         {occurrence.routedToName && <p className="flex items-center gap-2"><Building2 className="h-3.5 w-3.5 text-fotus-blue" /><span className="truncate font-semibold text-fotus-blue">{occurrence.routedToName}</span></p>}
                       </div>
                       {occurrence.comments && <p className="mt-3 line-clamp-2 rounded-xl border border-fotus-blue/10 bg-fotus-neutral/28 p-2.5 text-[11px] leading-relaxed text-fotus-ink/80">{occurrence.comments}</p>}
@@ -451,7 +451,7 @@ function Ranking({ title, icon: Icon, items, total }: { title: string; icon: typ
 
 function DamageRanking({ title, items, total, icon: Icon }: { title: string; items: Array<{ label: string; total: number; count: number }>; total: number; icon: typeof Truck }) {
   const highest = items[0]?.total || 1;
-  return <div className="rounded-2xl border border-fotus-yellow/12 bg-fotus-neutral/90 p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div><h3 className="flex items-center gap-2 text-xs font-extrabold text-fotus-ink"><Icon className="h-4 w-4 text-fotus-ink" />{title}</h3><p className="mt-1 text-[10px] text-fotus-ink/80">Somente cards marcados como avaria com valor informado.</p></div><strong className="shrink-0 rounded-full bg-fotus-yellow/12 px-3 py-1 text-[10px] text-fotus-ink">{total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></div><div className="mt-4 space-y-3">{items.map((item, index) => <div key={item.label}><div className="mb-1 flex items-center justify-between gap-3"><span className="truncate text-[11px] font-semibold text-fotus-ink">{index + 1}. {item.label} <small className="text-fotus-ink/80">({item.count})</small></span><strong className="shrink-0 text-[11px] text-fotus-ink">{item.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></div><div className="h-2 overflow-hidden rounded-full bg-fotus-yellow/7"><div className="h-full rounded-full bg-fotus-yellow" style={{ width: `${Math.max(4, (item.total / highest) * 100)}%` }} /></div></div>)}{!items.length && <p className="rounded-xl border border-dashed border-fotus-blue/20 p-5 text-center text-xs text-fotus-ink/80">Ainda não há valor de avaria neste período.</p>}</div></div>;
+  return <div className="rounded-2xl border border-fotus-yellow/12 bg-fotus-neutral/90 p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div><h3 className="flex items-center gap-2 text-xs font-extrabold text-fotus-ink"><Icon className="h-4 w-4 text-fotus-ink" />{title}</h3><p className="mt-1 text-[10px] text-fotus-ink/80">Somente cards marcados como avaria com valor informado.</p></div><strong className="shrink-0 rounded-full bg-fotus-yellow/12 px-3 py-1 text-[10px] text-fotus-ink">{total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></div><div className="mt-4 space-y-3">{items.map((item, index) => <div key={item.label}><div className="mb-1 flex items-center justify-between gap-3"><span className="truncate text-[11px] font-semibold text-fotus-ink">{index + 1}. {item.label} <small className="text-fotus-ink/80">({item.count})</small></span><strong className="shrink-0 text-[11px] text-fotus-ink">{item.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></div><div className="h-2 overflow-hidden rounded-full bg-fotus-yellow/20"><div className="h-full rounded-full bg-fotus-yellow" style={{ width: `${Math.max(4, (item.total / highest) * 100)}%` }} /></div></div>)}{!items.length && <p className="rounded-xl border border-dashed border-fotus-blue/20 p-5 text-center text-xs text-fotus-ink/80">Ainda não há valor de avaria neste período.</p>}</div></div>;
 }
 
 interface ProductivityChartProps {
@@ -494,7 +494,7 @@ function ProductivityChart({ year, dimension, months, series, selectedSeries, on
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div><p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-fotus-blue"><LineChart className="h-4 w-4" />Performance mensal</p><h2 className="mt-1 text-lg font-extrabold text-fotus-ink">{dimensionTitle} · {year}</h2><p className="mt-1 max-w-2xl text-xs leading-relaxed text-fotus-ink/80">As barras representam os meses. Em <strong>Todos</strong>, cada barra soma todas as ocorrências; selecione uma opção para acompanhar seu resultado individual.</p></div>
           <div className="flex flex-wrap gap-1.5 rounded-2xl border border-fotus-neutral/90 bg-fotus-neutral/80 p-1.5 shadow-sm">
-            {ANALYTICS_DIMENSIONS.map((item) => <button key={item.id} type="button" onClick={() => onDimensionChange(item.id)} className={`rounded-xl px-3 py-2 text-[11px] font-extrabold transition-all ${dimension === item.id ? 'bg-fotus-blue text-fotus-neutral shadow-sm' : 'text-fotus-ink hover:bg-fotus-neutral/40'}`}>{item.label}</button>)}
+            {ANALYTICS_DIMENSIONS.map((item) => <button key={item.id} type="button" onClick={() => onDimensionChange(item.id)} className={`rounded-xl px-3 py-2 text-[11px] font-extrabold transition-all ${dimension === item.id ? 'bg-fotus-yellow text-fotus-ink shadow-sm' : 'text-fotus-ink hover:bg-fotus-neutral/40'}`}>{item.label}</button>)}
           </div>
         </div>
       </div>
@@ -506,7 +506,7 @@ function ProductivityChart({ year, dimension, months, series, selectedSeries, on
               <p className="flex items-center gap-2 text-xs font-extrabold text-fotus-ink"><Trophy className="h-4 w-4 text-fotus-yellow" />{rankingTitle} em {year}</p>
               <p className="mt-1 text-[10px] text-fotus-ink/80">A posição considera o total de cards no ano. Clique em uma linha para ver a evolução mensal.</p>
             </div>
-            <button type="button" onClick={() => onSelectSeries('Todos')} className={`mt-2 w-fit rounded-full border px-3 py-1.5 text-[10px] font-extrabold transition-all sm:mt-0 ${effectiveSeries === 'Todos' ? 'border-fotus-blue bg-fotus-blue text-fotus-neutral shadow-sm' : 'border-fotus-blue/20 bg-fotus-neutral text-fotus-ink hover:border-fotus-blue/30'}`}>{allItemsButton}</button>
+            <button type="button" onClick={() => onSelectSeries('Todos')} className={`mt-2 w-fit rounded-full border px-3 py-1.5 text-[10px] font-extrabold transition-all sm:mt-0 ${effectiveSeries === 'Todos' ? 'border-fotus-yellow bg-fotus-yellow text-fotus-ink shadow-sm' : 'border-fotus-blue/20 bg-fotus-neutral text-fotus-ink hover:border-fotus-blue/30'}`}>{allItemsButton}</button>
           </div>
 
           <div className="mt-4 grid max-h-[360px] gap-2 overflow-y-auto pr-1 md:grid-cols-2 xl:grid-cols-3">

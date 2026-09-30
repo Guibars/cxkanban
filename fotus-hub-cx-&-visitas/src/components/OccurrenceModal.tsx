@@ -168,9 +168,9 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
         </div>
 
         <div className="space-y-6 p-5 sm:p-7">
-          {errorMessage && <p className="rounded-xl border border-fotus-yellow/25 bg-fotus-yellow/7 p-3 text-xs text-fotus-ink">{errorMessage}</p>}
+          {errorMessage && <p className="rounded-xl border border-fotus-yellow/25 bg-fotus-yellow/20 p-3 text-xs text-fotus-ink">{errorMessage}</p>}
 
-          {isDamage && <div className="rounded-2xl border border-fotus-yellow/25 bg-fotus-yellow/7 p-4"><p className="flex items-center gap-2 text-xs font-extrabold text-fotus-ink"><ShieldAlert className="h-4 w-4" />Avaria selecionada</p><p className="mt-1 text-[10px] text-fotus-ink">O valor, a transportadora, a cidade e a UF alimentarão os rankings financeiros da operação.</p></div>}
+          {isDamage && <div className="rounded-2xl border border-fotus-yellow/25 bg-fotus-yellow/20 p-4"><p className="flex items-center gap-2 text-xs font-extrabold text-fotus-ink"><ShieldAlert className="h-4 w-4" />Avaria selecionada</p><p className="mt-1 text-[10px] text-fotus-ink">O valor, a transportadora, a cidade e a UF alimentarão os rankings financeiros da operação.</p></div>}
 
           <section>
             <SectionTitle number="1" title="Identificação" description="Comece pela data, agente e empresa." />
@@ -200,13 +200,13 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
               {isDamage && <Field label="Valor da avaria" icon={CircleDollarSign}><input required min={0.01} step={0.01} type="number" value={damageAmount || ''} onChange={(event) => setDamageAmount(Number(event.target.value))} className="field-input" placeholder="0,00" /></Field>}
             </div>
             <div className="mt-4 rounded-2xl border border-fotus-blue/10 bg-fotus-neutral p-3 sm:p-4">
-              <div className="flex items-center justify-between gap-3"><div><h4 className="text-xs font-extrabold text-fotus-ink">Produtos envolvidos</h4><p className="mt-0.5 text-[10px] text-fotus-ink/80">Use o botão + para incluir quantos produtos forem necessários.</p></div><button type="button" onClick={() => setProducts((current) => [...current, { product: '', quantity: 1 }])} className="flex shrink-0 items-center gap-1.5 rounded-xl bg-fotus-blue px-3 py-2 text-[10px] font-extrabold text-fotus-neutral shadow-sm"><Plus className="h-3.5 w-3.5" />Adicionar produto</button></div>
+              <div className="flex items-center justify-between gap-3"><div><h4 className="text-xs font-extrabold text-fotus-ink">Produtos envolvidos</h4><p className="mt-0.5 text-[10px] text-fotus-ink/80">Use o botão + para incluir quantos produtos forem necessários.</p></div><button type="button" onClick={() => setProducts((current) => [...current, { product: '', quantity: 1 }])} className="flex shrink-0 items-center gap-1.5 rounded-xl fotus-action px-3 py-2 text-[10px] font-extrabold shadow-sm"><Plus className="h-3.5 w-3.5" />Adicionar produto</button></div>
               <datalist id="products-list">{OCCURRENCE_PRODUCTS.map((item) => <option key={item} value={item} />)}</datalist>
               <div className="mt-3 space-y-2">
                 {products.map((item, index) => <div key={index} className="grid grid-cols-[minmax(0,1fr)_92px_36px] items-end gap-2 rounded-xl border border-fotus-neutral bg-fotus-neutral p-2 shadow-sm">
                   <Field label={`Produto ${index + 1}`} icon={Package}><input required list="products-list" value={item.product} onChange={(event) => setProducts((current) => current.map((productItem, itemIndex) => itemIndex === index ? { ...productItem, product: event.target.value } : productItem))} className="field-input" placeholder="Selecione ou digite" /></Field>
                   <Field label="Qtd."><input required min={1} step={1} type="number" value={item.quantity} onChange={(event) => setProducts((current) => current.map((productItem, itemIndex) => itemIndex === index ? { ...productItem, quantity: Number(event.target.value) } : productItem))} className="field-input" /></Field>
-                  <button type="button" disabled={products.length === 1} onClick={() => setProducts((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="mb-0.5 flex h-9 w-9 items-center justify-center rounded-lg text-fotus-ink/80 hover:bg-fotus-yellow/7 hover:text-fotus-ink disabled:cursor-not-allowed disabled:opacity-25" title="Remover produto"><Trash2 className="h-4 w-4" /></button>
+                  <button type="button" disabled={products.length === 1} onClick={() => setProducts((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="mb-0.5 flex h-9 w-9 items-center justify-center rounded-lg text-fotus-ink/80 hover:bg-fotus-yellow/20 hover:text-fotus-ink disabled:cursor-not-allowed disabled:opacity-25" title="Remover produto"><Trash2 className="h-4 w-4" /></button>
                 </div>)}
               </div>
             </div>
@@ -225,7 +225,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {APPROVALS.map((item) => (
-                  <button key={item} type="button" onClick={() => setApprovalStatus(item)} className={`rounded-xl border px-3 py-3 text-xs font-bold transition-all ${approvalStatus === item ? item === 'Aprovado' ? 'border-fotus-blue/45 bg-fotus-blue/7 text-fotus-blue' : item === 'Reprovado' ? 'border-fotus-yellow/45 bg-fotus-yellow/7 text-fotus-ink' : 'border-fotus-yellow/45 bg-fotus-yellow/7 text-fotus-ink' : 'border-fotus-blue/20 text-fotus-ink/80'}`}>
+                  <button key={item} type="button" onClick={() => setApprovalStatus(item)} className={`rounded-xl border px-3 py-3 text-xs font-bold transition-all ${approvalStatus === item ? item === 'Aprovado' ? 'border-fotus-blue/45 bg-fotus-blue/7 text-fotus-blue' : item === 'Reprovado' ? 'border-fotus-yellow/45 bg-fotus-yellow/20 text-fotus-ink' : 'border-fotus-yellow/45 bg-fotus-yellow/20 text-fotus-ink' : 'border-fotus-blue/20 text-fotus-ink/80'}`}>
                     {item}
                   </button>
                 ))}
@@ -252,7 +252,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
           <span className="hidden items-center gap-1.5 text-xs text-fotus-ink/80 sm:flex"><CheckCircle2 className="h-4 w-4 text-fotus-blue" />Os campos essenciais são obrigatórios.</span>
           <div className="ml-auto flex gap-2">
             <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-fotus-ink hover:bg-fotus-neutral/70">Cancelar</button>
-            <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-fotus-blue px-5 py-2.5 text-xs font-bold text-fotus-neutral disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar ocorrência'}</button>
+            <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl fotus-action px-5 py-2.5 text-xs font-bold disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar ocorrência'}</button>
           </div>
         </div>
       </form>

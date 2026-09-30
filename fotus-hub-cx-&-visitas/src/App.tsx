@@ -296,7 +296,7 @@ export default function App() {
 
   if (!user) return <Auth />;
   if (!access.active || visibleTabs.length === 0) {
-    return <div className="flex min-h-screen items-center justify-center bg-fotus-neutral p-6"><div className="w-full max-w-md rounded-3xl border border-fotus-neutral bg-fotus-neutral p-8 text-center shadow-xl"><img src={FOTUS_LOGO} alt="Fotus" className="mx-auto h-14 w-auto object-contain" /><h1 className="mt-6 text-xl font-extrabold text-fotus-ink">Acesso temporariamente indisponível</h1><p className="mt-2 text-sm leading-relaxed text-fotus-ink/80">Seu perfil está desativado ou ainda não possui nenhuma aba liberada. Procure um operador mestre.</p><button type="button" onClick={() => void handleSignOut()} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-fotus-blue px-5 py-3 text-xs font-bold text-fotus-neutral"><LogOut className="h-4 w-4" />Sair da conta</button></div></div>;
+    return <div className="flex min-h-screen items-center justify-center bg-fotus-neutral p-6"><div className="w-full max-w-md rounded-3xl border border-fotus-neutral bg-fotus-neutral p-8 text-center shadow-xl"><img src={FOTUS_LOGO} alt="Fotus" className="mx-auto h-14 w-auto object-contain" /><h1 className="mt-6 text-xl font-extrabold text-fotus-ink">Acesso temporariamente indisponível</h1><p className="mt-2 text-sm leading-relaxed text-fotus-ink/80">Seu perfil está desativado ou ainda não possui nenhuma aba liberada. Procure um operador mestre.</p><button type="button" onClick={() => void handleSignOut()} className="mt-6 inline-flex items-center gap-2 rounded-xl fotus-action px-5 py-3 text-xs font-bold"><LogOut className="h-4 w-4" />Sair da conta</button></div></div>;
   }
 
   const allNavigationTabs: Array<{ id: MainTab; label: string; icon: typeof ClipboardList; alert?: boolean }> = [
@@ -317,10 +317,10 @@ export default function App() {
         <nav className="mt-4 flex flex-col items-center gap-1.5" aria-label="Navegação principal">
           {tabs.map(({ id, label, icon: Icon, alert }) => {
             const selected = activeTab === id;
-            return <button key={id} type="button" onClick={() => setActiveTab(id)} title={label} aria-label={label} aria-current={selected ? 'page' : undefined} className={cn('group relative flex h-12 w-12 items-center justify-center rounded-[15px] transition-all duration-200', selected ? 'bg-fotus-blue text-fotus-neutral shadow-[0_8px_18px_rgb(13_81_142_/_0.22)]' : 'text-fotus-blue hover:bg-fotus-blue/6 hover:text-fotus-blue')}>
+            return <button key={id} type="button" onClick={() => setActiveTab(id)} title={label} aria-label={label} aria-current={selected ? 'page' : undefined} className={cn('group relative flex h-12 w-12 items-center justify-center rounded-[15px] transition-all duration-200', selected ? 'bg-fotus-yellow text-fotus-ink shadow-[0_8px_18px_rgb(250_181_21_/_0.25)]' : 'text-fotus-blue hover:bg-fotus-blue/6 hover:text-fotus-blue')}>
               {id === 'ra' ? <img src={RA_LOGO} alt="" className={cn('h-7 w-7 rounded-lg object-contain', selected && 'ring-2 ring-fotus-neutral/70')} /> : <Icon className="h-[22px] w-[22px]" strokeWidth={selected ? 2.25 : 2} />}
               <span className="sr-only">{label}</span>
-              {id === 'chat' && chatUnreadTotal > 0 ? <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-fotus-yellow px-1 text-[9px] font-extrabold text-fotus-ink" aria-label={`${chatUnreadTotal} mensagens novas`}>{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span> : alert && <span className={cn('absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full border-2', selected ? 'border-fotus-blue bg-fotus-yellow/45' : 'border-fotus-neutral bg-fotus-yellow')} aria-label="Há itens que precisam de atenção" />}
+              {id === 'chat' && chatUnreadTotal > 0 ? <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-fotus-ink/30 bg-fotus-yellow px-1 text-[9px] font-extrabold text-fotus-ink" aria-label={`${chatUnreadTotal} mensagens novas`}>{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span> : alert && <span className={cn('absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full border-2', selected ? 'border-fotus-yellow bg-fotus-blue' : 'border-fotus-neutral bg-fotus-yellow')} aria-label="Há itens que precisam de atenção" />}
             </button>;
           })}
         </nav>
@@ -342,21 +342,21 @@ export default function App() {
                 {isProfileMenuOpen && <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-72 rounded-2xl border border-fotus-blue/20 bg-fotus-neutral p-3 shadow-xl">
                   <div className="rounded-xl bg-fotus-neutral p-3"><p className="text-xs font-extrabold text-fotus-ink">{user.displayName || user.email}</p><p className="mt-0.5 truncate text-[10px] text-fotus-ink/80">{user.email}</p><div className="mt-2 flex flex-wrap gap-1"><span className="rounded-full bg-fotus-blue px-2 py-1 text-[8px] font-extrabold uppercase tracking-wide text-fotus-neutral">{access.role}</span><span className="rounded-full bg-fotus-neutral px-2 py-1 text-[8px] font-bold text-fotus-ink/80">{scopeLabel}</span></div></div>
                   {access.isMasterOperator && <button type="button" onClick={() => { setIsProfileMenuOpen(false); setIsAccessControlOpen(true); }} className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-fotus-blue hover:bg-fotus-blue/6"><Settings2 className="h-4 w-4" /><span>Gerenciar usuários<small className="mt-0.5 block text-[9px] font-normal text-fotus-ink/80">Logins, senhas, funções e equipes</small></span></button>}
-                  <button type="button" onClick={() => void handleSignOut()} className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-fotus-ink hover:bg-fotus-yellow/7"><LogOut className="h-4 w-4" />Sair da conta</button>
+                  <button type="button" onClick={() => void handleSignOut()} className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-fotus-ink hover:bg-fotus-yellow/20"><LogOut className="h-4 w-4" />Sair da conta</button>
                 </div>}
               </div>
             </div>
           </div>
 
           <nav className="mt-3 flex gap-1.5 overflow-x-auto rounded-2xl border border-fotus-blue/14 bg-fotus-neutral p-1.5 sm:hidden" aria-label="Navegação principal">
-            {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab === id ? 'page' : undefined} className={cn('flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all', activeTab === id ? 'bg-fotus-blue text-fotus-neutral shadow-sm' : 'text-fotus-ink/80')}>
+            {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab === id ? 'page' : undefined} className={cn('flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all', activeTab === id ? 'bg-fotus-yellow text-fotus-ink shadow-sm' : 'text-fotus-ink/80')}>
               {id === 'ra' ? <img src={RA_LOGO} alt="" className="h-4 w-4 rounded object-contain" /> : <Icon className="h-3.5 w-3.5" />}{label}{id === 'chat' && chatUnreadTotal > 0 && <span className="rounded-full bg-fotus-yellow px-1.5 py-0.5 text-[9px] text-fotus-ink">{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span>}
             </button>)}
           </nav>
         </header>
 
         <main className="mx-auto w-full max-w-[1560px] flex-1 px-4 py-5 sm:px-8 sm:py-6">
-          {dataError && <div className="mb-5 rounded-2xl border border-fotus-yellow/25 bg-fotus-yellow/7 p-4 text-xs font-semibold text-fotus-ink">{dataError}</div>}
+          {dataError && <div className="mb-5 rounded-2xl border border-fotus-yellow/25 bg-fotus-yellow/20 p-4 text-xs font-semibold text-fotus-ink">{dataError}</div>}
 
           {canView('visao-geral') && <section hidden={activeTab !== 'visao-geral'}><OverviewView occurrences={visibleOccurrences} costs={visibleCosts} raCases={visibleRaCases} visits={visits} scopeLabel={scopeLabel} canViewOccurrences={canView('ocorrencias')} canViewCosts={canView('custos')} canViewRa={canView('ra')} canViewVisits={canView('visitas')} onNavigate={setActiveTab} /></section>}
 

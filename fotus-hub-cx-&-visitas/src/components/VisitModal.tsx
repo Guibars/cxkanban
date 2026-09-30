@@ -13,7 +13,7 @@ interface VisitModalProps {
 
 const statusOptions: { value: VisitStatus; label: string; color: string }[] = [
   { value: 'Solicitada', label: 'Solicitada', color: 'bg-fotus-blue/7 text-fotus-blue border-fotus-blue/25' },
-  { value: 'Agendada', label: 'Agendada', color: 'bg-fotus-yellow/7 text-fotus-ink border-fotus-yellow/25' },
+  { value: 'Agendada', label: 'Agendada', color: 'bg-fotus-yellow/20 text-fotus-ink border-fotus-yellow/25' },
   { value: 'Em Andamento', label: 'Em Andamento', color: 'bg-fotus-blue/7 text-fotus-blue border-fotus-blue/25' },
   { value: 'Concluída', label: 'Concluída', color: 'bg-fotus-blue/7 text-fotus-blue border-fotus-blue/25' },
   { value: 'Cancelada', label: 'Cancelada', color: 'bg-fotus-neutral/40 text-fotus-ink border-fotus-blue/20' },
@@ -194,7 +194,7 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
                     onClick={() => setStatus(opt.value)}
                     className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
                       status === opt.value
-                        ? 'bg-fotus-blue text-fotus-neutral border-fotus-blue shadow-xs'
+                        ? 'bg-fotus-yellow text-fotus-ink border-fotus-yellow shadow-xs'
                         : 'bg-fotus-neutral/32 text-fotus-ink border-fotus-blue/20 hover:bg-fotus-neutral/70'
                     }`}
                   >
@@ -377,7 +377,7 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
             type="submit"
             form="visit-form"
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-2.5 bg-fotus-blue hover:bg-fotus-blue text-fotus-neutral rounded-xl font-bold text-sm shadow-sm transition-all disabled:opacity-70"
+            className="flex items-center gap-2 px-6 py-2.5 fotus-action rounded-xl font-bold text-sm shadow-sm transition-all disabled:opacity-70"
           >
             <Save className="w-4 h-4" />
             {loading ? 'Salvando...' : 'Salvar Visita'}

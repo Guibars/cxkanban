@@ -77,7 +77,7 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
 
   return (
     <div className="space-y-6">
-      {deleteError && <div role="alert" className="rounded-xl border border-fotus-yellow/25 bg-fotus-yellow/7 px-4 py-3 text-xs font-semibold text-fotus-ink">{deleteError}</div>}
+      {deleteError && <div role="alert" className="rounded-xl border border-fotus-yellow/25 bg-fotus-yellow/20 px-4 py-3 text-xs font-semibold text-fotus-ink">{deleteError}</div>}
       
       {/* Top Metrics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
@@ -97,7 +97,7 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
         </div>
 
         <div className="bg-fotus-neutral/70 backdrop-blur-md p-4 rounded-2xl border border-fotus-neutral/80 shadow-[0_4px_20px_rgb(69_68_68_/_0.02)] flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-fotus-yellow/7 text-fotus-ink flex items-center justify-center font-bold">
+          <div className="w-11 h-11 rounded-xl bg-fotus-yellow/20 text-fotus-ink flex items-center justify-center font-bold">
             <Clock className="w-5 h-5" />
           </div>
           <div>
@@ -138,7 +138,7 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
               className={cn(
                 "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all",
                 statusFilter === st 
-                  ? "bg-fotus-blue text-fotus-neutral shadow-2xs" 
+                  ? "bg-fotus-yellow text-fotus-ink shadow-2xs" 
                   : "text-fotus-ink hover:text-fotus-ink hover:bg-fotus-neutral/60"
               )}
             >
@@ -162,7 +162,7 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
 
           <button
             onClick={onNewVisit}
-            className="flex items-center gap-2 bg-fotus-blue hover:bg-fotus-blue text-fotus-neutral px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all shrink-0 active:scale-95"
+            className="flex items-center gap-2 fotus-action px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all shrink-0 active:scale-95"
           >
             <Plus className="w-4 h-4" />
             <span>Agendar Visita</span>
@@ -181,7 +181,7 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
           <div className="flex gap-3">
             <button
               onClick={onNewVisit}
-              className="px-4 py-2 bg-fotus-blue text-fotus-neutral text-xs font-bold rounded-xl shadow-xs hover:bg-fotus-blue transition-all"
+              className="px-4 py-2 fotus-action text-xs font-bold rounded-xl shadow-xs transition-all"
             >
               Nova Visita
             </button>
@@ -281,7 +281,7 @@ export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUse
                       disabled={deletingId === visit.id}
                       aria-label={`Excluir visita de ${visit.integratorName}`}
                       title="Excluir visita definitivamente"
-                      className="ml-1 rounded-lg p-1.5 text-fotus-ink/80 transition-colors hover:bg-fotus-yellow/7 hover:text-fotus-ink focus-visible:outline-2 focus-visible:outline-fotus-yellow disabled:cursor-wait disabled:opacity-40"
+                      className="ml-1 rounded-lg p-1.5 text-fotus-ink/80 transition-colors hover:bg-fotus-yellow/20 hover:text-fotus-ink focus-visible:outline-2 focus-visible:outline-fotus-yellow disabled:cursor-wait disabled:opacity-40"
                     ><Trash2 className="h-4 w-4" /></button>}
                   </div>
                 </div>

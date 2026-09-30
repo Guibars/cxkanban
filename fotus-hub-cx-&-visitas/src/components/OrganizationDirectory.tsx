@@ -66,8 +66,8 @@ const ROLE_CONFIG: Record<
   Head: {
     plural: "Heads",
     icon: Crown,
-    color: "text-fotus-blue",
-    surface: "bg-fotus-blue/7",
+    color: "text-fotus-ink",
+    surface: "bg-fotus-yellow/30",
   },
   Gerente: {
     plural: "Gerentes",
@@ -79,13 +79,13 @@ const ROLE_CONFIG: Record<
     plural: "Coordenadores",
     icon: UserCog,
     color: "text-fotus-ink",
-    surface: "bg-fotus-yellow/7",
+    surface: "bg-fotus-yellow/20",
   },
   Líder: {
     plural: "Líderes",
     icon: Network,
-    color: "text-fotus-blue",
-    surface: "bg-fotus-blue/7",
+    color: "text-fotus-ink",
+    surface: "bg-fotus-yellow/20",
   },
   Consultor: {
     plural: "Consultores",
@@ -412,7 +412,7 @@ export default function OrganizationDirectory({
               void move(event.dataTransfer.getData("text/plain"), person.id);
             }
           }}
-          className={`my-1 flex items-center gap-1 rounded-xl p-1 transition-colors ${eligibleDrop(person) ? "bg-fotus-blue/6 ring-1 ring-fotus-blue" : isSelected ? "bg-fotus-blue/6" : "hover:bg-fotus-neutral/40"}`}
+          className={`my-1 flex items-center gap-1 rounded-xl p-1 transition-colors ${eligibleDrop(person) ? "bg-fotus-yellow/30 ring-1 ring-fotus-yellow" : isSelected ? "bg-fotus-yellow/20" : "hover:bg-fotus-neutral/40"}`}
         >
           <button
             type="button"
@@ -469,7 +469,7 @@ export default function OrganizationDirectory({
   return (
     <div className="space-y-6">
       <section className="overflow-hidden rounded-3xl border border-fotus-blue/10 bg-fotus-neutral shadow-sm">
-        <div className="flex flex-col gap-5 bg-gradient-to-br from-fotus-blue/6 via-fotus-neutral to-fotus-neutral p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-5 bg-gradient-to-br from-fotus-yellow/20 via-fotus-neutral to-fotus-neutral p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
             <span className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-fotus-blue">
               <Network className="h-4 w-4" />
@@ -498,7 +498,7 @@ export default function OrganizationDirectory({
             <button
               type="button"
               onClick={() => onCreate()}
-              className="inline-flex w-fit items-center justify-center gap-2 rounded-xl bg-fotus-blue px-5 py-3 text-xs font-bold text-fotus-neutral shadow-sm transition-colors hover:bg-fotus-blue"
+              className="inline-flex w-fit items-center justify-center gap-2 rounded-xl fotus-action px-5 py-3 text-xs font-bold shadow-sm transition-colors"
             >
               <Plus className="h-4 w-4" />
               Cadastrar pessoa
@@ -521,7 +521,7 @@ export default function OrganizationDirectory({
                 type="button"
                 onClick={() => chooseRole(role)}
                 aria-pressed={isSelected}
-                className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm ${isSelected ? "border-fotus-blue/30 bg-fotus-blue/6 ring-1 ring-fotus-blue/10" : "border-fotus-blue/10 bg-fotus-neutral hover:border-fotus-blue/20"}`}
+                className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm ${isSelected ? "border-fotus-yellow/70 bg-fotus-yellow/20 ring-1 ring-fotus-yellow/30" : "border-fotus-blue/10 bg-fotus-neutral hover:border-fotus-yellow/60"}`}
               >
                 <span
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${config.surface} ${config.color}`}
@@ -580,7 +580,7 @@ export default function OrganizationDirectory({
             <button
               type="button"
               onClick={reset}
-              className={`mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold ${!scopeId ? "bg-fotus-blue text-fotus-neutral" : "text-fotus-ink hover:bg-fotus-neutral/40"}`}
+              className={`mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold ${!scopeId ? "bg-fotus-yellow text-fotus-ink" : "text-fotus-ink hover:bg-fotus-neutral/40"}`}
             >
               <Building2 className="h-4 w-4" />
               Visão da empresa
@@ -597,10 +597,10 @@ export default function OrganizationDirectory({
               <button
                 type="button"
                 onClick={() => browse(UNASSIGNED)}
-                className={`mt-3 flex w-full items-center justify-between rounded-xl border px-3 py-3 text-[11px] font-semibold ${scopeId === UNASSIGNED ? "border-fotus-yellow/45 bg-fotus-yellow/7 text-fotus-ink" : "border-fotus-blue/10 text-fotus-ink/80 hover:bg-fotus-neutral/40"}`}
+                className={`mt-3 flex w-full items-center justify-between rounded-xl border px-3 py-3 text-[11px] font-semibold ${scopeId === UNASSIGNED ? "border-fotus-yellow/45 bg-fotus-yellow/20 text-fotus-ink" : "border-fotus-blue/10 text-fotus-ink/80 hover:bg-fotus-neutral/40"}`}
               >
                 <span>Consultores sem responsável</span>
-                <span className="rounded-md bg-fotus-yellow/7 px-2 py-0.5 font-bold text-fotus-ink">
+                <span className="rounded-md bg-fotus-yellow/20 px-2 py-0.5 font-bold text-fotus-ink">
                   {unassignedCount}
                 </span>
               </button>
@@ -634,7 +634,7 @@ export default function OrganizationDirectory({
                   onClick={() => setView("grid")}
                   aria-pressed={view === "grid"}
                   title="Visualizar em grade"
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-bold ${view === "grid" ? "bg-fotus-blue text-fotus-neutral" : "text-fotus-ink/80 hover:bg-fotus-neutral/40"}`}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-bold ${view === "grid" ? "bg-fotus-yellow text-fotus-ink" : "text-fotus-ink/80 hover:bg-fotus-neutral/40"}`}
                 >
                   <LayoutGrid className="h-4 w-4" />
                   Grade
@@ -643,7 +643,7 @@ export default function OrganizationDirectory({
                   type="button"
                   onClick={() => setView("list")}
                   aria-pressed={view === "list"}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-bold ${view === "list" ? "bg-fotus-blue text-fotus-neutral" : "text-fotus-ink/80 hover:bg-fotus-neutral/40"}`}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-bold ${view === "list" ? "bg-fotus-yellow text-fotus-ink" : "text-fotus-ink/80 hover:bg-fotus-neutral/40"}`}
                 >
                   <List className="h-4 w-4" />
                   Lista
@@ -766,7 +766,7 @@ export default function OrganizationDirectory({
                   type="button"
                   onClick={() => setScopeMode("direct")}
                   aria-pressed={scopeMode === "direct"}
-                  className={`rounded-lg px-3 py-2 text-[11px] font-bold ${scopeMode === "direct" ? "bg-fotus-blue text-fotus-neutral" : "bg-fotus-neutral text-fotus-ink/80"}`}
+                  className={`rounded-lg px-3 py-2 text-[11px] font-bold ${scopeMode === "direct" ? "bg-fotus-yellow text-fotus-ink" : "bg-fotus-neutral text-fotus-ink/80"}`}
                 >
                   Equipe direta
                 </button>
@@ -774,7 +774,7 @@ export default function OrganizationDirectory({
                   type="button"
                   onClick={() => setScopeMode("all")}
                   aria-pressed={scopeMode === "all"}
-                  className={`rounded-lg px-3 py-2 text-[11px] font-bold ${scopeMode === "all" ? "bg-fotus-blue text-fotus-neutral" : "bg-fotus-neutral text-fotus-ink/80"}`}
+                  className={`rounded-lg px-3 py-2 text-[11px] font-bold ${scopeMode === "all" ? "bg-fotus-yellow text-fotus-ink" : "bg-fotus-neutral text-fotus-ink/80"}`}
                 >
                   Toda a estrutura abaixo
                 </button>
@@ -921,7 +921,7 @@ export default function OrganizationDirectory({
                   <button
                     type="button"
                     onClick={() => onCreate()}
-                    className="mt-5 rounded-xl bg-fotus-blue px-4 py-2.5 text-xs font-bold text-fotus-neutral"
+                    className="mt-5 rounded-xl fotus-action px-4 py-2.5 text-xs font-bold"
                   >
                     Cadastrar primeira pessoa
                   </button>
@@ -1117,7 +1117,7 @@ export default function OrganizationDirectory({
                       setDetailId(null);
                       browse(detail.id);
                     }}
-                    className="inline-flex items-center gap-2 rounded-xl bg-fotus-blue px-4 py-3 text-xs font-bold text-fotus-neutral"
+                    className="inline-flex items-center gap-2 rounded-xl fotus-action px-4 py-3 text-xs font-bold"
                   >
                     <Users className="h-4 w-4" />
                     Explorar equipe
@@ -1215,7 +1215,7 @@ function PersonCard({
       <div className="p-5 sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <span
-            className={`fotus-pill ${person.role === 'Coordenador' ? 'fotus-pill-yellow' : person.role === 'Head' ? 'fotus-pill-solid' : 'fotus-pill-blue'}`}
+            className={`fotus-pill ${person.role === 'Coordenador' || person.role === 'Head' || person.role === 'Líder' ? 'fotus-pill-yellow' : 'fotus-pill-blue'}`}
           >
             {person.role}
           </span>
@@ -1374,7 +1374,7 @@ function PersonCard({
                 onClick={onDelete}
                 aria-label={`Excluir ${person.name}`}
                 title="Excluir pessoa"
-                className="rounded-lg p-2 text-fotus-ink/80 hover:bg-fotus-yellow/7 hover:text-fotus-ink"
+                className="rounded-lg p-2 text-fotus-ink/80 hover:bg-fotus-yellow/20 hover:text-fotus-ink"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
