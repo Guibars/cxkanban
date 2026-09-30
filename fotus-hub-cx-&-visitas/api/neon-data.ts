@@ -61,6 +61,11 @@ async function loadProfile(email: string) {
       coalesce(array_agg(distinct permissions.section_key order by permissions.section_key)
         filter (where permissions.can_view), '{}') as "visibleTabs",
       coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='visitas'), false) as "canDeleteVisits",
+      jsonb_build_object(
+        'canCreate',coalesce(bool_or(permissions.can_create) filter (where permissions.section_key='estrutura'),false),
+        'canEdit',coalesce(bool_or(permissions.can_edit) filter (where permissions.section_key='estrutura'),false),
+        'canDelete',coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='estrutura'),false)
+      ) as "structurePermissions",
       coalesce(array_agg(distinct units.legacy_firestore_id order by units.legacy_firestore_id)
         filter (where units.legacy_firestore_id is not null), '{}') as "organizationUnitIds",
       users.created_at as "createdAt", users.updated_at as "updatedAt"
@@ -81,6 +86,11 @@ async function loadProfiles() {
       coalesce(array_agg(distinct permissions.section_key order by permissions.section_key)
         filter (where permissions.can_view), '{}') as "visibleTabs",
       coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='visitas'), false) as "canDeleteVisits",
+      jsonb_build_object(
+        'canCreate',coalesce(bool_or(permissions.can_create) filter (where permissions.section_key='estrutura'),false),
+        'canEdit',coalesce(bool_or(permissions.can_edit) filter (where permissions.section_key='estrutura'),false),
+        'canDelete',coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='estrutura'),false)
+      ) as "structurePermissions",
       coalesce(array_agg(distinct units.legacy_firestore_id order by units.legacy_firestore_id)
         filter (where units.legacy_firestore_id is not null), '{}') as "organizationUnitIds",
       users.created_at as "createdAt", users.updated_at as "updatedAt"
@@ -218,13 +228,18 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     response.status(200).json(await loadBootstrap(email));
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
+    const databaseCode = (error as { code?: string })?.code;
+    if (databaseCode === '23503') return response.status(400).json({ error: 'Existe um vínculo com outro cadastro. Reatribua as pessoas vinculadas e tente novamente.' });
+    if (databaseCode === '23505' && request.body?.resource === 'organization_people') return response.status(409).json({ error: 'Já existe uma pessoa com esse e-mail ou conta vinculada. Edite o cadastro existente ou confira o e-mail informado.' });
+    if (databaseCode === '23514' && request.body?.resource === 'organization_people') return response.status(400).json({ error: 'Confira a função e o responsável do card. O banco rejeitou essa combinação na hierarquia.' });
+    if (databaseCode === 'P0001' && request.body?.resource === 'organization_people') return response.status(400).json({ error: /^(Head não pode|Uma pessoa não pode|.+ deve responder para)/.test(message) ? message : 'Confira o responsável: Gerente responde a Head, Coordenador a Gerente e Líder a Coordenador. O responsável precisa estar ativo.' });
     if (message === 'unauthenticated') return response.status(401).json({ error: 'Sessão não encontrada. Entre novamente.' });
     if (message === 'auth-not-configured') return response.status(503).json({ error: 'A URL do Neon Auth não está configurada corretamente na Vercel.' });
     if (message === 'database-not-configured') return response.status(503).json({ error: 'A conexão DATABASE_URL do Neon não está configurada corretamente na Vercel.' });
     if (message === 'unauthorized') return response.status(403).json({ error: 'E-mail não autorizado.' });
     if (message === 'profile-not-found') return response.status(403).json({ error: 'Seu perfil ainda não foi cadastrado no Neon.' });
     if (message === 'profile-disabled') return response.status(403).json({ error: 'Seu perfil está desativado.' });
-    if (message === 'forbidden') return response.status(403).json({ error: 'Seu perfil não permite esta alteração.' });
+    if (message === 'forbidden') return response.status(403).json({ error: request.body?.resource === 'organization_people' ? 'Seu perfil não permite esta ação na Estrutura. Peça ao administrador para liberá-la em Gerenciar usuários → Ações na Estrutura.' : 'Seu perfil não permite esta alteração.' });
     if (message === 'invalid-mutation') return response.status(400).json({ error: 'Alteração inválida.' });
     if (message === 'too-many-records') return response.status(400).json({ error: 'Importe no máximo 1.500 registros por vez.' });
     console.error('Erro ao carregar dados do Neon:', error);

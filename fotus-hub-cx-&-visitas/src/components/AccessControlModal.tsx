@@ -36,6 +36,7 @@ const EMPTY_FORM = {
   agentName: '',
   organizationUnitIds: [] as string[],
   visibleTabs: defaultTabs('Agente'),
+  structurePermissions: { canCreate: false, canEdit: false, canDelete: false },
   active: true,
 };
 
@@ -169,6 +170,11 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
       agentName: profile.agentName || '',
       organizationUnitIds: profile.organizationUnitIds || [],
       visibleTabs: profile.visibleTabs?.length ? profile.visibleTabs : defaultTabs(profile.role),
+      structurePermissions: profile.structurePermissions || {
+        canCreate: profile.visibleTabs.includes('estrutura'),
+        canEdit: profile.visibleTabs.includes('estrutura'),
+        canDelete: profile.visibleTabs.includes('estrutura') && profile.role === 'Administrador',
+      },
       active: profile.active,
     });
     setMessage('');
@@ -336,6 +342,7 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
         agentName: form.role === 'Agente' ? form.agentName : '',
         organizationUnitIds: form.organizationUnitIds,
         visibleTabs: form.visibleTabs,
+        structurePermissions: form.structurePermissions,
         active: form.active,
         createdAt: existing?.createdAt || now,
         updatedAt: now,
@@ -445,6 +452,14 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
                 })}
               </div>
             </section>
+
+            {form.visibleTabs.includes('estrutura') && <section className="rounded-2xl border border-[#385041]/15 bg-[#f4f8f2] p-4">
+              <h4 className="flex items-center gap-2 text-xs font-extrabold text-gray-950"><Network className="h-4 w-4 text-[#385041]" />Ações na Estrutura</h4>
+              <p className="mt-1 text-xs text-gray-600">Escolha o que esta pessoa pode fazer nos kanbans de Head, Gerência, Coordenadores e Líderes.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {([{ key: 'canCreate', label: 'Cadastrar pessoas' }, { key: 'canEdit', label: 'Editar e mover cards' }, { key: 'canDelete', label: 'Excluir cards' }] as const).map(({ key, label }) => <label key={key} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-3 text-xs font-bold text-gray-700"><input type="checkbox" checked={form.structurePermissions[key]} onChange={(event) => setForm((current) => ({ ...current, structurePermissions: { ...current.structurePermissions, [key]: event.target.checked } }))} className="h-4 w-4 accent-[#385041]" />{label}</label>)}
+              </div>
+            </section>}
 
             <section className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

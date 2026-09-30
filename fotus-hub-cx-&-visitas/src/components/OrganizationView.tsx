@@ -27,6 +27,8 @@ interface OrganizationViewProps {
   people: OrganizationPerson[];
   currentUser: CurrentUser;
   canManage: boolean;
+  canCreate: boolean;
+  canDelete: boolean;
   canDeleteLegacy: boolean;
 }
 
@@ -69,7 +71,7 @@ const emptyForm: {
   active: true,
 };
 
-export default function OrganizationView({ units, people, currentUser, canManage, canDeleteLegacy }: OrganizationViewProps) {
+export default function OrganizationView({ units, people, currentUser, canManage, canCreate, canDelete, canDeleteLegacy }: OrganizationViewProps) {
   const [search, setSearch] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<OrganizationPerson | null>(null);
@@ -90,6 +92,7 @@ export default function OrganizationView({ units, people, currentUser, canManage
   const supervisorOptions = people.filter((person) => person.active && person.role === SUPERVISOR_ROLE[form.role] && person.id !== editingPerson?.id);
 
   const openCreateForm = (role: OrganizationRole = 'Gerente') => {
+    if (!canCreate) return;
     setEditingPerson(null);
     setForm({ ...emptyForm, role });
     setErrorMessage('');
@@ -97,6 +100,7 @@ export default function OrganizationView({ units, people, currentUser, canManage
   };
 
   const openEditForm = (person: OrganizationPerson) => {
+    if (!canManage) return;
     setEditingPerson(person);
     setForm({
       name: person.name,
@@ -158,7 +162,7 @@ export default function OrganizationView({ units, people, currentUser, canManage
       setIsFormOpen(false);
     } catch (error) {
       console.error('Erro ao salvar pessoa na estrutura:', error);
-      setErrorMessage('Não foi possível salvar. Confira sua conexão, a hierarquia e suas permissões.');
+      setErrorMessage(error instanceof Error ? error.message : 'Não foi possível salvar a pessoa. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -220,7 +224,7 @@ export default function OrganizationView({ units, people, currentUser, canManage
       }
     } catch (error) {
       console.error('Erro ao mover card:', error);
-      window.alert('Não foi possível mover o card. Confira sua permissão e a hierarquia.');
+      window.alert(error instanceof Error ? error.message : 'Não foi possível mover o card.');
     } finally {
       setMoving(false);
       setDraggedId(null);
@@ -228,6 +232,7 @@ export default function OrganizationView({ units, people, currentUser, canManage
   };
 
   const removePerson = async (person: OrganizationPerson) => {
+    if (!canDelete) return;
     const dependents = people.filter((item) => item.reportsToId === person.id);
     if (dependents.length) {
       window.alert(`${person.name} possui ${dependents.length} pessoa(s) vinculada(s). Reatribua essas pessoas antes de excluir o card.`);
@@ -239,7 +244,7 @@ export default function OrganizationView({ units, people, currentUser, canManage
       await deleteData(currentUser, 'organization_people', person.id);
     } catch (error) {
       console.error('Erro ao excluir pessoa:', error);
-      window.alert('Não foi possível excluir este card. Reatribua os vínculos e confira suas permissões.');
+      window.alert(error instanceof Error ? error.message : 'Não foi possível excluir este card.');
     }
   };
 
@@ -267,7 +272,7 @@ export default function OrganizationView({ units, people, currentUser, canManage
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nome, telefone ou regional" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#385041]" />
             </label>
-            {canManage && <button onClick={() => openCreateForm()} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#2c4033]"><Plus className="h-4 w-4" />Cadastrar pessoa</button>}
+            {canCreate && <button onClick={() => openCreateForm()} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#2c4033]"><Plus className="h-4 w-4" />Cadastrar pessoa</button>}
           </div>
         </div>
 
@@ -310,14 +315,14 @@ export default function OrganizationView({ units, people, currentUser, canManage
                           <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#e8efe0] text-sm font-black text-[#385041]">{person.photoUrl ? <img src={person.photoUrl} alt={`Foto de ${person.name}`} className="h-full w-full object-cover" loading="lazy" /> : person.name.slice(0, 1).toUpperCase()}</span>
                           <div className="min-w-0"><div className="flex items-center gap-1.5"><span className={`h-2 w-2 shrink-0 rounded-full ${person.active ? 'bg-emerald-500' : 'bg-gray-300'}`} /><h3 className="truncate text-sm font-extrabold text-gray-950">{person.name}</h3></div><p className="mt-0.5 text-[10px] font-semibold text-gray-500">{person.jobTitle || person.role}</p></div>
                         </div>
-                        {canManage && <div className="flex shrink-0 gap-0.5"><button type="button" disabled={moving || personIndex === 0} onClick={() => void moveCard(person.id, rolePeople[personIndex - 1].id)} title="Subir card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25"><ArrowDown className="h-3.5 w-3.5 rotate-180" /></button><button type="button" disabled={moving || personIndex === rolePeople.length - 1} onClick={() => void moveCard(rolePeople[personIndex + 1].id, person.id)} title="Descer card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25"><ArrowDown className="h-3.5 w-3.5" /></button><button onClick={() => openEditForm(person)} title="Editar card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><Pencil className="h-3.5 w-3.5" /></button><button onClick={() => removePerson(person)} title="Excluir card" className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button></div>}
+                        {(canManage || canDelete) && <div className="flex shrink-0 gap-0.5">{canManage && <><button type="button" disabled={moving || personIndex === 0} onClick={() => void moveCard(person.id, rolePeople[personIndex - 1].id)} title="Subir card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25"><ArrowDown className="h-3.5 w-3.5 rotate-180" /></button><button type="button" disabled={moving || personIndex === rolePeople.length - 1} onClick={() => void moveCard(rolePeople[personIndex + 1].id, person.id)} title="Descer card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25"><ArrowDown className="h-3.5 w-3.5" /></button><button onClick={() => openEditForm(person)} title="Editar card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><Pencil className="h-3.5 w-3.5" /></button></>}{canDelete && <button onClick={() => removePerson(person)} title="Excluir card" className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>}</div>}
                       </div>
                       {(person.phone || person.email) && <div className="mt-3 space-y-1.5 text-[10px] text-gray-600">{person.phone && <a href={`tel:${person.phone.replace(/[^\d+]/g, '')}`} className="flex items-center gap-1.5 hover:text-[#385041]"><Phone className="h-3 w-3 shrink-0" />{person.phone}</a>}{person.email && <a href={`mailto:${person.email}`} className="flex items-center gap-1.5 truncate hover:text-[#385041]"><Mail className="h-3 w-3 shrink-0" />{person.email}</a>}</div>}
                       {(person.department || person.regional) && <div className="mt-3 flex flex-wrap gap-1.5">{person.department && <span className="rounded-full bg-gray-100 px-2 py-1 text-[9px] font-bold text-gray-600">{person.department}</span>}{person.regional && <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[9px] font-bold text-blue-700"><MapPinned className="h-2.5 w-2.5" />{person.regional}</span>}</div>}
                       {role !== 'Head' && <div className={`mt-3 rounded-xl border px-3 py-2.5 ${supervisor ? `${config.soft} ${config.line}` : 'border-gray-100 bg-gray-50'}`}><small className="block text-[8px] font-extrabold uppercase tracking-wide text-gray-400">Responde para</small><strong className="mt-0.5 block truncate text-[11px] text-gray-800">{supervisor?.name || person.reportsToName || 'Sem responsável definido'}</strong><span className="mt-0.5 block text-[9px] text-gray-500">{SUPERVISOR_ROLE[role]}</span></div>}
                     </article>;
                   })}
-                  {!rolePeople.length && <div className="rounded-2xl border border-dashed border-gray-200 bg-white/50 px-4 py-10 text-center"><Icon className="mx-auto h-7 w-7 text-gray-300" /><p className="mt-2 text-[10px] font-semibold text-gray-400">{search ? 'Nenhum resultado nesta função' : `Nenhum ${role.toLocaleLowerCase('pt-BR')} cadastrado`}</p>{canManage && !search && <button onClick={() => openCreateForm(role)} className="mt-3 text-[10px] font-extrabold text-[#385041]">+ Adicionar</button>}</div>}
+                  {!rolePeople.length && <div className="rounded-2xl border border-dashed border-gray-200 bg-white/50 px-4 py-10 text-center"><Icon className="mx-auto h-7 w-7 text-gray-300" /><p className="mt-2 text-[10px] font-semibold text-gray-400">{search ? 'Nenhum resultado nesta função' : `Nenhum ${role.toLocaleLowerCase('pt-BR')} cadastrado`}</p>{canCreate && !search && <button onClick={() => openCreateForm(role)} className="mt-3 text-[10px] font-extrabold text-[#385041]">+ Adicionar</button>}</div>}
                 </div>
               </div>
             );

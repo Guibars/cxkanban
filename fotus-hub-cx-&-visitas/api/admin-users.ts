@@ -41,6 +41,11 @@ export async function listAccessProfiles() {
     users.agent_name as "agentName",users.active,
     coalesce(array_agg(distinct permissions.section_key order by permissions.section_key)
       filter (where permissions.can_view),'{}') as "visibleTabs",
+    jsonb_build_object(
+      'canCreate',coalesce(bool_or(permissions.can_create) filter (where permissions.section_key='estrutura'),false),
+      'canEdit',coalesce(bool_or(permissions.can_edit) filter (where permissions.section_key='estrutura'),false),
+      'canDelete',coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='estrutura'),false)
+    ) as "structurePermissions",
     coalesce(array_agg(distinct units.legacy_firestore_id order by units.legacy_firestore_id)
       filter (where units.legacy_firestore_id is not null),'{}') as "organizationUnitIds",
     (extract(epoch from users.created_at)*1000)::bigint as "createdAt",
@@ -68,8 +73,24 @@ export async function saveAccessProfile(email: string, profile: Record<string, u
     const userId = user.rows[0].id;
     const visibleTabs = Array.isArray(profile.visibleTabs) ? profile.visibleTabs.map(String) : [];
     const isAdmin = profile.role === 'Administrador';
+    const structurePermissions = profile.structurePermissions as { canCreate: boolean; canEdit: boolean; canDelete: boolean } | undefined;
     for (const section of SECTION_KEYS) {
       const allowed = visibleTabs.includes(section);
+      if (section === 'estrutura') {
+        const existing = structurePermissions ? null : await client.query<{ can_create: boolean; can_edit: boolean; can_delete: boolean }>(
+          'select can_create,can_edit,can_delete from public.user_section_permissions where user_id=$1 and section_key=$2', [userId, section]);
+        const permissions = structurePermissions || {
+          canCreate: existing?.rows[0]?.can_create ?? allowed,
+          canEdit: existing?.rows[0]?.can_edit ?? allowed,
+          canDelete: existing?.rows[0]?.can_delete ?? (isAdmin && allowed),
+        };
+        await client.query(`insert into public.user_section_permissions
+          (user_id,section_key,can_view,can_create,can_edit,can_delete)
+          values ($1,$2,$3,$4,$5,$6) on conflict (user_id,section_key) do update set
+          can_view=excluded.can_view,can_create=excluded.can_create,can_edit=excluded.can_edit,can_delete=excluded.can_delete,updated_at=now()`,
+        [userId, section, allowed, allowed && permissions.canCreate, allowed && permissions.canEdit, allowed && permissions.canDelete]);
+        continue;
+      }
       await client.query(`insert into public.user_section_permissions
         (user_id,section_key,can_view,can_create,can_edit,can_delete)
         values ($1,$2,$3,$3,$3,$4) on conflict (user_id,section_key) do update set
@@ -134,6 +155,9 @@ function validateProfile(email: string, profile: unknown) {
   const roles = ['Agente', 'Gerente', 'Líder', 'Coordenador', 'Administrador'];
   const tabs = Array.isArray(data.visibleTabs) ? data.visibleTabs : [];
   const units = Array.isArray(data.organizationUnitIds) ? data.organizationUnitIds : [];
+  const structurePermissions = data.structurePermissions as Record<string, unknown> | undefined;
+  if (structurePermissions !== undefined && (!structurePermissions || typeof structurePermissions !== 'object'
+    || ['canCreate', 'canEdit', 'canDelete'].some((key) => typeof structurePermissions[key] !== 'boolean'))) throw new Error('invalid-profile');
   if (data.email !== email || typeof data.displayName !== 'string' || !data.displayName.trim()
     || typeof data.role !== 'string' || !roles.includes(data.role) || !tabs.length
     || tabs.some((item) => typeof item !== 'string' || !SECTION_KEYS.includes(item))
@@ -146,6 +170,7 @@ function validateProfile(email: string, profile: unknown) {
     agentName: typeof data.agentName === 'string' ? data.agentName : '',
     organizationUnitIds: units,
     visibleTabs: [...new Set(tabs)],
+    ...(structurePermissions ? { structurePermissions: { canCreate: structurePermissions.canCreate, canEdit: structurePermissions.canEdit, canDelete: structurePermissions.canDelete } } : {}),
     active: data.active,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
