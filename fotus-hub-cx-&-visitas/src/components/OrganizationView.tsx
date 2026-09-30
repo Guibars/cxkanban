@@ -1,27 +1,22 @@
 import { FormEvent, useMemo, useState } from 'react';
 import type { CurrentUser } from '../lib/currentUser';
 import {
-  ArrowDown,
   BriefcaseBusiness,
   Building2,
-  Crown,
   ImagePlus,
   Mail,
   MapPinned,
   Network,
-  Pencil,
   Phone,
-  Plus,
   Save,
-  Search,
   Trash2,
-  UserCog,
   Users,
   X,
 } from 'lucide-react';
 import { createData, deleteData, reorderOrganizationPeople, updateData } from '../lib/dataMutations';
-import { ORGANIZATION_ROLES, ORGANIZATION_SUPERVISORS, organizationAncestors, organizationConsultantCounts, organizationScope } from '../lib/organization';
+import { ORGANIZATION_ROLES, ORGANIZATION_SUPERVISORS } from '../lib/organization';
 import { OrganizationPerson, OrganizationRole, OrganizationUnit } from '../types';
+import OrganizationDirectory from './OrganizationDirectory';
 
 interface OrganizationViewProps {
   units: OrganizationUnit[];
@@ -35,16 +30,7 @@ interface OrganizationViewProps {
 
 const REGIONAL_SUGGESTIONS = ['Nacional', 'Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
 const ROLE_ORDER = ORGANIZATION_ROLES;
-const ROLE_PLURAL: Record<OrganizationRole, string> = { Head: 'Heads', Gerente: 'Gerentes', Coordenador: 'Coordenadores', Líder: 'Líderes', Consultor: 'Consultores' };
 const supervisorLabel = (role: OrganizationRole) => ORGANIZATION_SUPERVISORS[role]?.join(' / ') || '';
-const normalizeSearch = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
-const ROLE_STYLE: Record<OrganizationRole, { title: string; description: string; icon: typeof Crown; accent: string; soft: string; line: string }> = {
-  Head: { title: 'Kanban Head', description: 'Responsáveis pela gestão executiva', icon: Crown, accent: 'text-violet-700', soft: 'bg-violet-50', line: 'border-violet-200' },
-  Gerente: { title: 'Kanban Gerência', description: 'Gerentes vinculados a um Head', icon: BriefcaseBusiness, accent: 'text-blue-700', soft: 'bg-blue-50', line: 'border-blue-200' },
-  Coordenador: { title: 'Kanban Coordenadores', description: 'Coordenadores vinculados a um gerente', icon: UserCog, accent: 'text-amber-700', soft: 'bg-amber-50', line: 'border-amber-200' },
-  Líder: { title: 'Kanban Líderes', description: 'Líderes vinculados a um coordenador', icon: Users, accent: 'text-emerald-700', soft: 'bg-emerald-50', line: 'border-emerald-200' },
-  Consultor: { title: 'Consultores / Vendedores', description: 'Vendedores e suas equipes comerciais', icon: Users, accent: 'text-cyan-700', soft: 'bg-cyan-50', line: 'border-cyan-200' },
-};
 
 const emptyForm: {
   name: string;
@@ -73,31 +59,13 @@ const emptyForm: {
 };
 
 export default function OrganizationView({ units, people, currentUser, canManage, canCreate, canDelete, canDeleteLegacy }: OrganizationViewProps) {
-  const [search, setSearch] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<OrganizationPerson | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [draggedId, setDraggedId] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
-  const [scopeId, setScopeId] = useState('');
   const personById = useMemo(() => new Map(people.map((person) => [person.id, person])), [people]);
-  const scopeIds = useMemo(() => organizationScope(people, scopeId), [people, scopeId]);
-  const consultantCounts = useMemo(() => organizationConsultantCounts(people), [people]);
-
-  const filteredPeople = useMemo(() => {
-    const query = normalizeSearch(search.trim());
-    return people.filter((person) => {
-      if (scopeIds && !scopeIds.has(person.id)) return false;
-      if (!query) return true;
-      const ancestors = organizationAncestors(person, personById);
-      return [person.name, person.email || '', person.phone || '', person.jobTitle || '', person.role,
-        person.department || '', person.regional || '', person.teamName || '', person.reportsToName || '',
-        ...ancestors.flatMap((parent) => [parent.name, parent.email || ''])]
-        .some((value) => normalizeSearch(value).includes(query));
-    });
-  }, [people, search, scopeIds, personById]);
 
   const supervisorOptions = people.filter((person) => person.active && ORGANIZATION_SUPERVISORS[form.role]?.includes(person.role) && person.id !== editingPerson?.id);
   const chooseSupervisor = (id: string) => {
@@ -255,7 +223,6 @@ export default function OrganizationView({ units, people, currentUser, canManage
       window.alert(error instanceof Error ? error.message : 'Não foi possível mover o card.');
     } finally {
       setMoving(false);
-      setDraggedId(null);
     }
   };
 
@@ -288,87 +255,22 @@ export default function OrganizationView({ units, people, currentUser, canManage
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-3xl border border-[#385041]/10 bg-white/85 shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-gray-100 bg-[#f4f8f2] p-5 lg:flex-row lg:items-end lg:justify-between sm:p-6">
-          <div>
-            <p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#385041]"><Network className="h-4 w-4" />Cadeia de liderança</p>
-            <h2 className="mt-1 text-xl font-extrabold text-gray-950">Head → Gerente → Coordenador → Líder → Consultor</h2>
-            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-gray-500">Consulte foto, telefone e responsável de cada pessoa. Arraste um card para ordenar ou solte sobre um responsável do nível acima para alterar o vínculo.</p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <label className="relative min-w-0 sm:w-72">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nome, e-mail ou equipe" aria-label="Buscar na estrutura" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#385041]" />
-            </label>
-            <select value={scopeId} onChange={(event) => setScopeId(event.target.value)} aria-label="Filtrar equipe por responsável" className="min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs text-gray-700 sm:w-64">
-              <option value="">Todas as equipes</option>
-              {people.filter((person) => person.active && person.role !== 'Consultor').sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) || a.name.localeCompare(b.name, 'pt-BR')).map((person) => <option key={person.id} value={person.id}>{person.role} · {person.name}</option>)}
-            </select>
-            {(scopeId || search) && <button type="button" onClick={() => { setScopeId(''); setSearch(''); }} className="rounded-xl px-3 py-2 text-xs font-bold text-gray-600 hover:bg-white">Limpar filtros</button>}
-            {canCreate && <button onClick={() => openCreateForm()} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#2c4033]"><Plus className="h-4 w-4" />Cadastrar pessoa</button>}
-          </div>
-        </div>
+      <OrganizationDirectory
+        people={people}
+        canManage={canManage}
+        canCreate={canCreate}
+        canDelete={canDelete}
+        moving={moving}
+        onCreate={openCreateForm}
+        onEdit={openEditForm}
+        onDelete={(person) => void removePerson(person)}
+        onMove={moveCard}
+      />
 
-        <div className="grid grid-cols-2 gap-px bg-gray-100 lg:grid-cols-5">
-          {ROLE_ORDER.map((role) => {
-            const config = ROLE_STYLE[role];
-            const Icon = config.icon;
-            const count = people.filter((person) => person.role === role && person.active).length;
-            return <div key={role} className="bg-white p-4"><div className="flex items-center justify-between gap-3"><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${config.soft} ${config.accent}`}><Icon className="h-5 w-5" /></span><strong className="text-2xl text-gray-950">{count}</strong></div><p className="mt-3 text-[10px] font-extrabold uppercase tracking-wide text-gray-500">{ROLE_PLURAL[role]} ativos</p></div>;
-          })}
-        </div>
-      </section>
-
-      <section className="overflow-x-auto pb-2">
-        <div className="grid min-w-[1520px] grid-cols-5 gap-4">
-          {ROLE_ORDER.map((role, roleIndex) => {
-            const config = ROLE_STYLE[role];
-            const Icon = config.icon;
-            const rolePeople = filteredPeople.filter((person) => person.role === role)
-              .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name, 'pt-BR'));
-            return (
-              <div key={role} className={`relative min-h-[420px] rounded-3xl border bg-white/65 p-3 shadow-sm ${config.line}`}>
-                {roleIndex < ROLE_ORDER.length - 1 && <span className="absolute -right-3 top-10 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400 shadow-sm"><ArrowDown className="h-3.5 w-3.5 -rotate-90" /></span>}
-                <div className="flex items-center justify-between gap-2 px-1 py-2">
-                  <div className="flex min-w-0 items-center gap-2.5"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${config.soft} ${config.accent}`}><Icon className="h-4 w-4" /></span><span className="min-w-0"><strong className="block truncate text-xs text-gray-950">{config.title}</strong><small className="block truncate text-[9px] text-gray-500">{config.description}</small></span></div>
-                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-extrabold text-gray-600">{rolePeople.length}</span>
-                </div>
-
-                <div className="mt-2 space-y-3">
-                  {rolePeople.map((person, personIndex) => {
-                    const supervisor = person.reportsToId ? personById.get(person.reportsToId) : null;
-                    return <article key={person.id} draggable={canManage && !moving}
-                      onDragStart={(event) => { setDraggedId(person.id); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', person.id); }}
-                      onDragEnd={() => setDraggedId(null)}
-                      onDragOver={(event) => { if (canManage && draggedId && draggedId !== person.id) event.preventDefault(); }}
-                      onDrop={(event) => { event.preventDefault(); void moveCard(event.dataTransfer.getData('text/plain') || draggedId || '', person.id); }}
-                      className={`rounded-2xl border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${person.active ? 'border-gray-100' : 'border-gray-200 opacity-60'} ${draggedId === person.id ? 'opacity-40' : ''} ${canManage ? 'cursor-grab active:cursor-grabbing' : ''}`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-start gap-2.5">
-                          <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#e8efe0] text-sm font-black text-[#385041]">{person.photoUrl ? <img src={person.photoUrl} alt={`Foto de ${person.name}`} className="h-full w-full object-cover" loading="lazy" /> : person.name.slice(0, 1).toUpperCase()}</span>
-                          <div className="min-w-0"><div className="flex items-start gap-1.5"><span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${person.active ? 'bg-emerald-500' : 'bg-gray-300'}`} /><h3 title={person.name} className="break-words text-xs font-extrabold leading-relaxed text-gray-950">{person.name}</h3></div><p className="mt-0.5 text-[10px] font-semibold text-gray-500">{person.jobTitle || person.role}</p></div>
-                        </div>
-                        {(canManage || canDelete) && <div className="flex shrink-0 gap-0.5">{canManage && <><button type="button" disabled={moving || personIndex === 0} onClick={() => void moveCard(person.id, rolePeople[personIndex - 1].id)} title="Subir card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25"><ArrowDown className="h-3.5 w-3.5 rotate-180" /></button><button type="button" disabled={moving || personIndex === rolePeople.length - 1} onClick={() => void moveCard(rolePeople[personIndex + 1].id, person.id)} title="Descer card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25"><ArrowDown className="h-3.5 w-3.5" /></button><button onClick={() => openEditForm(person)} title="Editar card" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><Pencil className="h-3.5 w-3.5" /></button></>}{canDelete && <button onClick={() => removePerson(person)} title="Excluir card" className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>}</div>}
-                      </div>
-                      {(person.phone || person.email) && <div className="mt-3 space-y-1.5 text-[10px] text-gray-600">{person.phone && <a href={`tel:${person.phone.replace(/[^\d+]/g, '')}`} className="flex items-center gap-1.5 hover:text-[#385041]"><Phone className="h-3 w-3 shrink-0" />{person.phone}</a>}{person.email && <a href={`mailto:${person.email}`} className="flex items-center gap-1.5 truncate hover:text-[#385041]"><Mail className="h-3 w-3 shrink-0" />{person.email}</a>}</div>}
-                      {(person.department || person.regional) && <div className="mt-3 flex flex-wrap gap-1.5">{person.department && <span className="rounded-full bg-gray-100 px-2 py-1 text-[9px] font-bold text-gray-600">{person.department}</span>}{person.regional && <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[9px] font-bold text-blue-700"><MapPinned className="h-2.5 w-2.5" />{person.regional}</span>}</div>}
-                      {person.teamName && <p className="mt-2 rounded-lg bg-slate-50 px-2 py-1.5 text-[9px] font-semibold leading-relaxed text-slate-600">{person.teamName}</p>}
-                      {role !== 'Head' && <div className={`mt-3 rounded-xl border px-3 py-2.5 ${supervisor ? `${config.soft} ${config.line}` : 'border-gray-100 bg-gray-50'}`}><small className="block text-[8px] font-extrabold uppercase tracking-wide text-gray-400">Responde para</small><strong className="mt-0.5 block text-[11px] text-gray-800">{supervisor?.name || person.reportsToName || 'Sem responsável definido'}</strong><span className="mt-0.5 block text-[9px] text-gray-500">{supervisor?.role || supervisorLabel(role)}</span></div>}
-                      {role !== 'Consultor' && (consultantCounts.get(person.id) || 0) > 0 && <button type="button" onClick={() => { setScopeId(person.id); setSearch(''); }} className="mt-3 flex w-full items-center justify-between rounded-xl border border-gray-100 px-3 py-2 text-[10px] font-bold text-[#385041] hover:bg-[#edf4eb]"><span>{consultantCounts.get(person.id)} consultores na equipe</span><span>Ver equipe</span></button>}
-                    </article>;
-                  })}
-                  {!rolePeople.length && <div className="rounded-2xl border border-dashed border-gray-200 bg-white/50 px-4 py-10 text-center"><Icon className="mx-auto h-7 w-7 text-gray-300" /><p className="mt-2 text-[10px] font-semibold text-gray-400">{search || scopeId ? 'Nenhum resultado nesta função' : `Nenhum ${role.toLocaleLowerCase('pt-BR')} cadastrado`}</p>{canCreate && !search && !scopeId && <button onClick={() => openCreateForm(role)} className="mt-3 text-[10px] font-extrabold text-[#385041]">+ Adicionar</button>}</div>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {!!units.length && <section className="rounded-3xl border border-amber-200 bg-amber-50/55 p-5 shadow-sm">
-        <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-amber-700"><Network className="h-5 w-5" /></span><div><h3 className="text-sm font-extrabold text-gray-950">Cadastros do modelo anterior</h3><p className="mt-1 text-[10px] leading-relaxed text-gray-600">Esses cards foram criados antes da nova hierarquia. Você pode conferir e apagar os que não serão mais utilizados.</p></div></div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{units.map((unit) => <article key={unit.id} className="rounded-2xl border border-amber-100 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><strong className="block truncate text-xs text-gray-900">{unit.teamName}</strong><span className="mt-1 block truncate text-[10px] text-gray-500">{unit.department} · {unit.regional}</span></div>{canDeleteLegacy && <button onClick={() => removeLegacyUnit(unit)} title="Excluir cadastro antigo" className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>}</div><div className="mt-3 grid gap-1 text-[10px] text-gray-600"><span>Gerente: <strong>{unit.managerName}</strong></span><span>Liderança: <strong>{unit.leaderName}</strong></span>{unit.coordinatorName && <span>Coordenação: <strong>{unit.coordinatorName}</strong></span>}</div></article>)}</div>
-      </section>}
+      {!!units.length && <details className="group rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center gap-3 p-5 [&::-webkit-details-marker]:hidden"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500"><Network className="h-5 w-5" /></span><span className="flex-1"><strong className="block text-xs text-slate-700">Cadastros do modelo anterior</strong><span className="mt-1 block text-[11px] text-slate-400">{units.length} cadastros · clique para consultar</span></span><span className="text-lg text-slate-400 group-open:rotate-45">+</span></summary>
+        <div className="grid gap-4 border-t border-slate-100 p-5 md:grid-cols-2 xl:grid-cols-3">{units.map((unit) => <article key={unit.id} className="rounded-2xl border border-slate-100 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><strong className="block text-xs text-slate-900">{unit.teamName}</strong><span className="mt-1 block text-[11px] text-slate-500">{unit.department} · {unit.regional}</span></div>{canDeleteLegacy && <button type="button" onClick={() => removeLegacyUnit(unit)} title="Excluir cadastro antigo" aria-label={`Excluir cadastro antigo ${unit.teamName}`} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>}</div><div className="mt-3 grid gap-2 text-[11px] text-slate-600"><span>Gerente: <strong>{unit.managerName}</strong></span><span>Liderança: <strong>{unit.leaderName}</strong></span>{unit.coordinatorName && <span>Coordenação: <strong>{unit.coordinatorName}</strong></span>}</div></article>)}</div>
+      </details>}
 
       {isFormOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
         <form onSubmit={handleSubmit} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white bg-white shadow-2xl">
