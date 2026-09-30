@@ -66,32 +66,32 @@ const ROLE_CONFIG: Record<
   Head: {
     plural: "Heads",
     icon: Crown,
-    color: "text-violet-700",
-    surface: "bg-violet-50",
+    color: "text-fotus-blue",
+    surface: "bg-fotus-blue/7",
   },
   Gerente: {
     plural: "Gerentes",
     icon: BriefcaseBusiness,
-    color: "text-blue-700",
-    surface: "bg-blue-50",
+    color: "text-fotus-blue",
+    surface: "bg-fotus-blue/7",
   },
   Coordenador: {
     plural: "Coordenadores",
     icon: UserCog,
-    color: "text-amber-700",
-    surface: "bg-amber-50",
+    color: "text-fotus-ink",
+    surface: "bg-fotus-yellow/7",
   },
   Líder: {
     plural: "Líderes",
     icon: Network,
-    color: "text-emerald-700",
-    surface: "bg-emerald-50",
+    color: "text-fotus-blue",
+    surface: "bg-fotus-blue/7",
   },
   Consultor: {
     plural: "Consultores",
     icon: Users,
-    color: "text-cyan-700",
-    surface: "bg-cyan-50",
+    color: "text-fotus-blue",
+    surface: "bg-fotus-blue/7",
   },
 };
 
@@ -112,7 +112,7 @@ function Avatar({
     .toUpperCase();
   return (
     <span
-      className={`relative flex shrink-0 items-center justify-center rounded-2xl bg-[#edf2e8] font-extrabold text-[#385041] ${large ? "h-20 w-20 text-xl" : "h-14 w-14 text-base"}`}
+      className={`relative flex shrink-0 items-center justify-center rounded-2xl bg-fotus-blue/6 font-extrabold text-fotus-blue ${large ? "h-20 w-20 text-xl" : "h-14 w-14 text-base"}`}
     >
       {person.photoUrl ? (
         <img
@@ -127,7 +127,7 @@ function Avatar({
       )}
       <span
         title={person.active ? "Ativo na estrutura" : "Inativo na estrutura"}
-        className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white ${person.active ? "bg-emerald-500" : "bg-slate-300"}`}
+        className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-fotus-neutral ${person.active ? "bg-fotus-blue" : "bg-fotus-neutral"}`}
       />
     </span>
   );
@@ -395,7 +395,7 @@ export default function OrganizationDirectory({
     return (
       <div
         key={person.id}
-        className={depth ? "ml-4 border-l border-slate-200 pl-2" : ""}
+        className={depth ? "ml-4 border-l border-fotus-blue/20 pl-2" : ""}
       >
         <div
           onDragOver={(event) => {
@@ -412,7 +412,7 @@ export default function OrganizationDirectory({
               void move(event.dataTransfer.getData("text/plain"), person.id);
             }
           }}
-          className={`my-1 flex items-center gap-1 rounded-xl p-1 transition-colors ${eligibleDrop(person) ? "bg-[#eef6e6] ring-1 ring-[#92b976]" : isSelected ? "bg-[#e9f1e3]" : "hover:bg-slate-50"}`}
+          className={`my-1 flex items-center gap-1 rounded-xl p-1 transition-colors ${eligibleDrop(person) ? "bg-fotus-blue/6 ring-1 ring-fotus-blue" : isSelected ? "bg-fotus-blue/6" : "hover:bg-fotus-neutral/40"}`}
         >
           <button
             type="button"
@@ -427,7 +427,7 @@ export default function OrganizationDirectory({
             }
             aria-label={`${isOpen ? "Recolher" : "Expandir"} equipe de ${person.name}`}
             aria-expanded={children.length ? isOpen : undefined}
-            className="flex h-7 w-6 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white disabled:invisible"
+            className="flex h-7 w-6 shrink-0 items-center justify-center rounded-lg text-fotus-ink/80 hover:bg-fotus-neutral disabled:invisible"
           >
             {isOpen ? (
               <ChevronDown className="h-3.5 w-3.5" />
@@ -444,17 +444,17 @@ export default function OrganizationDirectory({
             <Icon className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${config.color}`} />
             <span className="min-w-0 flex-1">
               <strong
-                className={`block text-[11px] leading-relaxed ${isSelected ? "text-[#27402d]" : "text-slate-700"}`}
+                className={`block text-[11px] leading-relaxed ${isSelected ? "text-fotus-blue" : "text-fotus-ink"}`}
               >
                 {person.name}
               </strong>
-              <span className="mt-0.5 block text-[10px] text-slate-400">
+              <span className="mt-0.5 block text-[10px] text-fotus-ink/80">
                 {person.role}
                 {!person.active ? " · Inativo" : ""}
               </span>
             </span>
             {(consultantCounts.get(person.id) || 0) > 0 && (
-              <span className="mt-0.5 rounded-md bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+              <span className={`fotus-pill mt-0.5 px-2 py-0.5 ${isSelected ? 'fotus-pill-yellow' : 'fotus-pill-blue'}`}>
                 {consultantCounts.get(person.id)}
               </span>
             )}
@@ -468,28 +468,28 @@ export default function OrganizationDirectory({
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-3xl border border-[#385041]/10 bg-white shadow-sm">
-        <div className="flex flex-col gap-5 bg-gradient-to-br from-[#f1f6eb] via-white to-[#f4f7fa] p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+      <section className="overflow-hidden rounded-3xl border border-fotus-blue/10 bg-fotus-neutral shadow-sm">
+        <div className="flex flex-col gap-5 bg-gradient-to-br from-fotus-blue/6 via-fotus-neutral to-fotus-neutral p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#58704d]">
+            <span className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-fotus-blue">
               <Network className="h-4 w-4" />
               Estrutura organizacional
             </span>
-            <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
+            <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-fotus-ink sm:text-3xl">
               Pessoas, lideranças e equipes
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-slate-500">
+            <p className="mt-2 text-sm leading-relaxed text-fotus-ink/80">
               Encontre um contato ou navegue pela estrutura para conhecer cada
               equipe.
             </p>
-            <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-500">
+            <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-fotus-ink/80">
               <span>
-                <strong className="text-slate-800">{activeCount}</strong>{" "}
+                <strong className="text-fotus-ink">{activeCount}</strong>{" "}
                 pessoas ativas
               </span>
-              <span className="h-1 w-1 rounded-full bg-slate-300" />
+              <span className="h-1 w-1 rounded-full bg-fotus-neutral" />
               <span>
-                <strong className="text-slate-800">{teamCount}</strong> equipes
+                <strong className="text-fotus-ink">{teamCount}</strong> equipes
                 cadastradas
               </span>
             </div>
@@ -498,7 +498,7 @@ export default function OrganizationDirectory({
             <button
               type="button"
               onClick={() => onCreate()}
-              className="inline-flex w-fit items-center justify-center gap-2 rounded-xl bg-[#385041] px-5 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#2b4033]"
+              className="inline-flex w-fit items-center justify-center gap-2 rounded-xl bg-fotus-blue px-5 py-3 text-xs font-bold text-fotus-neutral shadow-sm transition-colors hover:bg-fotus-blue"
             >
               <Plus className="h-4 w-4" />
               Cadastrar pessoa
@@ -506,7 +506,7 @@ export default function OrganizationDirectory({
           )}
         </div>
         <div
-          className={`grid grid-cols-2 gap-3 border-t border-slate-100 p-4 sm:p-6 ${displayRoles.length === 5 ? "sm:grid-cols-3 xl:grid-cols-5" : "xl:grid-cols-4"}`}
+          className={`grid grid-cols-2 gap-3 border-t border-fotus-blue/10 p-4 sm:p-6 ${displayRoles.length === 5 ? "sm:grid-cols-3 xl:grid-cols-5" : "xl:grid-cols-4"}`}
         >
           {displayRoles.map((role) => {
             const config = ROLE_CONFIG[role];
@@ -521,7 +521,7 @@ export default function OrganizationDirectory({
                 type="button"
                 onClick={() => chooseRole(role)}
                 aria-pressed={isSelected}
-                className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm ${isSelected ? "border-[#385041]/30 bg-[#f2f6ed] ring-1 ring-[#385041]/10" : "border-slate-100 bg-white hover:border-slate-200"}`}
+                className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm ${isSelected ? "border-fotus-blue/30 bg-fotus-blue/6 ring-1 ring-fotus-blue/10" : "border-fotus-blue/10 bg-fotus-neutral hover:border-fotus-blue/20"}`}
               >
                 <span
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${config.surface} ${config.color}`}
@@ -529,14 +529,14 @@ export default function OrganizationDirectory({
                   <Icon className="h-5 w-5" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <strong className="block text-xl font-extrabold text-slate-900">
+                  <strong className="block text-xl font-extrabold text-fotus-ink">
                     {count}
                   </strong>
-                  <span className="text-[11px] font-semibold text-slate-500">
+                  <span className="text-[11px] font-semibold text-fotus-ink/80">
                     {config.plural}
                   </span>
                 </span>
-                <ChevronRight className="h-4 w-4 text-slate-300" />
+                <ChevronRight className="h-4 w-4 text-fotus-ink/50" />
               </button>
             );
           })}
@@ -544,12 +544,12 @@ export default function OrganizationDirectory({
       </section>
 
       <div className="grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm xl:sticky xl:top-6">
+        <aside className="fotus-glass overflow-hidden rounded-2xl xl:sticky xl:top-6">
           <div className="hidden p-5 xl:block">
-            <h3 className="text-sm font-bold text-slate-900">
+            <h3 className="text-sm font-bold text-fotus-ink">
               Navegar pela estrutura
             </h3>
-            <p className="mt-1 text-[11px] text-slate-400">
+            <p className="mt-1 text-[11px] text-fotus-ink/80">
               Escolha um responsável
             </p>
           </div>
@@ -561,26 +561,26 @@ export default function OrganizationDirectory({
             className="flex w-full items-center justify-between p-5 text-left xl:hidden"
           >
             <span>
-              <strong className="block text-sm text-slate-900">
+              <strong className="block text-sm text-fotus-ink">
                 Navegar pela estrutura
               </strong>
-              <span className="mt-1 block text-[11px] text-slate-400">
+              <span className="mt-1 block text-[11px] text-fotus-ink/80">
                 Escolha um responsável
               </span>
             </span>
             <ChevronDown
-              className={`h-4 w-4 text-slate-400 ${mobileNavigation ? "rotate-180" : ""}`}
+              className={`h-4 w-4 text-fotus-ink/80 ${mobileNavigation ? "rotate-180" : ""}`}
             />
           </button>
           <nav
             id="organization-hierarchy"
             aria-label="Hierarquia da empresa"
-            className={`${mobileNavigation ? "block" : "hidden"} border-t border-slate-100 p-3 xl:block`}
+            className={`${mobileNavigation ? "block" : "hidden"} border-t border-fotus-blue/10 p-3 xl:block`}
           >
             <button
               type="button"
               onClick={reset}
-              className={`mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold ${!scopeId ? "bg-[#385041] text-white" : "text-slate-600 hover:bg-slate-50"}`}
+              className={`mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold ${!scopeId ? "bg-fotus-blue text-fotus-neutral" : "text-fotus-ink hover:bg-fotus-neutral/40"}`}
             >
               <Building2 className="h-4 w-4" />
               Visão da empresa
@@ -588,7 +588,7 @@ export default function OrganizationDirectory({
             <div className="max-h-[60vh] overflow-y-auto pr-1">
               {roots.map((person) => treeNode(person, new Set()))}
               {!roots.length && (
-                <p className="p-3 text-xs leading-relaxed text-slate-400">
+                <p className="p-3 text-xs leading-relaxed text-fotus-ink/80">
                   As lideranças aparecerão aqui após o cadastro.
                 </p>
               )}
@@ -597,10 +597,10 @@ export default function OrganizationDirectory({
               <button
                 type="button"
                 onClick={() => browse(UNASSIGNED)}
-                className={`mt-3 flex w-full items-center justify-between rounded-xl border px-3 py-3 text-[11px] font-semibold ${scopeId === UNASSIGNED ? "border-amber-300 bg-amber-50 text-amber-800" : "border-slate-100 text-slate-500 hover:bg-slate-50"}`}
+                className={`mt-3 flex w-full items-center justify-between rounded-xl border px-3 py-3 text-[11px] font-semibold ${scopeId === UNASSIGNED ? "border-fotus-yellow/45 bg-fotus-yellow/7 text-fotus-ink" : "border-fotus-blue/10 text-fotus-ink/80 hover:bg-fotus-neutral/40"}`}
               >
                 <span>Consultores sem responsável</span>
-                <span className="rounded-md bg-amber-50 px-2 py-0.5 font-bold text-amber-700">
+                <span className="rounded-md bg-fotus-yellow/7 px-2 py-0.5 font-bold text-fotus-ink">
                   {unassignedCount}
                 </span>
               </button>
@@ -609,10 +609,10 @@ export default function OrganizationDirectory({
         </aside>
 
         <section ref={resultsRef} className="min-w-0 scroll-mt-6 space-y-5">
-          <div className="rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm sm:p-5">
+          <div className="fotus-glass rounded-2xl p-4 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row">
               <label className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-fotus-ink/80" />
                 <input
                   value={search}
                   onChange={(event) => {
@@ -621,11 +621,11 @@ export default function OrganizationDirectory({
                   }}
                   placeholder="Buscar nome, e-mail, telefone ou equipe"
                   aria-label="Buscar pessoas"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-3 pl-11 pr-4 text-xs outline-none transition-colors focus:border-[#385041] focus:bg-white focus:ring-2 focus:ring-[#385041]/10"
+                  className="w-full rounded-xl border border-fotus-blue/20 bg-fotus-neutral/28 py-3 pl-11 pr-4 text-xs outline-none transition-colors focus:border-fotus-blue focus:bg-fotus-neutral focus:ring-2 focus:ring-fotus-blue/10"
                 />
               </label>
               <div
-                className="flex shrink-0 rounded-xl border border-slate-200 p-1"
+                className="flex shrink-0 rounded-xl border border-fotus-blue/20 p-1"
                 role="group"
                 aria-label="Visualização dos resultados"
               >
@@ -634,7 +634,7 @@ export default function OrganizationDirectory({
                   onClick={() => setView("grid")}
                   aria-pressed={view === "grid"}
                   title="Visualizar em grade"
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-bold ${view === "grid" ? "bg-[#385041] text-white" : "text-slate-500 hover:bg-slate-50"}`}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-bold ${view === "grid" ? "bg-fotus-blue text-fotus-neutral" : "text-fotus-ink/80 hover:bg-fotus-neutral/40"}`}
                 >
                   <LayoutGrid className="h-4 w-4" />
                   Grade
@@ -643,7 +643,7 @@ export default function OrganizationDirectory({
                   type="button"
                   onClick={() => setView("list")}
                   aria-pressed={view === "list"}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-bold ${view === "list" ? "bg-[#385041] text-white" : "text-slate-500 hover:bg-slate-50"}`}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-bold ${view === "list" ? "bg-fotus-blue text-fotus-neutral" : "text-fotus-ink/80 hover:bg-fotus-neutral/40"}`}
                 >
                   <List className="h-4 w-4" />
                   Lista
@@ -651,14 +651,14 @@ export default function OrganizationDirectory({
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <SlidersHorizontal className="mr-1 hidden h-3.5 w-3.5 text-slate-400 sm:block" />
+              <SlidersHorizontal className="mr-1 hidden h-3.5 w-3.5 text-fotus-ink/80 sm:block" />
               <select
                 value={roleFilter}
                 onChange={(event) =>
                   setRoleFilter(event.target.value as RoleFilter)
                 }
                 aria-label="Filtrar por função"
-                className="max-w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600"
+                className="max-w-full rounded-lg border border-fotus-blue/20 bg-fotus-neutral px-3 py-2 text-[11px] text-fotus-ink"
               >
                 <option value="liderancas">Lideranças</option>
                 <option value="todos">Todas as funções</option>
@@ -672,7 +672,7 @@ export default function OrganizationDirectory({
                 value={regional}
                 onChange={(event) => setRegional(event.target.value)}
                 aria-label="Filtrar por regional"
-                className="max-w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600"
+                className="max-w-full rounded-lg border border-fotus-blue/20 bg-fotus-neutral px-3 py-2 text-[11px] text-fotus-ink"
               >
                 <option value="">Todas as regionais</option>
                 {regions.map((region) => (
@@ -687,7 +687,7 @@ export default function OrganizationDirectory({
                   setStatus(event.target.value as StatusFilter)
                 }
                 aria-label="Filtrar por situação"
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600"
+                className="rounded-lg border border-fotus-blue/20 bg-fotus-neutral px-3 py-2 text-[11px] text-fotus-ink"
               >
                 <option value="active">Pessoas ativas</option>
                 <option value="all">Ativas e inativas</option>
@@ -697,7 +697,7 @@ export default function OrganizationDirectory({
                 <button
                   type="button"
                   onClick={reset}
-                  className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-bold text-slate-500 hover:bg-slate-50"
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-bold text-fotus-ink/80 hover:bg-fotus-neutral/40"
                 >
                   <X className="h-3 w-3" />
                   Limpar filtros
@@ -707,12 +707,12 @@ export default function OrganizationDirectory({
           </div>
 
           {selected && (
-            <div className="rounded-2xl border border-[#385041]/15 bg-[#f4f7ef] p-5 sm:p-6">
-              <div className="mb-4 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
+            <div className="fotus-glass rounded-2xl p-5 sm:p-6">
+              <div className="mb-4 flex flex-wrap items-center gap-1.5 text-[10px] text-fotus-ink/80">
                 <button
                   type="button"
                   onClick={reset}
-                  className="font-bold hover:text-[#385041]"
+                  className="font-bold hover:text-fotus-blue"
                 >
                   Empresa
                 </button>
@@ -721,11 +721,11 @@ export default function OrganizationDirectory({
                     key={person.id}
                     className="inline-flex items-center gap-1.5"
                   >
-                    <ChevronRight className="h-3 w-3 text-slate-300" />
+                    <ChevronRight className="h-3 w-3 text-fotus-ink/50" />
                     <button
                       type="button"
                       onClick={() => browse(person.id)}
-                      className={`max-w-48 truncate hover:text-[#385041] ${person.id === selected.id ? "font-bold text-[#385041]" : ""}`}
+                      className={`max-w-48 truncate hover:text-fotus-blue ${person.id === selected.id ? "font-bold text-fotus-blue" : ""}`}
                       title={person.name}
                     >
                       {person.name}
@@ -736,13 +736,13 @@ export default function OrganizationDirectory({
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 <Avatar person={selected} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#6b805e]">
+                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-fotus-blue">
                     Equipe de {selected.role.toLocaleLowerCase("pt-BR")}
                   </p>
-                  <h3 className="mt-1 text-lg font-extrabold text-slate-900">
+                  <h3 className="mt-1 text-lg font-extrabold text-fotus-ink">
                     {selected.name}
                   </h3>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-fotus-ink/80">
                     {
                       (directReports.get(selected.id) || []).filter(
                         (person) => person.active,
@@ -756,7 +756,7 @@ export default function OrganizationDirectory({
                 <button
                   type="button"
                   onClick={() => setDetailId(selected.id)}
-                  className="w-fit rounded-xl border border-[#385041]/15 bg-white px-4 py-2.5 text-xs font-bold text-[#385041] hover:bg-[#edf3e6]"
+                  className="w-fit rounded-xl border border-fotus-blue/15 bg-fotus-neutral px-4 py-2.5 text-xs font-bold text-fotus-blue hover:bg-fotus-blue/6"
                 >
                   Ver contato
                 </button>
@@ -766,7 +766,7 @@ export default function OrganizationDirectory({
                   type="button"
                   onClick={() => setScopeMode("direct")}
                   aria-pressed={scopeMode === "direct"}
-                  className={`rounded-lg px-3 py-2 text-[11px] font-bold ${scopeMode === "direct" ? "bg-[#385041] text-white" : "bg-white text-slate-500"}`}
+                  className={`rounded-lg px-3 py-2 text-[11px] font-bold ${scopeMode === "direct" ? "bg-fotus-blue text-fotus-neutral" : "bg-fotus-neutral text-fotus-ink/80"}`}
                 >
                   Equipe direta
                 </button>
@@ -774,7 +774,7 @@ export default function OrganizationDirectory({
                   type="button"
                   onClick={() => setScopeMode("all")}
                   aria-pressed={scopeMode === "all"}
-                  className={`rounded-lg px-3 py-2 text-[11px] font-bold ${scopeMode === "all" ? "bg-[#385041] text-white" : "bg-white text-slate-500"}`}
+                  className={`rounded-lg px-3 py-2 text-[11px] font-bold ${scopeMode === "all" ? "bg-fotus-blue text-fotus-neutral" : "bg-fotus-neutral text-fotus-ink/80"}`}
                 >
                   Toda a estrutura abaixo
                 </button>
@@ -785,7 +785,7 @@ export default function OrganizationDirectory({
                       ? browse(selected.reportsToId)
                       : reset()
                   }
-                  className="ml-auto inline-flex items-center gap-1.5 px-2 text-[11px] font-bold text-slate-500"
+                  className="ml-auto inline-flex items-center gap-1.5 px-2 text-[11px] font-bold text-fotus-ink/80"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
                   Voltar um nível
@@ -796,7 +796,7 @@ export default function OrganizationDirectory({
 
           <div className="flex flex-wrap items-center justify-between gap-2 px-1">
             <div>
-              <h3 className="text-sm font-extrabold text-slate-900">
+              <h3 className="text-sm font-extrabold text-fotus-ink">
                 {scopeId === UNASSIGNED
                   ? "Consultores sem responsável"
                   : selected
@@ -807,7 +807,7 @@ export default function OrganizationDirectory({
                         ? "Diretório de pessoas"
                         : ROLE_CONFIG[roleFilter].plural}
               </h3>
-              <p className="mt-1 text-[11px] text-slate-400">
+              <p className="mt-1 text-[11px] text-fotus-ink/80">
                 {filtered.length}{" "}
                 {filtered.length === 1
                   ? "pessoa encontrada"
@@ -820,7 +820,7 @@ export default function OrganizationDirectory({
             {moving && (
               <span
                 role="status"
-                className="rounded-full bg-[#edf4e6] px-3 py-1.5 text-[11px] font-semibold text-[#385041]"
+                className="rounded-full bg-fotus-blue/6 px-3 py-1.5 text-[11px] font-semibold text-fotus-blue"
               >
                 Salvando movimentação…
               </span>
@@ -829,7 +829,7 @@ export default function OrganizationDirectory({
           {dragged && (
             <p
               role="status"
-              className="rounded-xl border border-[#385041]/20 bg-[#f2f7ec] px-4 py-3 text-xs text-[#385041]"
+              className="rounded-xl border border-fotus-blue/20 bg-fotus-blue/6 px-4 py-3 text-xs text-fotus-blue"
             >
               Movendo <strong>{dragged.name}</strong>. Os cards destacados
               aceitam a movimentação.
@@ -896,14 +896,14 @@ export default function OrganizationDirectory({
             })}
           </div>
           {!visible.length && (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-14 text-center">
-              <Users className="mx-auto h-10 w-10 text-slate-200" />
-              <h4 className="mt-4 text-sm font-bold text-slate-700">
+            <div className="rounded-2xl border border-dashed border-fotus-blue/20 bg-fotus-neutral px-6 py-14 text-center">
+              <Users className="mx-auto h-10 w-10 text-fotus-ink/50" />
+              <h4 className="mt-4 text-sm font-bold text-fotus-ink">
                 {people.length
                   ? "Nenhuma pessoa nesta seleção"
                   : "Sua estrutura começa aqui"}
               </h4>
-              <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-slate-400">
+              <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-fotus-ink/80">
                 {people.length
                   ? "Ajuste a busca e os filtros ou selecione outra equipe na navegação."
                   : "Cadastre os responsáveis e suas equipes para começar a navegar."}
@@ -912,7 +912,7 @@ export default function OrganizationDirectory({
                 <button
                   type="button"
                   onClick={reset}
-                  className="mt-5 rounded-xl bg-[#edf3e6] px-4 py-2.5 text-xs font-bold text-[#385041]"
+                  className="mt-5 rounded-xl bg-fotus-blue/6 px-4 py-2.5 text-xs font-bold text-fotus-blue"
                 >
                   Ver lideranças
                 </button>
@@ -921,7 +921,7 @@ export default function OrganizationDirectory({
                   <button
                     type="button"
                     onClick={() => onCreate()}
-                    className="mt-5 rounded-xl bg-[#385041] px-4 py-2.5 text-xs font-bold text-white"
+                    className="mt-5 rounded-xl bg-fotus-blue px-4 py-2.5 text-xs font-bold text-fotus-neutral"
                   >
                     Cadastrar primeira pessoa
                   </button>
@@ -930,8 +930,8 @@ export default function OrganizationDirectory({
             </div>
           )}
           {filtered.length > PAGE_SIZE && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-white px-5 py-4">
-              <p className="text-[11px] text-slate-500">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-fotus-blue/14 bg-fotus-neutral px-5 py-4">
+              <p className="text-[11px] text-fotus-ink/80">
                 Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–
                 {Math.min(currentPage * PAGE_SIZE, filtered.length)} de{" "}
                 {filtered.length}
@@ -941,19 +941,19 @@ export default function OrganizationDirectory({
                   type="button"
                   disabled={currentPage <= 1}
                   onClick={() => changePage(currentPage - 1)}
-                  className="flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-30"
+                  className="flex items-center gap-1 rounded-lg border border-fotus-blue/20 px-3 py-2 text-[11px] font-bold text-fotus-ink hover:bg-fotus-neutral/40 disabled:opacity-30"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                   Anterior
                 </button>
-                <span className="px-2 text-xs font-bold text-slate-700">
+                <span className="px-2 text-xs font-bold text-fotus-ink">
                   {currentPage} / {totalPages}
                 </span>
                 <button
                   type="button"
                   disabled={currentPage >= totalPages}
                   onClick={() => changePage(currentPage + 1)}
-                  className="flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-30"
+                  className="flex items-center gap-1 rounded-lg border border-fotus-blue/20 px-3 py-2 text-[11px] font-bold text-fotus-ink hover:bg-fotus-neutral/40 disabled:opacity-30"
                 >
                   Próxima
                   <ChevronRight className="h-3.5 w-3.5" />
@@ -962,7 +962,7 @@ export default function OrganizationDirectory({
             </div>
           )}
           {canManage && (
-            <p className="px-1 text-[11px] leading-relaxed text-slate-400">
+            <p className="px-1 text-[11px] leading-relaxed text-fotus-ink/80">
               Use as setas dos cards para ajustar a ordem. Arraste sobre outro
               card da mesma função para ordenar ou sobre um responsável,
               inclusive na navegação lateral, para mudar o vínculo.
@@ -979,12 +979,12 @@ export default function OrganizationDirectory({
           if (event.target === event.currentTarget) setDetailId(null);
         }}
         aria-labelledby="organization-contact-title"
-        className="fixed inset-0 m-auto max-h-[90vh] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-3xl border-0 bg-white p-0 text-slate-700 shadow-2xl backdrop:bg-slate-900/45 backdrop:backdrop-blur-sm"
+        className="fixed inset-0 m-auto max-h-[90vh] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-3xl border-0 bg-fotus-neutral p-0 text-fotus-ink shadow-2xl backdrop:bg-fotus-ink/45 backdrop:backdrop-blur-sm"
       >
         {detail && (
           <>
-            <header className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-              <span className="text-xs font-bold text-slate-500">
+            <header className="flex items-center justify-between border-b border-fotus-blue/10 px-6 py-4">
+              <span className="text-xs font-bold text-fotus-ink/80">
                 Contato e vínculos
               </span>
               <button
@@ -992,7 +992,7 @@ export default function OrganizationDirectory({
                 onClick={() => setDetailId(null)}
                 aria-label="Fechar contato"
                 autoFocus
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-50"
+                className="rounded-lg p-2 text-fotus-ink/80 hover:bg-fotus-neutral/40"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1008,71 +1008,71 @@ export default function OrganizationDirectory({
                   </span>
                   <h3
                     id="organization-contact-title"
-                    className="mt-2 text-xl font-extrabold leading-snug text-slate-900"
+                    className="mt-2 text-xl font-extrabold leading-snug text-fotus-ink"
                   >
                     {detail.name}
                   </h3>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-fotus-ink/80">
                     {detail.jobTitle || detail.role}
                   </p>
                 </div>
               </div>
-              <div className="space-y-3 rounded-2xl bg-slate-50 p-4">
+              <div className="space-y-3 rounded-2xl bg-fotus-neutral/40 p-4">
                 {detail.email ? (
                   <a
                     href={`mailto:${detail.email}`}
-                    className="flex items-start gap-3 text-xs text-[#385041] hover:underline"
+                    className="flex items-start gap-3 text-xs text-fotus-blue hover:underline"
                   >
                     <Mail className="h-4 w-4 shrink-0" />
                     <span className="break-all">{detail.email}</span>
                   </a>
                 ) : (
-                  <p className="text-xs text-slate-400">E-mail não informado</p>
+                  <p className="text-xs text-fotus-ink/80">E-mail não informado</p>
                 )}
                 {detail.phone ? (
                   <a
                     href={`tel:${detail.phone.replace(/[^\d+]/g, "")}`}
-                    className="flex items-center gap-3 text-xs text-[#385041] hover:underline"
+                    className="flex items-center gap-3 text-xs text-fotus-blue hover:underline"
                   >
                     <Phone className="h-4 w-4" />
                     {detail.phone}
                   </a>
                 ) : (
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-fotus-ink/80">
                     Telefone não informado
                   </p>
                 )}
               </div>
               <dl className="grid grid-cols-2 gap-5 text-xs">
                 <div>
-                  <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  <dt className="text-[10px] font-bold uppercase tracking-wide text-fotus-ink/80">
                     Setor
                   </dt>
-                  <dd className="mt-1.5 font-semibold text-slate-700">
+                  <dd className="mt-1.5 font-semibold text-fotus-ink">
                     {detail.department || "Não informado"}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  <dt className="text-[10px] font-bold uppercase tracking-wide text-fotus-ink/80">
                     Regional
                   </dt>
-                  <dd className="mt-1.5 font-semibold text-slate-700">
+                  <dd className="mt-1.5 font-semibold text-fotus-ink">
                     {detail.regional || "Não informada"}
                   </dd>
                 </div>
                 {detail.teamName && (
                   <div className="col-span-2">
-                    <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    <dt className="text-[10px] font-bold uppercase tracking-wide text-fotus-ink/80">
                       Equipe
                     </dt>
-                    <dd className="mt-1.5 font-semibold text-slate-700">
+                    <dd className="mt-1.5 font-semibold text-fotus-ink">
                       {detail.teamName}
                     </dd>
                   </div>
                 )}
               </dl>
               <div>
-                <h4 className="text-xs font-bold text-slate-800">
+                <h4 className="text-xs font-bold text-fotus-ink">
                   Caminho na estrutura
                 </h4>
                 <div className="mt-3 space-y-2">
@@ -1090,16 +1090,16 @@ export default function OrganizationDirectory({
                         setDetailId(null);
                         browse(person.id);
                       }}
-                      className="flex w-full items-center gap-3 rounded-xl border border-slate-100 px-3 py-2.5 text-left hover:bg-slate-50 disabled:hover:bg-white"
+                      className="flex w-full items-center gap-3 rounded-xl border border-fotus-blue/10 px-3 py-2.5 text-left hover:bg-fotus-neutral/40 disabled:hover:bg-fotus-neutral"
                     >
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#edf3e6] text-[10px] font-extrabold text-[#385041]">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-fotus-blue/6 text-[10px] font-extrabold text-fotus-blue">
                         {index + 1}
                       </span>
                       <span className="min-w-0">
-                        <span className="block text-[11px] font-bold text-slate-700">
+                        <span className="block text-[11px] font-bold text-fotus-ink">
                           {person.name}
                         </span>
-                        <small className="text-[10px] text-slate-400">
+                        <small className="text-[10px] text-fotus-ink/80">
                           {person.role}
                         </small>
                       </span>
@@ -1117,7 +1117,7 @@ export default function OrganizationDirectory({
                       setDetailId(null);
                       browse(detail.id);
                     }}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[#385041] px-4 py-3 text-xs font-bold text-white"
+                    className="inline-flex items-center gap-2 rounded-xl bg-fotus-blue px-4 py-3 text-xs font-bold text-fotus-neutral"
                   >
                     <Users className="h-4 w-4" />
                     Explorar equipe
@@ -1130,7 +1130,7 @@ export default function OrganizationDirectory({
                       setDetailId(null);
                       onEdit(detail);
                     }}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-xs font-bold text-slate-600"
+                    className="inline-flex items-center gap-2 rounded-xl border border-fotus-blue/20 px-4 py-3 text-xs font-bold text-fotus-ink"
                   >
                     <Pencil className="h-4 w-4" />
                     Editar pessoa
@@ -1190,7 +1190,6 @@ function PersonCard({
   onDragEnd,
   onDrop,
 }: CardProps) {
-  const config = ROLE_CONFIG[person.role];
   return (
     <article
       draggable={canManage && !moving}
@@ -1211,19 +1210,19 @@ function PersonCard({
         event.preventDefault();
         onDrop(event.dataTransfer.getData("text/plain"));
       }}
-      className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white shadow-sm transition-all ${view === "list" ? "lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]" : ""} ${acceptsDrop ? "border-[#6d9857] bg-[#fcfef8] ring-2 ring-[#92b976]/30" : "border-slate-200/70 hover:border-slate-300 hover:shadow-md"} ${isDragged ? "opacity-40" : ""}`}
+      className={`fotus-glass-card flex min-w-0 flex-col overflow-hidden rounded-3xl ${view === "list" ? "lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]" : ""} ${acceptsDrop ? "ring-2 ring-fotus-blue/40" : ""} ${isDragged ? "opacity-40" : ""}`}
     >
       <div className="p-5 sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <span
-            className={`rounded-lg px-2.5 py-1 text-[10px] font-extrabold ${config.surface} ${config.color}`}
+            className={`fotus-pill ${person.role === 'Coordenador' ? 'fotus-pill-yellow' : person.role === 'Head' ? 'fotus-pill-solid' : 'fotus-pill-blue'}`}
           >
             {person.role}
           </span>
           {canManage && (
             <span
               title="Arrastar card"
-              className="cursor-grab text-slate-300 active:cursor-grabbing"
+              className="cursor-grab text-fotus-ink/50 active:cursor-grabbing"
             >
               <GripVertical className="h-4 w-4" />
             </span>
@@ -1235,15 +1234,15 @@ function PersonCard({
             <button
               type="button"
               onClick={onDetail}
-              className="text-left text-sm font-extrabold leading-relaxed text-slate-900 hover:text-[#385041]"
+              className="text-left text-sm font-extrabold leading-relaxed text-fotus-ink hover:text-fotus-blue"
             >
               {person.name}
             </button>
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+            <p className="mt-1 text-[11px] leading-relaxed text-fotus-ink/80">
               {person.jobTitle || person.role}
             </p>
             {!person.active && (
-              <span className="mt-1 inline-block text-[10px] font-bold text-slate-400">
+              <span className="mt-1 inline-block text-[10px] font-bold text-fotus-ink/80">
                 Inativo na estrutura
               </span>
             )}
@@ -1254,7 +1253,7 @@ function PersonCard({
             <a
               href={`mailto:${person.email}`}
               draggable={false}
-              className="flex items-start gap-2 text-[11px] leading-relaxed text-slate-500 hover:text-[#385041]"
+              className="flex items-start gap-2 text-[11px] leading-relaxed text-fotus-ink/80 hover:text-fotus-blue"
             >
               <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span className="break-all">{person.email}</span>
@@ -1264,46 +1263,46 @@ function PersonCard({
             <a
               href={`tel:${person.phone.replace(/[^\d+]/g, "")}`}
               draggable={false}
-              className="flex items-center gap-2 text-[11px] text-slate-500 hover:text-[#385041]"
+              className="flex items-center gap-2 text-[11px] text-fotus-ink/80 hover:text-fotus-blue"
             >
               <Phone className="h-3.5 w-3.5 shrink-0" />
               {person.phone}
             </a>
           )}
           {person.regional && (
-            <p className="flex items-start gap-2 text-[11px] leading-relaxed text-slate-500">
-              <MapPinned className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <p className="flex items-start gap-2 text-[11px] leading-relaxed text-fotus-ink/80">
+              <MapPinned className="mt-0.5 h-3.5 w-3.5 shrink-0 text-fotus-ink/80" />
               {person.regional}
             </p>
           )}
         </div>
       </div>
       <div
-        className={`flex flex-1 flex-col px-5 pb-5 sm:px-6 sm:pb-6 ${view === "list" ? "lg:border-l lg:border-slate-100 lg:pt-6" : ""}`}
+        className={`flex flex-1 flex-col px-5 pb-5 sm:px-6 sm:pb-6 ${view === "list" ? "lg:border-l lg:border-fotus-blue/10 lg:pt-6" : ""}`}
       >
         {person.teamName && (
-          <p className="mb-3 rounded-xl bg-slate-50 px-3 py-2.5 text-[10px] font-semibold leading-relaxed text-slate-500">
+          <p className="fotus-pill fotus-pill-neutral mb-3 w-fit text-left">
             {person.teamName}
           </p>
         )}
         {person.role !== "Head" && (
-          <div className="mb-4 rounded-xl border border-slate-100 px-3 py-3">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="mb-4 rounded-xl border border-fotus-blue/10 px-3 py-3">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-fotus-ink/80">
               Responsável direto
             </p>
             {supervisor ? (
               <button
                 type="button"
                 onClick={onSupervisor}
-                className="mt-1.5 text-left text-[11px] font-bold leading-relaxed text-[#385041] hover:underline"
+                className="mt-1.5 text-left text-[11px] font-bold leading-relaxed text-fotus-blue hover:underline"
               >
                 {supervisor.name}
-                <span className="ml-1 font-normal text-slate-400">
+                <span className="ml-1 font-normal text-fotus-ink/80">
                   · {supervisor.role}
                 </span>
               </button>
             ) : (
-              <p className="mt-1.5 text-[11px] text-slate-400">
+              <p className="mt-1.5 text-[11px] text-fotus-ink/80">
                 {person.reportsToName || "Não informado"}
               </p>
             )}
@@ -1313,11 +1312,11 @@ function PersonCard({
           <button
             type="button"
             onClick={onBrowse}
-            className="mb-4 flex w-full items-center justify-between gap-2 rounded-xl bg-[#f0f5e9] px-3 py-3 text-left text-[#385041]"
+            className="mb-4 flex w-full items-center justify-between gap-2 rounded-xl bg-fotus-blue/6 px-3 py-3 text-left text-fotus-blue"
           >
             <span>
               <strong className="block text-[11px]">Abrir equipe</strong>
-              <span className="mt-0.5 block text-[10px] text-[#758767]">
+              <span className="fotus-pill fotus-pill-blue mt-2 px-2 py-0.5">
                 {directCount} vínculos diretos
                 {consultantCount > 0 ? ` · ${consultantCount} consultores` : ""}
               </span>
@@ -1325,11 +1324,11 @@ function PersonCard({
             <ArrowRight className="h-4 w-4 shrink-0" />
           </button>
         )}
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-4">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-fotus-blue/10 pt-4">
           <button
             type="button"
             onClick={onDetail}
-            className="text-[11px] font-bold text-[#385041] hover:underline"
+            className="text-[11px] font-bold text-fotus-blue hover:underline"
           >
             Ver detalhes
           </button>
@@ -1342,7 +1341,7 @@ function PersonCard({
                   onClick={onUp}
                   aria-label={`Subir ${person.name} na ordem`}
                   title="Subir na ordem"
-                  className="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-20"
+                  className="rounded-lg p-2 text-fotus-ink/80 hover:bg-fotus-neutral/40 hover:text-fotus-ink disabled:opacity-20"
                 >
                   <ArrowDown className="h-3.5 w-3.5 rotate-180" />
                 </button>
@@ -1352,7 +1351,7 @@ function PersonCard({
                   onClick={onDown}
                   aria-label={`Descer ${person.name} na ordem`}
                   title="Descer na ordem"
-                  className="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-20"
+                  className="rounded-lg p-2 text-fotus-ink/80 hover:bg-fotus-neutral/40 hover:text-fotus-ink disabled:opacity-20"
                 >
                   <ArrowDown className="h-3.5 w-3.5" />
                 </button>
@@ -1362,7 +1361,7 @@ function PersonCard({
                   onClick={onEdit}
                   aria-label={`Editar ${person.name}`}
                   title="Editar pessoa"
-                  className="rounded-lg bg-slate-50 p-2 text-slate-500 hover:bg-[#edf3e6] hover:text-[#385041]"
+                  className="rounded-lg bg-fotus-neutral/40 p-2 text-fotus-ink/80 hover:bg-fotus-blue/6 hover:text-fotus-blue"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
@@ -1375,7 +1374,7 @@ function PersonCard({
                 onClick={onDelete}
                 aria-label={`Excluir ${person.name}`}
                 title="Excluir pessoa"
-                className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                className="rounded-lg p-2 text-fotus-ink/80 hover:bg-fotus-yellow/7 hover:text-fotus-ink"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>

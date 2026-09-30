@@ -62,42 +62,42 @@ export default function AgentManagerModal({ isOpen, onClose, agents, currentUser
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-6">
-      <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-white bg-white shadow-2xl">
-        <header className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-[#eef5eb] via-white to-white px-5 py-4 sm:px-6">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-fotus-ink/45 p-3 backdrop-blur-sm sm:p-6">
+      <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-fotus-neutral bg-fotus-neutral shadow-2xl">
+        <header className="flex items-center justify-between border-b border-fotus-blue/10 bg-gradient-to-r from-fotus-blue/6 via-fotus-neutral to-fotus-neutral px-5 py-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#e8efe0] text-[#385041]"><UserRound className="h-5 w-5" /></span>
-            <div><h2 className="text-base font-extrabold text-gray-950">Editar agentes</h2><p className="text-xs text-gray-500">Essa lista aparece no cadastro de ocorrências.</p></div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-fotus-blue/6 text-fotus-blue"><UserRound className="h-5 w-5" /></span>
+            <div><h2 className="text-base font-extrabold text-fotus-ink">Editar agentes</h2><p className="text-xs text-fotus-ink/80">Essa lista aparece no cadastro de ocorrências.</p></div>
           </div>
-          <button type="button" onClick={onClose} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><X className="h-5 w-5" /></button>
+          <button type="button" onClick={onClose} className="rounded-xl p-2 text-fotus-ink/80 hover:bg-fotus-neutral/70 hover:text-fotus-ink"><X className="h-5 w-5" /></button>
         </header>
 
         <div className="space-y-5 p-5 sm:p-6">
           <form onSubmit={addAgent} className="flex gap-2">
             <input autoFocus value={newAgent} onChange={(event) => setNewAgent(event.target.value)} placeholder="Nome da nova agente" className="field-input" />
-            <button type="submit" className="flex shrink-0 items-center gap-1.5 rounded-xl bg-[#385041] px-3.5 py-2.5 text-xs font-bold text-white hover:bg-[#2c4033]"><Plus className="h-4 w-4" />Adicionar</button>
+            <button type="submit" className="flex shrink-0 items-center gap-1.5 rounded-xl bg-fotus-blue px-3.5 py-2.5 text-xs font-bold text-fotus-neutral hover:bg-fotus-blue"><Plus className="h-4 w-4" />Adicionar</button>
           </form>
 
-          {errorMessage && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{errorMessage}</p>}
+          {errorMessage && <p className="rounded-xl border border-fotus-yellow/25 bg-fotus-yellow/7 p-3 text-xs font-semibold text-fotus-ink">{errorMessage}</p>}
 
           <div className="space-y-2">
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">Agentes disponíveis ({draftAgents.length})</p>
-            <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-fotus-ink/80">Agentes disponíveis ({draftAgents.length})</p>
+            <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl border border-fotus-blue/10 bg-fotus-neutral/28 p-3">
               {draftAgents.map((agent) => (
-                <div key={agent} className="flex items-center justify-between rounded-xl border border-white bg-white px-3 py-2.5 shadow-sm">
-                  <span className="flex items-center gap-2 text-sm font-semibold text-gray-700"><UserRound className="h-4 w-4 text-[#385041]" />{agent}</span>
-                  <button type="button" onClick={() => removeAgent(agent)} className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600" title={`Remover ${agent}`}><Trash2 className="h-4 w-4" /></button>
+                <div key={agent} className="flex items-center justify-between rounded-xl border border-fotus-neutral bg-fotus-neutral px-3 py-2.5 shadow-sm">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-fotus-ink"><UserRound className="h-4 w-4 text-fotus-blue" />{agent}</span>
+                  <button type="button" onClick={() => removeAgent(agent)} className="rounded-lg p-1.5 text-fotus-ink/80 hover:bg-fotus-yellow/7 hover:text-fotus-ink" title={`Remover ${agent}`}><Trash2 className="h-4 w-4" /></button>
                 </div>
               ))}
-              {!draftAgents.length && <p className="p-4 text-center text-xs text-gray-500">Nenhuma agente na lista.</p>}
+              {!draftAgents.length && <p className="p-4 text-center text-xs text-fotus-ink/80">Nenhuma agente na lista.</p>}
             </div>
-            <p className="text-[11px] leading-relaxed text-gray-500">Remover uma agente não apaga o histórico: ocorrências antigas continuam com o nome salvo.</p>
+            <p className="text-[11px] leading-relaxed text-fotus-ink/80">Remover uma agente não apaga o histórico: ocorrências antigas continuam com o nome salvo.</p>
           </div>
         </div>
 
-        <footer className="flex items-center justify-end gap-2 border-t border-gray-100 bg-white px-5 py-4 sm:px-6">
-          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100">Cancelar</button>
-          <button type="button" disabled={saving} onClick={saveAgents} className="flex items-center gap-2 rounded-xl bg-[#385041] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar lista'}</button>
+        <footer className="flex items-center justify-end gap-2 border-t border-fotus-blue/10 bg-fotus-neutral px-5 py-4 sm:px-6">
+          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-fotus-ink hover:bg-fotus-neutral/70">Cancelar</button>
+          <button type="button" disabled={saving} onClick={saveAgents} className="flex items-center gap-2 rounded-xl bg-fotus-blue px-5 py-2.5 text-xs font-bold text-fotus-neutral disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar lista'}</button>
         </footer>
       </div>
     </div>

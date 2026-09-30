@@ -191,7 +191,7 @@ export default function App() {
     const email = (user?.email || '').toLowerCase();
     const isDeveloper = email === DEVELOPER_EMAIL;
     const isMasterOperator = isMasterOperatorEmail(email);
-    if (isDeveloper) return { role: 'Administrador' as const, agentName: '', unitIds: organizationUnits.map((unit) => unit.id), tabs: ALL_TABS, active: true, isDeveloper, isMasterOperator, canDeleteVisits: true, structurePermissions: { canCreate: true, canEdit: true, canDelete: true } };
+    if (isDeveloper) return { role: 'Administrador' as const, agentName: '', unitIds: organizationUnits.map((unit) => unit.id), tabs: ALL_TABS, active: true, isDeveloper, isMasterOperator, canDeleteVisits: true, canDeleteCosts: true, structurePermissions: { canCreate: true, canEdit: true, canDelete: true } };
 
     const profile = accessProfiles.find((item) => item.email.toLowerCase() === email);
     const inferredUnits = organizationUnits.filter((unit) => [unit.managerEmail, unit.leaderEmail, unit.coordinatorEmail || ''].some((value) => value.toLowerCase() === email));
@@ -218,6 +218,7 @@ export default function App() {
       isDeveloper,
       isMasterOperator,
       canDeleteVisits: isMasterOperator || Boolean(profile?.canDeleteVisits),
+      canDeleteCosts: isMasterOperator || Boolean(profile?.canDeleteCosts),
       structurePermissions: isMasterOperator ? { canCreate: true, canEdit: true, canDelete: true }
         : profile?.structurePermissions || { canCreate: false, canEdit: false, canDelete: false },
     };
@@ -290,12 +291,12 @@ export default function App() {
   }, [user, accessProfileLoading, access.active, access.tabs.join('|')]);
 
   if (authLoading || (user && accessProfileLoading)) {
-    return <div className="flex min-h-screen items-center justify-center bg-[#f4f7f6]"><RefreshCw className="h-8 w-8 animate-spin text-[#385041]" /></div>;
+    return <div className="flex min-h-screen items-center justify-center bg-fotus-neutral"><RefreshCw className="h-8 w-8 animate-spin text-fotus-blue" /></div>;
   }
 
   if (!user) return <Auth />;
   if (!access.active || visibleTabs.length === 0) {
-    return <div className="flex min-h-screen items-center justify-center bg-[#f4f7f6] p-6"><div className="w-full max-w-md rounded-3xl border border-white bg-white p-8 text-center shadow-xl"><img src={FOTUS_LOGO} alt="Fotus" className="mx-auto h-14 w-auto object-contain" /><h1 className="mt-6 text-xl font-extrabold text-gray-950">Acesso temporariamente indisponível</h1><p className="mt-2 text-sm leading-relaxed text-gray-500">Seu perfil está desativado ou ainda não possui nenhuma aba liberada. Procure um operador mestre.</p><button type="button" onClick={() => void handleSignOut()} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#385041] px-5 py-3 text-xs font-bold text-white"><LogOut className="h-4 w-4" />Sair da conta</button></div></div>;
+    return <div className="flex min-h-screen items-center justify-center bg-fotus-neutral p-6"><div className="w-full max-w-md rounded-3xl border border-fotus-neutral bg-fotus-neutral p-8 text-center shadow-xl"><img src={FOTUS_LOGO} alt="Fotus" className="mx-auto h-14 w-auto object-contain" /><h1 className="mt-6 text-xl font-extrabold text-fotus-ink">Acesso temporariamente indisponível</h1><p className="mt-2 text-sm leading-relaxed text-fotus-ink/80">Seu perfil está desativado ou ainda não possui nenhuma aba liberada. Procure um operador mestre.</p><button type="button" onClick={() => void handleSignOut()} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-fotus-blue px-5 py-3 text-xs font-bold text-fotus-neutral"><LogOut className="h-4 w-4" />Sair da conta</button></div></div>;
   }
 
   const allNavigationTabs: Array<{ id: MainTab; label: string; icon: typeof ClipboardList; alert?: boolean }> = [
@@ -310,58 +311,58 @@ export default function App() {
   const tabs = allNavigationTabs.filter((tab) => canView(tab.id));
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-[#f8fbf8] via-[#f2f6f3] to-[#e8efe9] font-sans text-gray-900">
-      <aside className="sticky top-0 hidden h-screen w-[72px] shrink-0 flex-col border-r border-[#e2e8e3] bg-white/90 px-2 py-3 shadow-[4px_0_24px_rgba(44,64,51,0.035)] backdrop-blur-xl sm:flex">
+    <div className="fotus-app-shell flex min-h-screen font-sans text-fotus-ink">
+      <aside className="sticky top-0 hidden h-screen w-[72px] shrink-0 flex-col border-r border-fotus-neutral bg-fotus-neutral/90 px-2 py-3 shadow-[4px_0_24px_rgb(13_81_142_/_0.035)] backdrop-blur-xl sm:flex">
         <div className="flex h-11 items-center justify-center"><img src={FOTUS_LOGO} alt="Fotus" className="h-auto w-10 object-contain" /></div>
         <nav className="mt-4 flex flex-col items-center gap-1.5" aria-label="Navegação principal">
           {tabs.map(({ id, label, icon: Icon, alert }) => {
             const selected = activeTab === id;
-            return <button key={id} type="button" onClick={() => setActiveTab(id)} title={label} aria-label={label} aria-current={selected ? 'page' : undefined} className={cn('group relative flex h-12 w-12 items-center justify-center rounded-[15px] transition-all duration-200', selected ? 'bg-[#385041] text-white shadow-[0_8px_18px_rgba(56,80,65,0.22)]' : 'text-[#8a958c] hover:bg-[#eef4eb] hover:text-[#385041]')}>
-              {id === 'ra' ? <img src={RA_LOGO} alt="" className={cn('h-7 w-7 rounded-lg object-contain', selected && 'ring-2 ring-white/70')} /> : <Icon className="h-[22px] w-[22px]" strokeWidth={selected ? 2.25 : 2} />}
+            return <button key={id} type="button" onClick={() => setActiveTab(id)} title={label} aria-label={label} aria-current={selected ? 'page' : undefined} className={cn('group relative flex h-12 w-12 items-center justify-center rounded-[15px] transition-all duration-200', selected ? 'bg-fotus-blue text-fotus-neutral shadow-[0_8px_18px_rgb(13_81_142_/_0.22)]' : 'text-fotus-blue hover:bg-fotus-blue/6 hover:text-fotus-blue')}>
+              {id === 'ra' ? <img src={RA_LOGO} alt="" className={cn('h-7 w-7 rounded-lg object-contain', selected && 'ring-2 ring-fotus-neutral/70')} /> : <Icon className="h-[22px] w-[22px]" strokeWidth={selected ? 2.25 : 2} />}
               <span className="sr-only">{label}</span>
-              {id === 'chat' && chatUnreadTotal > 0 ? <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-extrabold text-white" aria-label={`${chatUnreadTotal} mensagens novas`}>{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span> : alert && <span className={cn('absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full border-2', selected ? 'border-[#385041] bg-amber-300' : 'border-white bg-amber-500')} aria-label="Há itens que precisam de atenção" />}
+              {id === 'chat' && chatUnreadTotal > 0 ? <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-fotus-yellow px-1 text-[9px] font-extrabold text-fotus-ink" aria-label={`${chatUnreadTotal} mensagens novas`}>{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span> : alert && <span className={cn('absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full border-2', selected ? 'border-fotus-blue bg-fotus-yellow/45' : 'border-fotus-neutral bg-fotus-yellow')} aria-label="Há itens que precisam de atenção" />}
             </button>;
           })}
         </nav>
-        <button type="button" onClick={() => setIsIsaChatOpen(true)} title="Abrir ISA" aria-label="Abrir ISA" className="mt-auto flex h-11 w-full items-center justify-center rounded-xl transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#385041]/20"><img src={ISA_LOGO} alt="ISA" className="h-10 w-10 object-contain drop-shadow-sm" /></button>
+        <button type="button" onClick={() => setIsIsaChatOpen(true)} title="Abrir ISA" aria-label="Abrir ISA" className="mt-auto flex h-11 w-full items-center justify-center rounded-xl transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-fotus-blue/20"><img src={ISA_LOGO} alt="ISA" className="h-10 w-10 object-contain drop-shadow-sm" /></button>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 border-b border-white/80 bg-white/75 px-4 py-3.5 shadow-sm backdrop-blur-xl sm:px-8">
+        <header className="sticky top-0 z-30 border-b border-fotus-neutral/80 bg-fotus-neutral/75 px-4 py-3.5 shadow-sm backdrop-blur-xl sm:px-8">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3"><img src={FOTUS_LOGO} alt="Fotus" className="h-9 w-auto object-contain sm:hidden" /><div className="min-w-0"><h1 className="truncate text-base font-extrabold tracking-tight text-gray-950 sm:text-lg">{TAB_COPY[activeTab].title}</h1><p className="hidden truncate text-xs text-gray-500 md:block">{TAB_COPY[activeTab].subtitle}</p></div></div>
+            <div className="flex min-w-0 items-center gap-3"><img src={FOTUS_LOGO} alt="Fotus" className="h-9 w-auto object-contain sm:hidden" /><div className="min-w-0"><h1 className="truncate text-base font-extrabold tracking-tight text-fotus-ink sm:text-lg">{TAB_COPY[activeTab].title}</h1><p className="hidden truncate text-xs text-fotus-ink/80 md:block">{TAB_COPY[activeTab].subtitle}</p></div></div>
             <div className="flex items-center gap-2 sm:gap-3">
-              <button type="button" onClick={() => setIsIsaChatOpen(true)} title="Falar com a ISA" className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#385041]/20"><img src={ISA_LOGO} alt="Abrir ISA" className="h-11 w-11 object-contain drop-shadow-sm" /></button>
-              <button type="button" onClick={() => { setChatTarget({ conversationId: chatOverview.unread[0]?.conversationId || 'general', nonce: Date.now() }); setActiveTab('chat'); }} title={chatUnreadTotal ? `${chatUnreadTotal} ${chatUnreadTotal === 1 ? 'mensagem nova' : 'mensagens novas'}` : 'Abrir chat'} aria-label={chatUnreadTotal ? `Abrir ${chatUnreadTotal} ${chatUnreadTotal === 1 ? 'mensagem nova' : 'mensagens novas'} no chat` : 'Abrir chat'} className="relative flex h-10 w-10 items-center justify-center rounded-xl text-[#385041] hover:bg-[#eef5eb]"><Bell className="h-5 w-5" />{chatUnreadTotal > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-extrabold text-white">{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span>}</button>
-              <div className="relative border-l border-gray-200 pl-2 sm:pl-3">
-                <button type="button" onClick={() => setIsProfileMenuOpen((current) => !current)} className="flex items-center gap-2 rounded-xl p-1.5 text-left transition-colors hover:bg-gray-50" aria-expanded={isProfileMenuOpen}>
-                  <div className="hidden text-right lg:block"><p className="text-xs font-bold text-gray-800">{user.displayName || user.email}</p><p className="text-[10px] text-gray-500">{access.role} · {user.email}</p></div>
-                  {user.photoURL ? <img src={user.photoURL} alt="Abrir opções do perfil" className="h-9 w-9 rounded-full border-2 border-white object-cover shadow-sm ring-1 ring-gray-200" /> : <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e8efe0] text-xs font-bold text-[#385041] ring-1 ring-[#385041]/10">{user.email?.[0]?.toUpperCase()}</span>}
+              <button type="button" onClick={() => setIsIsaChatOpen(true)} title="Falar com a ISA" className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-fotus-blue/20"><img src={ISA_LOGO} alt="Abrir ISA" className="h-11 w-11 object-contain drop-shadow-sm" /></button>
+              <button type="button" onClick={() => { setChatTarget({ conversationId: chatOverview.unread[0]?.conversationId || 'general', nonce: Date.now() }); setActiveTab('chat'); }} title={chatUnreadTotal ? `${chatUnreadTotal} ${chatUnreadTotal === 1 ? 'mensagem nova' : 'mensagens novas'}` : 'Abrir chat'} aria-label={chatUnreadTotal ? `Abrir ${chatUnreadTotal} ${chatUnreadTotal === 1 ? 'mensagem nova' : 'mensagens novas'} no chat` : 'Abrir chat'} className="relative flex h-10 w-10 items-center justify-center rounded-xl text-fotus-blue hover:bg-fotus-blue/6"><Bell className="h-5 w-5" />{chatUnreadTotal > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-fotus-yellow px-1 text-[9px] font-extrabold text-fotus-ink">{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span>}</button>
+              <div className="relative border-l border-fotus-blue/20 pl-2 sm:pl-3">
+                <button type="button" onClick={() => setIsProfileMenuOpen((current) => !current)} className="flex items-center gap-2 rounded-xl p-1.5 text-left transition-colors hover:bg-fotus-neutral/40" aria-expanded={isProfileMenuOpen}>
+                  <div className="hidden text-right lg:block"><p className="text-xs font-bold text-fotus-ink">{user.displayName || user.email}</p><p className="text-[10px] text-fotus-ink/80">{access.role} · {user.email}</p></div>
+                  {user.photoURL ? <img src={user.photoURL} alt="Abrir opções do perfil" className="h-9 w-9 rounded-full border-2 border-fotus-neutral object-cover shadow-sm ring-1 ring-fotus-blue/20" /> : <span className="flex h-9 w-9 items-center justify-center rounded-full bg-fotus-blue/6 text-xs font-bold text-fotus-blue ring-1 ring-fotus-blue/10">{user.email?.[0]?.toUpperCase()}</span>}
                 </button>
-                {isProfileMenuOpen && <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-72 rounded-2xl border border-gray-200 bg-white p-3 shadow-xl">
-                  <div className="rounded-xl bg-[#f4f8f2] p-3"><p className="text-xs font-extrabold text-gray-900">{user.displayName || user.email}</p><p className="mt-0.5 truncate text-[10px] text-gray-500">{user.email}</p><div className="mt-2 flex flex-wrap gap-1"><span className="rounded-full bg-[#385041] px-2 py-1 text-[8px] font-extrabold uppercase tracking-wide text-white">{access.role}</span><span className="rounded-full bg-white px-2 py-1 text-[8px] font-bold text-gray-500">{scopeLabel}</span></div></div>
-                  {access.isMasterOperator && <button type="button" onClick={() => { setIsProfileMenuOpen(false); setIsAccessControlOpen(true); }} className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-[#385041] hover:bg-[#eef5eb]"><Settings2 className="h-4 w-4" /><span>Gerenciar usuários<small className="mt-0.5 block text-[9px] font-normal text-gray-500">Logins, senhas, funções e equipes</small></span></button>}
-                  <button type="button" onClick={() => void handleSignOut()} className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-red-600 hover:bg-red-50"><LogOut className="h-4 w-4" />Sair da conta</button>
+                {isProfileMenuOpen && <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-72 rounded-2xl border border-fotus-blue/20 bg-fotus-neutral p-3 shadow-xl">
+                  <div className="rounded-xl bg-fotus-neutral p-3"><p className="text-xs font-extrabold text-fotus-ink">{user.displayName || user.email}</p><p className="mt-0.5 truncate text-[10px] text-fotus-ink/80">{user.email}</p><div className="mt-2 flex flex-wrap gap-1"><span className="rounded-full bg-fotus-blue px-2 py-1 text-[8px] font-extrabold uppercase tracking-wide text-fotus-neutral">{access.role}</span><span className="rounded-full bg-fotus-neutral px-2 py-1 text-[8px] font-bold text-fotus-ink/80">{scopeLabel}</span></div></div>
+                  {access.isMasterOperator && <button type="button" onClick={() => { setIsProfileMenuOpen(false); setIsAccessControlOpen(true); }} className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-fotus-blue hover:bg-fotus-blue/6"><Settings2 className="h-4 w-4" /><span>Gerenciar usuários<small className="mt-0.5 block text-[9px] font-normal text-fotus-ink/80">Logins, senhas, funções e equipes</small></span></button>}
+                  <button type="button" onClick={() => void handleSignOut()} className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-fotus-ink hover:bg-fotus-yellow/7"><LogOut className="h-4 w-4" />Sair da conta</button>
                 </div>}
               </div>
             </div>
           </div>
 
-          <nav className="mt-3 flex gap-1.5 overflow-x-auto rounded-2xl border border-gray-200/70 bg-[#f4f7f3] p-1.5 sm:hidden" aria-label="Navegação principal">
-            {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab === id ? 'page' : undefined} className={cn('flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all', activeTab === id ? 'bg-[#385041] text-white shadow-sm' : 'text-gray-500')}>
-              {id === 'ra' ? <img src={RA_LOGO} alt="" className="h-4 w-4 rounded object-contain" /> : <Icon className="h-3.5 w-3.5" />}{label}{id === 'chat' && chatUnreadTotal > 0 && <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] text-white">{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span>}
+          <nav className="mt-3 flex gap-1.5 overflow-x-auto rounded-2xl border border-fotus-blue/14 bg-fotus-neutral p-1.5 sm:hidden" aria-label="Navegação principal">
+            {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab === id ? 'page' : undefined} className={cn('flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all', activeTab === id ? 'bg-fotus-blue text-fotus-neutral shadow-sm' : 'text-fotus-ink/80')}>
+              {id === 'ra' ? <img src={RA_LOGO} alt="" className="h-4 w-4 rounded object-contain" /> : <Icon className="h-3.5 w-3.5" />}{label}{id === 'chat' && chatUnreadTotal > 0 && <span className="rounded-full bg-fotus-yellow px-1.5 py-0.5 text-[9px] text-fotus-ink">{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span>}
             </button>)}
           </nav>
         </header>
 
         <main className="mx-auto w-full max-w-[1560px] flex-1 px-4 py-5 sm:px-8 sm:py-6">
-          {dataError && <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800">{dataError}</div>}
+          {dataError && <div className="mb-5 rounded-2xl border border-fotus-yellow/25 bg-fotus-yellow/7 p-4 text-xs font-semibold text-fotus-ink">{dataError}</div>}
 
           {canView('visao-geral') && <section hidden={activeTab !== 'visao-geral'}><OverviewView occurrences={visibleOccurrences} costs={visibleCosts} raCases={visibleRaCases} visits={visits} scopeLabel={scopeLabel} canViewOccurrences={canView('ocorrencias')} canViewCosts={canView('custos')} canViewRa={canView('ra')} canViewVisits={canView('visitas')} onNavigate={setActiveTab} /></section>}
 
           {canView('ocorrencias') && <section hidden={activeTab !== 'ocorrencias'}><OccurrencesView occurrences={visibleOccurrences} organizationUnits={visibleOrganizationUnits} currentUser={user} agents={occurrenceAgents} canManageAgents={canManageAgents} onEditAgents={() => setIsAgentManagerOpen(true)} /></section>}
 
-          {canView('custos') && <section hidden={activeTab !== 'custos'}><ExtraCostsView costs={visibleCosts} currentUser={user} /></section>}
+          {canView('custos') && <section hidden={activeTab !== 'custos'}><ExtraCostsView costs={visibleCosts} currentUser={user} canDeleteCosts={access.canDeleteCosts} /></section>}
 
           {canView('ra') && <section hidden={activeTab !== 'ra'}><RaView cases={visibleRaCases} currentUser={user} onNew={() => { setRaCaseToEdit(null); setIsRaModalOpen(true); }} onEdit={(item) => { setRaCaseToEdit(item); setIsRaModalOpen(true); }} /></section>}
 

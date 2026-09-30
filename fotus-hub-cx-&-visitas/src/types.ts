@@ -191,6 +191,7 @@ export interface UserAccessProfile {
   organizationUnitIds: string[];
   visibleTabs: AppSection[];
   canDeleteVisits?: boolean;
+  canDeleteCosts?: boolean;
   structurePermissions?: { canCreate: boolean; canEdit: boolean; canDelete: boolean };
   active: boolean;
   createdAt: number;

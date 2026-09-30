@@ -107,15 +107,15 @@ export default function ExtraCostModal({ isOpen, onClose, cost, currentUser }: E
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-6">
-      <form onSubmit={handleSubmit} className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-white bg-white shadow-2xl">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-gray-100 bg-white/95 px-5 py-4 backdrop-blur-xl sm:px-7">
-          <div><h2 className="text-lg font-extrabold text-gray-950">{cost ? 'Editar custo extra' : 'Novo custo extra'}</h2><p className="text-xs text-gray-500">Registro de gastos não previstos baseado na planilha da Fotus.</p></div>
-          <button type="button" onClick={onClose} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-fotus-ink/45 p-3 backdrop-blur-sm sm:p-6">
+      <form onSubmit={handleSubmit} className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-fotus-neutral bg-fotus-neutral shadow-2xl">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-fotus-blue/10 bg-fotus-neutral/95 px-5 py-4 backdrop-blur-xl sm:px-7">
+          <div><h2 className="text-lg font-extrabold text-fotus-ink">{cost ? 'Editar custo extra' : 'Novo custo extra'}</h2><p className="text-xs text-fotus-ink/80">Registro de gastos não previstos baseado na planilha da Fotus.</p></div>
+          <button type="button" onClick={onClose} className="rounded-xl p-2 text-fotus-ink/80 hover:bg-fotus-neutral/70"><X className="h-5 w-5" /></button>
         </header>
 
         <div className="space-y-6 p-5 sm:p-7">
-          {errorMessage && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{errorMessage}</p>}
+          {errorMessage && <p className="rounded-xl border border-fotus-yellow/25 bg-fotus-yellow/7 p-3 text-xs font-semibold text-fotus-ink">{errorMessage}</p>}
 
           <section>
             <SectionTitle number="1" title="Identificação" description="Informe o pedido, regional e produto relacionado." />
@@ -129,17 +129,17 @@ export default function ExtraCostModal({ isOpen, onClose, cost, currentUser }: E
             </div>
           </section>
 
-          <section className="border-t border-gray-100 pt-6">
+          <section className="border-t border-fotus-blue/10 pt-6">
             <SectionTitle number="2" title="Composição do custo" description="O total é calculado automaticamente." />
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <MoneyField label="Custo do produto" value={productCost} onChange={setProductCost} />
               <MoneyField label="Custo logístico" value={logisticsCost} onChange={setLogisticsCost} />
               <MoneyField label="Impostos" value={taxCost} onChange={setTaxCost} />
-              <div className="rounded-2xl border border-[#385041]/15 bg-[#eef5eb] p-4"><span className="text-[10px] font-extrabold uppercase tracking-wider text-[#385041]">Custo total</span><strong className="mt-1 block text-xl text-gray-950">{currency(total)}</strong><span className="text-[10px] text-gray-500">Produto + logística + impostos</span></div>
+              <div className="rounded-2xl border border-fotus-blue/15 bg-fotus-blue/6 p-4"><span className="text-[10px] font-extrabold uppercase tracking-wider text-fotus-blue">Custo total</span><strong className="mt-1 block text-xl text-fotus-ink">{currency(total)}</strong><span className="text-[10px] text-fotus-ink/80">Produto + logística + impostos</span></div>
             </div>
           </section>
 
-          <section className="border-t border-gray-100 pt-6">
+          <section className="border-t border-fotus-blue/10 pt-6">
             <SectionTitle number="3" title="Responsabilidade e motivo" description="Classifique a origem para manter os insights padronizados." />
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Responsável pelo custo" icon={UserRound}><select value={responsible} onChange={(event) => setResponsible(event.target.value as ExtraCostResponsible)} className="field-input"><option>Comercial</option><option>Cliente</option></select></Field>
@@ -149,9 +149,9 @@ export default function ExtraCostModal({ isOpen, onClose, cost, currentUser }: E
           </section>
         </div>
 
-        <footer className="sticky bottom-0 flex justify-end gap-2 border-t border-gray-100 bg-white/95 px-5 py-4 backdrop-blur-xl sm:px-7">
-          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100">Cancelar</button>
-          <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-[#385041] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar custo'}</button>
+        <footer className="sticky bottom-0 flex justify-end gap-2 border-t border-fotus-blue/10 bg-fotus-neutral/95 px-5 py-4 backdrop-blur-xl sm:px-7">
+          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-fotus-ink hover:bg-fotus-neutral/70">Cancelar</button>
+          <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-fotus-blue px-5 py-2.5 text-xs font-bold text-fotus-neutral disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar custo'}</button>
         </footer>
       </form>
     </div>
@@ -159,13 +159,13 @@ export default function ExtraCostModal({ isOpen, onClose, cost, currentUser }: E
 }
 
 function MoneyField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
-  return <Field label={label} icon={Receipt}><div className="relative"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">R$</span><input min={0} step="0.01" type="number" value={value} onChange={(event) => onChange(Number(event.target.value))} className="field-input pl-10 text-right" /></div></Field>;
+  return <Field label={label} icon={Receipt}><div className="relative"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-fotus-ink/80">R$</span><input min={0} step="0.01" type="number" value={value} onChange={(event) => onChange(Number(event.target.value))} className="field-input pl-10 text-right" /></div></Field>;
 }
 
 function SectionTitle({ number, title, description }: { number: string; title: string; description: string }) {
-  return <div className="flex items-start gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#385041] text-xs font-extrabold text-white">{number}</span><div><h3 className="text-sm font-extrabold text-gray-900">{title}</h3><p className="text-xs text-gray-500">{description}</p></div></div>;
+  return <div className="flex items-start gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-fotus-blue text-xs font-extrabold text-fotus-neutral">{number}</span><div><h3 className="text-sm font-extrabold text-fotus-ink">{title}</h3><p className="text-xs text-fotus-ink/80">{description}</p></div></div>;
 }
 
 function Field({ label, icon: Icon, children }: { label: string; icon?: typeof Receipt; children: ReactNode }) {
-  return <label className="block"><span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-700">{Icon && <Icon className="h-3.5 w-3.5 text-gray-400" />}{label}</span>{children}</label>;
+  return <label className="block"><span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-fotus-ink">{Icon && <Icon className="h-3.5 w-3.5 text-fotus-ink/80" />}{label}</span>{children}</label>;
 }

@@ -12,11 +12,11 @@ interface VisitModalProps {
 }
 
 const statusOptions: { value: VisitStatus; label: string; color: string }[] = [
-  { value: 'Solicitada', label: 'Solicitada', color: 'bg-violet-50 text-violet-700 border-violet-200' },
-  { value: 'Agendada', label: 'Agendada', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  { value: 'Em Andamento', label: 'Em Andamento', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { value: 'Concluída', label: 'Concluída', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  { value: 'Cancelada', label: 'Cancelada', color: 'bg-gray-50 text-gray-600 border-gray-200' },
+  { value: 'Solicitada', label: 'Solicitada', color: 'bg-fotus-blue/7 text-fotus-blue border-fotus-blue/25' },
+  { value: 'Agendada', label: 'Agendada', color: 'bg-fotus-yellow/7 text-fotus-ink border-fotus-yellow/25' },
+  { value: 'Em Andamento', label: 'Em Andamento', color: 'bg-fotus-blue/7 text-fotus-blue border-fotus-blue/25' },
+  { value: 'Concluída', label: 'Concluída', color: 'bg-fotus-blue/7 text-fotus-blue border-fotus-blue/25' },
+  { value: 'Cancelada', label: 'Cancelada', color: 'bg-fotus-neutral/40 text-fotus-ink border-fotus-blue/20' },
 ];
 
 export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }: VisitModalProps) {
@@ -138,25 +138,25 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl border border-gray-200/80 shadow-[0_20px_50px_rgba(0,0,0,0.15)] w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] transition-all">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-fotus-ink/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="bg-fotus-neutral rounded-3xl border border-fotus-blue/16 shadow-[0_20px_50px_rgb(69_68_68_/_0.15)] w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] transition-all">
         
         {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-[#f7faf6] to-white">
+        <div className="px-6 py-5 border-b border-fotus-blue/10 flex items-center justify-between bg-gradient-to-r from-fotus-neutral to-fotus-neutral">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#eef5eb] text-[#385041] flex items-center justify-center border border-[#dce8d8]">
+            <div className="w-10 h-10 rounded-2xl bg-fotus-blue/6 text-fotus-blue flex items-center justify-center border border-fotus-blue/20">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900 tracking-tight">
+              <h2 className="text-lg font-bold text-fotus-ink tracking-tight">
                 {visitToEdit ? 'Editar Visita de Integrador' : 'Nova Visita de Integrador'}
               </h2>
-              <p className="text-xs text-gray-500">Registro e acompanhamento de parceiros na Fotus</p>
+              <p className="text-xs text-fotus-ink/80">Registro e acompanhamento de parceiros na Fotus</p>
             </div>
           </div>
           <button 
             onClick={onClose} 
-            className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-2 rounded-full transition-colors"
+            className="text-fotus-ink/80 hover:text-fotus-ink hover:bg-fotus-neutral/70 p-2 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -165,8 +165,8 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
           <form id="visit-form" onSubmit={handleSubmit} className="space-y-5">
-            {visitToEdit?.requestSource === 'conecta' && <section className="rounded-2xl border border-violet-200 bg-violet-50/70 p-4 text-sm text-gray-800 space-y-3">
-              <div className="flex items-center justify-between gap-3"><strong className="text-violet-900">Briefing recebido do Conecta</strong><span className="text-xs text-violet-700">Dados informados pelo solicitante</span></div>
+            {visitToEdit?.requestSource === 'conecta' && <section className="rounded-2xl border border-fotus-blue/25 bg-fotus-blue/5 p-4 text-sm text-fotus-ink space-y-3">
+              <div className="flex items-center justify-between gap-3"><strong className="text-fotus-blue">Briefing recebido do Conecta</strong><span className="text-xs text-fotus-blue">Dados informados pelo solicitante</span></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
                 <p><b>CNPJ:</b> {visitToEdit.integratorCnpj || '—'}</p>
                 <p><b>Horário:</b> {visitToEdit.visitTime || '—'}–{visitToEdit.visitEndTime || '—'}</p>
@@ -180,12 +180,12 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
                 <p className="sm:col-span-2 whitespace-pre-wrap"><b>Histórico:</b> {visitToEdit.relationshipHistory || '—'}</p>
                 <p className="sm:col-span-2"><b>Enviado por:</b> {visitToEdit.requesterName || '—'} · {visitToEdit.requesterEmail || '—'} (não verificado)</p>
               </div>
-              {logoUrl && <div><p className="font-semibold mb-2">Logomarca enviada</p><img src={logoUrl} alt={`Logomarca de ${visitToEdit.integratorName}`} className="max-h-36 max-w-full rounded-lg bg-white object-contain p-2" /></div>}
+              {logoUrl && <div><p className="font-semibold mb-2">Logomarca enviada</p><img src={logoUrl} alt={`Logomarca de ${visitToEdit.integratorName}`} className="max-h-36 max-w-full rounded-lg bg-fotus-neutral object-contain p-2" /></div>}
             </section>}
             
             {/* Status Segmented Control */}
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-2">Status da Visita</label>
+              <label className="block text-xs font-semibold text-fotus-ink mb-2">Status da Visita</label>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 {statusOptions.map((opt) => (
                   <button
@@ -194,8 +194,8 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
                     onClick={() => setStatus(opt.value)}
                     className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
                       status === opt.value
-                        ? 'bg-[#385041] text-white border-[#385041] shadow-xs'
-                        : 'bg-gray-50/80 text-gray-600 border-gray-200 hover:bg-gray-100'
+                        ? 'bg-fotus-blue text-fotus-neutral border-fotus-blue shadow-xs'
+                        : 'bg-fotus-neutral/32 text-fotus-ink border-fotus-blue/20 hover:bg-fotus-neutral/70'
                     }`}
                   >
                     {opt.label}
@@ -207,7 +207,7 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
             {/* Integrator & Contact Person */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-fotus-ink mb-1">
                   Empresa / Integrador *
                 </label>
                 <input
@@ -216,12 +216,12 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
                   placeholder="Ex: SolarTech Engenharia"
                   value={integratorName}
                   onChange={(e) => setIntegratorName(e.target.value)}
-                  className="w-full bg-gray-50/70 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:bg-white focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 outline-none transition-all"
+                  className="w-full bg-fotus-neutral/28 border border-fotus-blue/20 rounded-xl px-3.5 py-2.5 text-sm text-fotus-ink focus:bg-fotus-neutral focus:border-fotus-blue focus:ring-2 focus:ring-fotus-blue/10 outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-fotus-ink mb-1">
                   Pessoa de Contato *
                 </label>
                 <input
@@ -230,7 +230,7 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
                   placeholder="Ex: Carlos Eduardo"
                   value={contactPerson}
                   onChange={(e) => setContactPerson(e.target.value)}
-                  className="w-full bg-gray-50/70 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:bg-white focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 outline-none transition-all"
+                  className="w-full bg-fotus-neutral/28 border border-fotus-blue/20 rounded-xl px-3.5 py-2.5 text-sm text-fotus-ink focus:bg-fotus-neutral focus:border-fotus-blue focus:ring-2 focus:ring-fotus-blue/10 outline-none transition-all"
                 />
               </div>
             </div>
@@ -238,35 +238,35 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
             {/* Phone, Email & Location */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Telefone / WhatsApp</label>
+                <label className="block text-xs font-semibold text-fotus-ink mb-1">Telefone / WhatsApp</label>
                 <input
                   type="text"
                   placeholder="(00) 00000-0000"
                   value={contactPhone}
                   onChange={(e) => setContactPhone(e.target.value)}
-                  className="w-full bg-gray-50/70 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:bg-white focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 outline-none transition-all"
+                  className="w-full bg-fotus-neutral/28 border border-fotus-blue/20 rounded-xl px-3.5 py-2.5 text-sm text-fotus-ink focus:bg-fotus-neutral focus:border-fotus-blue focus:ring-2 focus:ring-fotus-blue/10 outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">E-mail</label>
+                <label className="block text-xs font-semibold text-fotus-ink mb-1">E-mail</label>
                 <input
                   type="email"
                   placeholder="contato@empresa.com"
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
-                  className="w-full bg-gray-50/70 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:bg-white focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 outline-none transition-all"
+                  className="w-full bg-fotus-neutral/28 border border-fotus-blue/20 rounded-xl px-3.5 py-2.5 text-sm text-fotus-ink focus:bg-fotus-neutral focus:border-fotus-blue focus:ring-2 focus:ring-fotus-blue/10 outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Cidade / UF</label>
+                <label className="block text-xs font-semibold text-fotus-ink mb-1">Cidade / UF</label>
                 <input
                   type="text"
                   placeholder="Ex: Campinas - SP"
                   value={cityState}
                   onChange={(e) => setCityState(e.target.value)}
-                  className="w-full bg-gray-50/70 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:bg-white focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 outline-none transition-all"
+                  className="w-full bg-fotus-neutral/28 border border-fotus-blue/20 rounded-xl px-3.5 py-2.5 text-sm text-fotus-ink focus:bg-fotus-neutral focus:border-fotus-blue focus:ring-2 focus:ring-fotus-blue/10 outline-none transition-all"
                 />
               </div>
             </div>
@@ -274,35 +274,35 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
             {/* Date, Time & Participants */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Data da Visita *</label>
+                <label className="block text-xs font-semibold text-fotus-ink mb-1">Data da Visita *</label>
                 <input
                   type="date"
                   required
                   value={visitDate}
                   onChange={(e) => setVisitDate(e.target.value)}
-                  className="w-full bg-gray-50/70 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:bg-white focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 outline-none transition-all"
+                  className="w-full bg-fotus-neutral/28 border border-fotus-blue/20 rounded-xl px-3.5 py-2.5 text-sm text-fotus-ink focus:bg-fotus-neutral focus:border-fotus-blue focus:ring-2 focus:ring-fotus-blue/10 outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Horário</label>
+                <label className="block text-xs font-semibold text-fotus-ink mb-1">Horário</label>
                 <input
                   type="time"
                   value={visitTime}
                   onChange={(e) => setVisitTime(e.target.value)}
-                  className="w-full bg-gray-50/70 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:bg-white focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 outline-none transition-all"
+                  className="w-full bg-fotus-neutral/28 border border-fotus-blue/20 rounded-xl px-3.5 py-2.5 text-sm text-fotus-ink focus:bg-fotus-neutral focus:border-fotus-blue focus:ring-2 focus:ring-fotus-blue/10 outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Nº Participantes</label>
+                <label className="block text-xs font-semibold text-fotus-ink mb-1">Nº Participantes</label>
                 <input
                   type="number"
                   min="1"
                   max="50"
                   value={participantsCount}
                   onChange={(e) => setParticipantsCount(parseInt(e.target.value) || 1)}
-                  className="w-full bg-gray-50/70 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:bg-white focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 outline-none transition-all"
+                  className="w-full bg-fotus-neutral/28 border border-fotus-blue/20 rounded-xl px-3.5 py-2.5 text-sm text-fotus-ink focus:bg-fotus-neutral focus:border-fotus-blue focus:ring-2 focus:ring-fotus-blue/10 outline-none transition-all"
                 />
               </div>
             </div>
@@ -310,46 +310,46 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
             {/* Host & Objective */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Anfitrião / Responsável Fotus *</label>
+                <label className="block text-xs font-semibold text-fotus-ink mb-1">Anfitrião / Responsável Fotus *</label>
                 <input
                   type="text"
                   required
                   placeholder="Nome real do anfitrião"
                   value={hostName}
                   onChange={(e) => setHostName(e.target.value)}
-                  className="w-full bg-gray-50/70 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:bg-white focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 outline-none transition-all"
+                  className="w-full bg-fotus-neutral/28 border border-fotus-blue/20 rounded-xl px-3.5 py-2.5 text-sm text-fotus-ink focus:bg-fotus-neutral focus:border-fotus-blue focus:ring-2 focus:ring-fotus-blue/10 outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Objetivo da Visita *</label>
+                <label className="block text-xs font-semibold text-fotus-ink mb-1">Objetivo da Visita *</label>
                 <input
                   type="text"
                   required
                   placeholder="Ex: Treinamento Técnico, Alinhamento Comercial"
                   value={objective}
                   onChange={(e) => setObjective(e.target.value)}
-                  className="w-full bg-gray-50/70 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:bg-white focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 outline-none transition-all"
+                  className="w-full bg-fotus-neutral/28 border border-fotus-blue/20 rounded-xl px-3.5 py-2.5 text-sm text-fotus-ink focus:bg-fotus-neutral focus:border-fotus-blue focus:ring-2 focus:ring-fotus-blue/10 outline-none transition-all"
                 />
               </div>
             </div>
 
             {/* Notes */}
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Pauta e Observações</label>
+              <label className="block text-xs font-semibold text-fotus-ink mb-1">Pauta e Observações</label>
               <textarea
                 rows={3}
                 placeholder="Detalhes sobre a recepção, reserva de salas, pauta..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full bg-gray-50/70 border border-gray-200 rounded-xl p-3 text-sm text-gray-800 focus:bg-white focus:border-[#385041] focus:ring-2 focus:ring-[#385041]/10 outline-none transition-all resize-none"
+                className="w-full bg-fotus-neutral/28 border border-fotus-blue/20 rounded-xl p-3 text-sm text-fotus-ink focus:bg-fotus-neutral focus:border-fotus-blue focus:ring-2 focus:ring-fotus-blue/10 outline-none transition-all resize-none"
               />
             </div>
 
             {/* Feedback / Conclusão */}
             {status === 'Concluída' && (
               <div>
-                <label className="block text-xs font-semibold text-emerald-700 mb-1">
+                <label className="block text-xs font-semibold text-fotus-blue mb-1">
                   Feedback & Resultados da Visita
                 </label>
                 <textarea
@@ -357,7 +357,7 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
                   placeholder="Como foi a visita? Quais foram os próximos passos acordados?"
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
-                  className="w-full bg-emerald-50/40 border border-emerald-200 rounded-xl p-3 text-sm text-gray-800 focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all resize-none"
+                  className="w-full bg-fotus-blue/3 border border-fotus-blue/25 rounded-xl p-3 text-sm text-fotus-ink focus:bg-fotus-neutral focus:border-fotus-blue focus:ring-2 focus:ring-fotus-blue/10 outline-none transition-all resize-none"
                 />
               </div>
             )}
@@ -365,11 +365,11 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/80 flex justify-end gap-3 shrink-0">
+        <div className="px-6 py-4 border-t border-fotus-blue/10 bg-fotus-neutral/32 flex justify-end gap-3 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-200/60 rounded-xl transition-all"
+            className="px-5 py-2.5 text-sm font-semibold text-fotus-ink hover:bg-fotus-neutral/60 rounded-xl transition-all"
           >
             Cancelar
           </button>
@@ -377,7 +377,7 @@ export default function VisitModal({ isOpen, onClose, visitToEdit, currentUser }
             type="submit"
             form="visit-form"
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-2.5 bg-[#385041] hover:bg-[#2c4033] text-white rounded-xl font-bold text-sm shadow-sm transition-all disabled:opacity-70"
+            className="flex items-center gap-2 px-6 py-2.5 bg-fotus-blue hover:bg-fotus-blue text-fotus-neutral rounded-xl font-bold text-sm shadow-sm transition-all disabled:opacity-70"
           >
             <Save className="w-4 h-4" />
             {loading ? 'Salvando...' : 'Salvar Visita'}

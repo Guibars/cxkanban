@@ -151,26 +151,26 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-6">
-      <form onSubmit={handleSubmit} className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-white bg-white shadow-2xl">
-        <div className="sticky top-0 z-20 flex flex-col gap-3 border-b border-gray-100 bg-white/95 px-5 py-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-7">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-fotus-ink/45 p-3 backdrop-blur-sm sm:p-6">
+      <form onSubmit={handleSubmit} className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-fotus-neutral bg-fotus-neutral shadow-2xl">
+        <div className="sticky top-0 z-20 flex flex-col gap-3 border-b border-fotus-blue/10 bg-fotus-neutral/95 px-5 py-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <div>
-            <h2 className="text-lg font-extrabold text-gray-950">{occurrence ? 'Editar ocorrência' : 'Nova ocorrência'}</h2>
-            <p className="text-xs text-gray-500">Fluxo digital baseado no controle operacional atual.</p>
+            <h2 className="text-lg font-extrabold text-fotus-ink">{occurrence ? 'Editar ocorrência' : 'Nova ocorrência'}</h2>
+            <p className="text-xs text-fotus-ink/80">Fluxo digital baseado no controle operacional atual.</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex rounded-2xl border border-gray-200 bg-gray-50 p-1">
-              <button type="button" onClick={() => { setIsDamage(false); if (occurrenceType.toLocaleLowerCase('pt-BR').includes('avari')) setOccurrenceType('Material Faltando'); }} className={`rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all ${!isDamage ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>Ocorrência comum</button>
-              <button type="button" onClick={() => { setIsDamage(true); setOccurrenceType('Material Avariado'); }} className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all ${isDamage ? 'bg-amber-400 text-amber-950 shadow-sm' : 'text-gray-500'}`}><ShieldAlert className="h-3.5 w-3.5" />Avaria com custo</button>
+            <div className="flex rounded-2xl border border-fotus-blue/20 bg-fotus-neutral/40 p-1">
+              <button type="button" onClick={() => { setIsDamage(false); if (occurrenceType.toLocaleLowerCase('pt-BR').includes('avari')) setOccurrenceType('Material Faltando'); }} className={`rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all ${!isDamage ? 'bg-fotus-neutral text-fotus-ink shadow-sm' : 'text-fotus-ink/80'}`}>Ocorrência comum</button>
+              <button type="button" onClick={() => { setIsDamage(true); setOccurrenceType('Material Avariado'); }} className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all ${isDamage ? 'bg-fotus-yellow text-fotus-ink shadow-sm' : 'text-fotus-ink/80'}`}><ShieldAlert className="h-3.5 w-3.5" />Avaria com custo</button>
             </div>
-            <button type="button" onClick={onClose} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+            <button type="button" onClick={onClose} className="rounded-xl p-2 text-fotus-ink/80 hover:bg-fotus-neutral/70"><X className="h-5 w-5" /></button>
           </div>
         </div>
 
         <div className="space-y-6 p-5 sm:p-7">
-          {errorMessage && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{errorMessage}</p>}
+          {errorMessage && <p className="rounded-xl border border-fotus-yellow/25 bg-fotus-yellow/7 p-3 text-xs text-fotus-ink">{errorMessage}</p>}
 
-          {isDamage && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="flex items-center gap-2 text-xs font-extrabold text-amber-900"><ShieldAlert className="h-4 w-4" />Avaria selecionada</p><p className="mt-1 text-[10px] text-amber-800">O valor, a transportadora, a cidade e a UF alimentarão os rankings financeiros da operação.</p></div>}
+          {isDamage && <div className="rounded-2xl border border-fotus-yellow/25 bg-fotus-yellow/7 p-4"><p className="flex items-center gap-2 text-xs font-extrabold text-fotus-ink"><ShieldAlert className="h-4 w-4" />Avaria selecionada</p><p className="mt-1 text-[10px] text-fotus-ink">O valor, a transportadora, a cidade e a UF alimentarão os rankings financeiros da operação.</p></div>}
 
           <section>
             <SectionTitle number="1" title="Identificação" description="Comece pela data, agente e empresa." />
@@ -192,32 +192,32 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
             </div>
           </section>
 
-          <section className="border-t border-gray-100 pt-6">
+          <section className="border-t border-fotus-blue/10 pt-6">
             <SectionTitle number="2" title="Ocorrência" description="Classifique o problema e adicione todos os produtos envolvidos." />
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Tipo de ocorrência" icon={Route}><select required value={occurrenceType} onChange={(event) => setOccurrenceType(event.target.value)} className="field-input">{OCCURRENCE_TYPES.map((type) => <option key={type}>{type}</option>)}</select></Field>
               <Field label="Transportadora" icon={Truck}><input required list="carriers-list" value={carrier} onChange={(event) => setCarrier(event.target.value)} className="field-input" placeholder="Selecione ou digite" /><datalist id="carriers-list">{OCCURRENCE_CARRIERS.map((item) => <option key={item} value={item} />)}</datalist></Field>
               {isDamage && <Field label="Valor da avaria" icon={CircleDollarSign}><input required min={0.01} step={0.01} type="number" value={damageAmount || ''} onChange={(event) => setDamageAmount(Number(event.target.value))} className="field-input" placeholder="0,00" /></Field>}
             </div>
-            <div className="mt-4 rounded-2xl border border-[#385041]/10 bg-[#f7f9f6] p-3 sm:p-4">
-              <div className="flex items-center justify-between gap-3"><div><h4 className="text-xs font-extrabold text-gray-900">Produtos envolvidos</h4><p className="mt-0.5 text-[10px] text-gray-500">Use o botão + para incluir quantos produtos forem necessários.</p></div><button type="button" onClick={() => setProducts((current) => [...current, { product: '', quantity: 1 }])} className="flex shrink-0 items-center gap-1.5 rounded-xl bg-[#385041] px-3 py-2 text-[10px] font-extrabold text-white shadow-sm"><Plus className="h-3.5 w-3.5" />Adicionar produto</button></div>
+            <div className="mt-4 rounded-2xl border border-fotus-blue/10 bg-fotus-neutral p-3 sm:p-4">
+              <div className="flex items-center justify-between gap-3"><div><h4 className="text-xs font-extrabold text-fotus-ink">Produtos envolvidos</h4><p className="mt-0.5 text-[10px] text-fotus-ink/80">Use o botão + para incluir quantos produtos forem necessários.</p></div><button type="button" onClick={() => setProducts((current) => [...current, { product: '', quantity: 1 }])} className="flex shrink-0 items-center gap-1.5 rounded-xl bg-fotus-blue px-3 py-2 text-[10px] font-extrabold text-fotus-neutral shadow-sm"><Plus className="h-3.5 w-3.5" />Adicionar produto</button></div>
               <datalist id="products-list">{OCCURRENCE_PRODUCTS.map((item) => <option key={item} value={item} />)}</datalist>
               <div className="mt-3 space-y-2">
-                {products.map((item, index) => <div key={index} className="grid grid-cols-[minmax(0,1fr)_92px_36px] items-end gap-2 rounded-xl border border-white bg-white p-2 shadow-sm">
+                {products.map((item, index) => <div key={index} className="grid grid-cols-[minmax(0,1fr)_92px_36px] items-end gap-2 rounded-xl border border-fotus-neutral bg-fotus-neutral p-2 shadow-sm">
                   <Field label={`Produto ${index + 1}`} icon={Package}><input required list="products-list" value={item.product} onChange={(event) => setProducts((current) => current.map((productItem, itemIndex) => itemIndex === index ? { ...productItem, product: event.target.value } : productItem))} className="field-input" placeholder="Selecione ou digite" /></Field>
                   <Field label="Qtd."><input required min={1} step={1} type="number" value={item.quantity} onChange={(event) => setProducts((current) => current.map((productItem, itemIndex) => itemIndex === index ? { ...productItem, quantity: Number(event.target.value) } : productItem))} className="field-input" /></Field>
-                  <button type="button" disabled={products.length === 1} onClick={() => setProducts((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="mb-0.5 flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-25" title="Remover produto"><Trash2 className="h-4 w-4" /></button>
+                  <button type="button" disabled={products.length === 1} onClick={() => setProducts((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="mb-0.5 flex h-9 w-9 items-center justify-center rounded-lg text-fotus-ink/80 hover:bg-fotus-yellow/7 hover:text-fotus-ink disabled:cursor-not-allowed disabled:opacity-25" title="Remover produto"><Trash2 className="h-4 w-4" /></button>
                 </div>)}
               </div>
             </div>
           </section>
 
-          <section className="border-t border-gray-100 pt-6">
+          <section className="border-t border-fotus-blue/10 pt-6">
             <SectionTitle number="3" title="Etapa e decisão" description="O card avança conforme a tratativa do time." />
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {STAGES.map((item, index) => (
-                  <button key={item} type="button" onClick={() => setStage(item)} className={`rounded-xl border p-3 text-left transition-all ${stage === item ? 'border-[#385041] bg-[#e8efe0] text-[#385041] shadow-sm' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
+                  <button key={item} type="button" onClick={() => setStage(item)} className={`rounded-xl border p-3 text-left transition-all ${stage === item ? 'border-fotus-blue bg-fotus-blue/6 text-fotus-blue shadow-sm' : 'border-fotus-blue/20 bg-fotus-neutral text-fotus-ink/80 hover:bg-fotus-neutral/40'}`}>
                     <span className="block text-[10px] font-extrabold uppercase">Etapa {index + 1}</span>
                     <span className="mt-1 block text-xs font-bold">{item}</span>
                   </button>
@@ -225,7 +225,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {APPROVALS.map((item) => (
-                  <button key={item} type="button" onClick={() => setApprovalStatus(item)} className={`rounded-xl border px-3 py-3 text-xs font-bold transition-all ${approvalStatus === item ? item === 'Aprovado' ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : item === 'Reprovado' ? 'border-red-300 bg-red-50 text-red-800' : 'border-amber-300 bg-amber-50 text-amber-800' : 'border-gray-200 text-gray-500'}`}>
+                  <button key={item} type="button" onClick={() => setApprovalStatus(item)} className={`rounded-xl border px-3 py-3 text-xs font-bold transition-all ${approvalStatus === item ? item === 'Aprovado' ? 'border-fotus-blue/45 bg-fotus-blue/7 text-fotus-blue' : item === 'Reprovado' ? 'border-fotus-yellow/45 bg-fotus-yellow/7 text-fotus-ink' : 'border-fotus-yellow/45 bg-fotus-yellow/7 text-fotus-ink' : 'border-fotus-blue/20 text-fotus-ink/80'}`}>
                     {item}
                   </button>
                 ))}
@@ -233,7 +233,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
             </div>
           </section>
 
-          <section className="border-t border-gray-100 pt-6">
+          <section className="border-t border-fotus-blue/10 pt-6">
             <SectionTitle number="4" title="Responsáveis e histórico" description="Direcione e registre tudo que ajuda na continuidade." />
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Consultor" icon={UserRound}><input value={consultant} onChange={(event) => setConsultant(event.target.value)} className="field-input" placeholder="Nome do consultor" /></Field>
@@ -248,11 +248,11 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
           </section>
         </div>
 
-        <div className="sticky bottom-0 flex items-center justify-between border-t border-gray-100 bg-white/95 px-5 py-4 backdrop-blur-xl sm:px-7">
-          <span className="hidden items-center gap-1.5 text-xs text-gray-500 sm:flex"><CheckCircle2 className="h-4 w-4 text-emerald-500" />Os campos essenciais são obrigatórios.</span>
+        <div className="sticky bottom-0 flex items-center justify-between border-t border-fotus-blue/10 bg-fotus-neutral/95 px-5 py-4 backdrop-blur-xl sm:px-7">
+          <span className="hidden items-center gap-1.5 text-xs text-fotus-ink/80 sm:flex"><CheckCircle2 className="h-4 w-4 text-fotus-blue" />Os campos essenciais são obrigatórios.</span>
           <div className="ml-auto flex gap-2">
-            <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100">Cancelar</button>
-            <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-[#385041] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar ocorrência'}</button>
+            <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-fotus-ink hover:bg-fotus-neutral/70">Cancelar</button>
+            <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-fotus-blue px-5 py-2.5 text-xs font-bold text-fotus-neutral disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar ocorrência'}</button>
           </div>
         </div>
       </form>
@@ -261,9 +261,9 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
 }
 
 function SectionTitle({ number, title, description }: { number: string; title: string; description: string }) {
-  return <div className="flex items-start gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#385041] text-xs font-extrabold text-white">{number}</span><div><h3 className="text-sm font-extrabold text-gray-900">{title}</h3><p className="text-xs text-gray-500">{description}</p></div></div>;
+  return <div className="flex items-start gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-fotus-blue text-xs font-extrabold text-fotus-neutral">{number}</span><div><h3 className="text-sm font-extrabold text-fotus-ink">{title}</h3><p className="text-xs text-fotus-ink/80">{description}</p></div></div>;
 }
 
 function Field({ label, icon: Icon, children }: { label: string; icon?: typeof Building2; children: ReactNode }) {
-  return <label className="block"><span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-700">{Icon && <Icon className="h-3.5 w-3.5 text-gray-400" />}{label}</span>{children}</label>;
+  return <label className="block"><span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-fotus-ink">{Icon && <Icon className="h-3.5 w-3.5 text-fotus-ink/80" />}{label}</span>{children}</label>;
 }

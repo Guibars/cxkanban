@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { CalendarDays, Check, FileText, Mail, Phone, Save, Smile, Star, X } from 'lucide-react';
 import type { CurrentUser } from '../lib/currentUser';
 import { createData, updateData } from '../lib/dataMutations';
-import { calculateSingleRaScore, classifyRaScore, customerScoreValue, wouldDoBusinessValue } from '../lib/raReputation';
+import { calculateSingleRaScore, classifyRaScore, customerScoreValue, wouldDoBusinessValue, formatRaNumber } from '../lib/raReputation';
 import type { RACase, RaStatus } from '../types';
 
 interface RaModalProps {
@@ -100,21 +100,21 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm sm:p-5">
-      <div className="flex max-h-[94vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white bg-white shadow-2xl">
-        <header className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-[#eef5eb] to-white px-5 py-4 sm:px-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-fotus-ink/45 p-3 backdrop-blur-sm sm:p-5">
+      <div className="flex max-h-[94vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-fotus-neutral bg-fotus-neutral shadow-2xl">
+        <header className="flex items-center justify-between border-b border-fotus-blue/10 bg-gradient-to-r from-fotus-blue/6 to-fotus-neutral px-5 py-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#385041] text-white"><FileText className="h-5 w-5" /></span>
-            <div className="min-w-0"><h2 className="truncate text-lg font-extrabold text-gray-950">{caseToEdit ? `Editar RA ${caseToEdit.raNumber}` : 'Novo caso Reclame Aqui'}</h2><p className="text-xs text-gray-500">A reputação será calculada automaticamente.</p></div>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-fotus-blue text-fotus-neutral"><FileText className="h-5 w-5" /></span>
+            <div className="min-w-0"><h2 className="truncate text-lg font-extrabold text-fotus-ink">{caseToEdit ? `Editar RA ${caseToEdit.raNumber}` : 'Novo caso Reclame Aqui'}</h2><p className="text-xs text-fotus-ink/80">A reputação será calculada automaticamente.</p></div>
           </div>
-          <button type="button" onClick={onClose} className="rounded-xl p-2 text-gray-400 hover:bg-white hover:text-gray-700"><X className="h-5 w-5" /></button>
+          <button type="button" onClick={onClose} className="rounded-xl p-2 text-fotus-ink/80 hover:bg-fotus-neutral hover:text-fotus-ink"><X className="h-5 w-5" /></button>
         </header>
 
         <form id="ra-form" onSubmit={handleSubmit} className="flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
           <section>
-            <label className="mb-2 block text-xs font-bold text-gray-700">Status da reclamação</label>
-            <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-gray-100 p-1.5 sm:grid-cols-4">
-              {statusOptions.map((option) => <button key={option} type="button" onClick={() => setStatus(option)} className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-[11px] font-extrabold transition-all ${status === option ? 'bg-[#385041] text-white shadow-sm' : 'text-gray-500 hover:bg-white'}`}>{status === option && <Check className="h-3.5 w-3.5" />}{option}</button>)}
+            <label className="mb-2 block text-xs font-bold text-fotus-ink">Status da reclamação</label>
+            <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-fotus-neutral/70 p-1.5 sm:grid-cols-4">
+              {statusOptions.map((option) => <button key={option} type="button" onClick={() => setStatus(option)} className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-[11px] font-extrabold transition-all ${status === option ? 'bg-fotus-blue text-fotus-neutral shadow-sm' : 'text-fotus-ink/80 hover:bg-fotus-neutral'}`}>{status === option && <Check className="h-3.5 w-3.5" />}{option}</button>)}
             </div>
           </section>
 
@@ -128,24 +128,24 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
 
           <Field label="Relato da reclamação e tratativa"><textarea rows={4} value={information} onChange={(event) => setInformation(event.target.value)} placeholder="Descreva a situação e as providências tomadas..." className="field-input resize-none" /></Field>
 
-          <section className="rounded-3xl border border-[#385041]/15 bg-[#f5f8f4] p-4 sm:p-5">
-            <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#385041] shadow-sm"><Star className="h-4 w-4" /></span><div><h3 className="text-sm font-extrabold text-gray-950">Avaliação do cliente</h3><p className="mt-0.5 text-[11px] text-gray-500">Preencha somente o que o consumidor respondeu. O card entra na reputação quando estiver finalizado e com as três respostas completas.</p></div></div>
+          <section className="rounded-3xl border border-fotus-blue/15 bg-fotus-neutral p-4 sm:p-5">
+            <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-fotus-neutral text-fotus-blue shadow-sm"><Star className="h-4 w-4" /></span><div><h3 className="text-sm font-extrabold text-fotus-ink">Avaliação do cliente</h3><p className="mt-0.5 text-[11px] text-fotus-ink/80">Preencha somente o que o consumidor respondeu. O card entra na reputação quando estiver finalizado e com as três respostas completas.</p></div></div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div><span className="mb-1.5 block text-xs font-bold text-gray-700">Resolvido?</span><div className="grid grid-cols-2 gap-2">{[{ label: 'Sim', value: true }, { label: 'Não', value: false }].map((option) => <button key={option.label} type="button" onClick={() => setResolved(resolved === option.value ? null : option.value)} aria-pressed={resolved === option.value} className={`rounded-xl border px-4 py-3 text-xs font-extrabold transition-all ${resolved === option.value ? option.value ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-red-500 bg-red-500 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-[#385041]/30'}`}>{option.label}</button>)}</div></div>
+              <div><span className="mb-1.5 block text-xs font-bold text-fotus-ink">Resolvido?</span><div className="grid grid-cols-2 gap-2">{[{ label: 'Sim', value: true }, { label: 'Não', value: false }].map((option) => <button key={option.label} type="button" onClick={() => setResolved(resolved === option.value ? null : option.value)} aria-pressed={resolved === option.value} className={`rounded-xl border px-4 py-3 text-xs font-extrabold transition-all ${resolved === option.value ? option.value ? 'border-fotus-blue bg-fotus-blue text-fotus-neutral' : 'border-fotus-yellow bg-fotus-yellow text-fotus-ink' : 'border-fotus-blue/20 bg-fotus-neutral text-fotus-ink hover:border-fotus-blue/30'}`}>{option.label}</button>)}</div></div>
               <Field label="Nota do cliente (0 a 10)"><input type="number" min="0" max="10" step="0.1" value={customerScore} onChange={(event) => setCustomerScore(event.target.value === '' ? '' : Number(event.target.value))} placeholder="Ex.: 8,5" className="field-input" /></Field>
-              <div><span className="mb-1.5 block text-xs font-bold text-gray-700">Voltaria a fazer negócio?</span><div className="grid grid-cols-2 gap-2">{[{ label: 'Sim', value: true }, { label: 'Não', value: false }].map((option) => <button key={option.label} type="button" onClick={() => setWouldDoBusiness(wouldDoBusiness === option.value ? null : option.value)} aria-pressed={wouldDoBusiness === option.value} className={`rounded-xl border px-4 py-3 text-xs font-extrabold transition-all ${wouldDoBusiness === option.value ? option.value ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-red-500 bg-red-500 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-[#385041]/30'}`}>{option.label}</button>)}</div></div>
+              <div><span className="mb-1.5 block text-xs font-bold text-fotus-ink">Voltaria a fazer negócio?</span><div className="grid grid-cols-2 gap-2">{[{ label: 'Sim', value: true }, { label: 'Não', value: false }].map((option) => <button key={option.label} type="button" onClick={() => setWouldDoBusiness(wouldDoBusiness === option.value ? null : option.value)} aria-pressed={wouldDoBusiness === option.value} className={`rounded-xl border px-4 py-3 text-xs font-extrabold transition-all ${wouldDoBusiness === option.value ? option.value ? 'border-fotus-blue bg-fotus-blue text-fotus-neutral' : 'border-fotus-yellow bg-fotus-yellow text-fotus-ink' : 'border-fotus-blue/20 bg-fotus-neutral text-fotus-ink hover:border-fotus-blue/30'}`}>{option.label}</button>)}</div></div>
             </div>
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white bg-white p-3 shadow-sm"><div className="flex items-center gap-2"><Smile className={`h-5 w-5 ${previewScore === null ? 'text-gray-300' : previewScore >= 7 ? 'text-emerald-500' : previewScore >= 5 ? 'text-amber-500' : 'text-red-500'}`} /><div><span className="block text-[9px] font-extrabold uppercase tracking-wide text-gray-400">Prévia automática do card</span><strong className="text-xs text-gray-800">{previewScore === null ? 'Aguardando finalização ou avaliação' : previewClass}</strong></div></div><strong className="text-xl text-[#385041]">{previewScore === null ? '—' : previewScore.toFixed(1)}</strong></div>
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-fotus-neutral bg-fotus-neutral p-3 shadow-sm"><div className="flex items-center gap-2"><Smile className={`h-5 w-5 ${previewScore === null ? 'text-fotus-ink/50' : previewScore >= 7 ? 'text-fotus-blue' : previewScore >= 5 ? 'text-fotus-yellow' : 'text-fotus-yellow'}`} /><div><span className="block text-[9px] font-extrabold uppercase tracking-wide text-fotus-ink/80">Prévia automática do card</span><strong className="text-xs text-fotus-ink">{previewScore === null ? 'Aguardando finalização ou avaliação' : previewClass}</strong></div></div><strong className="text-xl text-fotus-blue">{previewScore === null ? '—' : formatRaNumber(previewScore)}</strong></div>
           </section>
         </form>
 
-        {saveError && <p className="mx-5 mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">{saveError}</p>}
-        <footer className="flex justify-end gap-2 border-t border-gray-100 bg-gray-50/80 px-5 py-4 sm:px-6"><button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-white">Cancelar</button><button form="ra-form" type="submit" disabled={loading} className="flex items-center gap-2 rounded-xl bg-[#385041] px-5 py-2.5 text-xs font-extrabold text-white disabled:opacity-60"><Save className="h-4 w-4" />{loading ? 'Salvando...' : 'Salvar caso'}</button></footer>
+        {saveError && <p className="mx-5 mb-3 rounded-xl border border-fotus-yellow/25 bg-fotus-yellow/7 px-4 py-3 text-xs font-semibold text-fotus-ink">{saveError}</p>}
+        <footer className="flex justify-end gap-2 border-t border-fotus-blue/10 bg-fotus-neutral/32 px-5 py-4 sm:px-6"><button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-fotus-ink hover:bg-fotus-neutral">Cancelar</button><button form="ra-form" type="submit" disabled={loading} className="flex items-center gap-2 rounded-xl bg-fotus-blue px-5 py-2.5 text-xs font-extrabold text-fotus-neutral disabled:opacity-60"><Save className="h-4 w-4" />{loading ? 'Salvando...' : 'Salvar caso'}</button></footer>
       </div>
     </div>
   );
 }
 
 function Field({ label, icon: Icon, children }: { label: string; icon?: typeof Phone; children: ReactNode }) {
-  return <label className="block"><span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-700">{Icon && <Icon className="h-3.5 w-3.5 text-gray-400" />}{label}</span>{children}</label>;
+  return <label className="block"><span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-fotus-ink">{Icon && <Icon className="h-3.5 w-3.5 text-fotus-ink/80" />}{label}</span>{children}</label>;
 }

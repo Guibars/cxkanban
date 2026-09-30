@@ -52,6 +52,7 @@ async function loadProfile(email: string) {
     active: boolean;
     visibleTabs: SectionKey[] | null;
     canDeleteVisits: boolean;
+    canDeleteCosts: boolean;
     organizationUnitIds: string[] | null;
     createdAt: Date;
     updatedAt: Date;
@@ -61,6 +62,7 @@ async function loadProfile(email: string) {
       coalesce(array_agg(distinct permissions.section_key order by permissions.section_key)
         filter (where permissions.can_view), '{}') as "visibleTabs",
       coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='visitas'), false) as "canDeleteVisits",
+      coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='custos'), false) as "canDeleteCosts",
       jsonb_build_object(
         'canCreate',coalesce(bool_or(permissions.can_create) filter (where permissions.section_key='estrutura'),false),
         'canEdit',coalesce(bool_or(permissions.can_edit) filter (where permissions.section_key='estrutura'),false),
@@ -86,6 +88,7 @@ async function loadProfiles() {
       coalesce(array_agg(distinct permissions.section_key order by permissions.section_key)
         filter (where permissions.can_view), '{}') as "visibleTabs",
       coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='visitas'), false) as "canDeleteVisits",
+      coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='custos'), false) as "canDeleteCosts",
       jsonb_build_object(
         'canCreate',coalesce(bool_or(permissions.can_create) filter (where permissions.section_key='estrutura'),false),
         'canEdit',coalesce(bool_or(permissions.can_edit) filter (where permissions.section_key='estrutura'),false),

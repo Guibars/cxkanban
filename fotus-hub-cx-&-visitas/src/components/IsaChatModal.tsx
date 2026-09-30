@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, RefreshCw, Send, X } from 'lucide-react';
 import { CXCase, ExtraCost, IntegratorVisit, Occurrence, OrganizationPerson, OrganizationUnit, RACase } from '../types';
 import type { CurrentUser } from '../lib/currentUser';
-import { calculateRaReputation } from '../lib/raReputation';
+import { calculateRaReputation, formatRaNumber } from '../lib/raReputation';
 import { occurrenceProducts } from '../lib/occurrenceProducts';
 
 interface IsaChatModalProps {
@@ -222,7 +222,7 @@ export default function IsaChatModal({ currentUser, isOpen, onClose, cases, raCa
     if (query.includes('reclame') || query.includes('ra')) {
       const open = raCases.filter((item) => item.status === 'Em Andamento').length;
       const reputation = calculateRaReputation(raCases);
-      return { text: `⭐ Reclame Aqui\n\n• Registros: ${raCases.length}\n• Em andamento: ${open}\n• Respondidos e avaliados considerados: ${reputation.evaluatedCases}\n• Reputação calculada: ${reputation.finalScore === null ? 'sem avaliações completas' : `${reputation.finalScore.toFixed(1)} / 10 (${reputation.classification})`}\n• Taxa de resposta: ${reputation.responseRate.toFixed(0)}%\n• Índice de solução: ${reputation.solutionRate.toFixed(0)}%\n• Nota média do cliente: ${reputation.customerScore === null ? 'sem nota' : reputation.customerScore.toFixed(1)}\n• Voltaria a fazer negócio: ${reputation.wouldDoBusinessRate === null ? 'sem resposta' : `${reputation.wouldDoBusinessRate.toFixed(0)}%`}`, suggestions: ['Resumo de todas as abas', 'Relatório geral de ocorrências'] };
+      return { text: `⭐ Reclame Aqui\n\n• Registros: ${raCases.length}\n• Em andamento: ${open}\n• Respondidos e avaliados considerados: ${reputation.evaluatedCases}\n• Reputação calculada: ${reputation.finalScore === null ? 'sem avaliações completas' : `${formatRaNumber(reputation.finalScore)} / 10 (${reputation.classification})`}\n• Taxa de resposta: ${formatRaNumber(reputation.responseRate)}%\n• Índice de solução: ${formatRaNumber(reputation.solutionRate)}%\n• Nota média do cliente: ${reputation.customerScore === null ? 'sem nota' : formatRaNumber(reputation.customerScore)}\n• Voltaria a fazer negócio: ${reputation.wouldDoBusinessRate === null ? 'sem resposta' : `${formatRaNumber(reputation.wouldDoBusinessRate)}%`}`, suggestions: ['Resumo de todas as abas', 'Relatório geral de ocorrências'] };
     }
 
     if (query.includes('visita') || query.includes('integrador')) {
@@ -271,26 +271,26 @@ export default function IsaChatModal({ currentUser, isOpen, onClose, cases, raCa
   const resetMessages = () => setMessages([{ id: 'welcome-reset', sender: 'isa', text: 'Conversa reiniciada. Qual análise você quer fazer com os dados atuais?', suggestions: ['Relatório geral de ocorrências', 'Resumo de todas as abas'] }]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-md sm:p-6">
-      <div className="flex h-[88vh] max-h-[780px] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white bg-white/95 shadow-2xl">
-        <header className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-[#eef5eb] via-white to-[#e7f3ec] px-5 py-4">
-          <div className="flex items-center gap-3"><div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-white p-1 shadow-sm"><img src={ISA_LOGO} alt="ISA" className="h-full w-full object-contain" /><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" /></div><div><div className="flex items-center gap-2"><h2 className="font-extrabold text-gray-950">ISA</h2><span className="rounded-full bg-[#385041] px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white">Dados do Hub</span></div><p className="text-xs font-semibold text-gray-600">Muito mais que IA.</p></div></div>
-          <div className="flex gap-1"><button onClick={resetMessages} className="rounded-xl p-2 text-gray-400 hover:bg-white hover:text-gray-700" title="Limpar conversa"><RefreshCw className="h-4 w-4" /></button><button onClick={onClose} className="rounded-xl p-2 text-gray-400 hover:bg-white hover:text-gray-700" title="Fechar"><X className="h-5 w-5" /></button></div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-fotus-ink/45 p-3 backdrop-blur-md sm:p-6">
+      <div className="flex h-[88vh] max-h-[780px] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-fotus-neutral bg-fotus-neutral/95 shadow-2xl">
+        <header className="flex items-center justify-between border-b border-fotus-blue/10 bg-gradient-to-r from-fotus-blue/6 via-fotus-neutral to-fotus-blue/6 px-5 py-4">
+          <div className="flex items-center gap-3"><div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-fotus-neutral p-1 shadow-sm"><img src={ISA_LOGO} alt="ISA" className="h-full w-full object-contain" /><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-fotus-neutral bg-fotus-blue" /></div><div><div className="flex items-center gap-2"><h2 className="font-extrabold text-fotus-ink">ISA</h2><span className="rounded-full bg-fotus-blue px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-fotus-neutral">Dados do Hub</span></div><p className="text-xs font-semibold text-fotus-ink">Muito mais que IA.</p></div></div>
+          <div className="flex gap-1"><button onClick={resetMessages} className="rounded-xl p-2 text-fotus-ink/80 hover:bg-fotus-neutral hover:text-fotus-ink" title="Limpar conversa"><RefreshCw className="h-4 w-4" /></button><button onClick={onClose} className="rounded-xl p-2 text-fotus-ink/80 hover:bg-fotus-neutral hover:text-fotus-ink" title="Fechar"><X className="h-5 w-5" /></button></div>
         </header>
 
-        <div className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white p-5 sm:p-6">
+        <div className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-fotus-neutral/20 to-fotus-neutral p-5 sm:p-6">
           {messages.map((message) => (
             <div key={message.id} className={`flex flex-col ${message.sender === 'user' ? 'items-end' : 'items-start'}`}>
-              <div className={`max-w-[88%] whitespace-pre-line rounded-2xl p-4 text-sm leading-relaxed shadow-sm ${message.sender === 'user' ? 'rounded-br-sm bg-[#385041] font-medium text-white' : 'rounded-bl-sm border border-gray-200 bg-white text-gray-700'}`}>{message.sender === 'isa' ? cleanIsaText(message.text) : message.text}</div>
-              {message.suggestions && <div className="mt-2 flex max-w-[90%] flex-wrap gap-1.5">{message.suggestions.map((suggestion) => <button key={suggestion} onClick={() => handleSend(suggestion)} className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-600 hover:border-[#385041]/30 hover:bg-[#eef5eb] hover:text-[#385041]">{suggestion}<ArrowRight className="h-3 w-3" /></button>)}</div>}
+              <div className={`max-w-[88%] whitespace-pre-line rounded-2xl p-4 text-sm leading-relaxed shadow-sm ${message.sender === 'user' ? 'rounded-br-sm bg-fotus-blue font-medium text-fotus-neutral' : 'rounded-bl-sm border border-fotus-blue/20 bg-fotus-neutral text-fotus-ink'}`}>{message.sender === 'isa' ? cleanIsaText(message.text) : message.text}</div>
+              {message.suggestions && <div className="mt-2 flex max-w-[90%] flex-wrap gap-1.5">{message.suggestions.map((suggestion) => <button key={suggestion} onClick={() => handleSend(suggestion)} className="flex items-center gap-1 rounded-full border border-fotus-blue/20 bg-fotus-neutral px-3 py-1.5 text-[11px] font-semibold text-fotus-ink hover:border-fotus-blue/30 hover:bg-fotus-blue/6 hover:text-fotus-blue">{suggestion}<ArrowRight className="h-3 w-3" /></button>)}</div>}
             </div>
           ))}
-          {isTyping && <div className="isa-speaking-state"><div className="isa-speaking-orb"><img src={ISA_LOGO} alt="ISA analisando" /><span className="isa-speaking-ring isa-speaking-ring-one" /><span className="isa-speaking-ring isa-speaking-ring-two" /></div><div><strong className="block text-xs text-[#385041]">ISA está analisando</strong><div className="mt-1 flex items-center gap-1"><span className="isa-wave" /><span className="isa-wave" /><span className="isa-wave" /><span className="isa-wave" /><span className="isa-wave" /></div></div></div>}
+          {isTyping && <div className="isa-speaking-state"><div className="isa-speaking-orb"><img src={ISA_LOGO} alt="ISA analisando" /><span className="isa-speaking-ring isa-speaking-ring-one" /><span className="isa-speaking-ring isa-speaking-ring-two" /></div><div><strong className="block text-xs text-fotus-blue">ISA está analisando</strong><div className="mt-1 flex items-center gap-1"><span className="isa-wave" /><span className="isa-wave" /><span className="isa-wave" /><span className="isa-wave" /><span className="isa-wave" /></div></div></div>}
           <div ref={messagesEndRef} />
         </div>
 
-        <form onSubmit={(event) => { event.preventDefault(); handleSend(); }} className="border-t border-gray-100 bg-white p-4">
-          <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 p-1.5 focus-within:border-[#385041] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#385041]/10"><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Peça um relatório ou faça uma pergunta sobre os dados..." className="flex-1 bg-transparent px-3 py-2 text-sm outline-none" /><button type="submit" disabled={!input.trim() || isTyping} className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#385041] text-white disabled:opacity-40"><Send className="h-4 w-4" /></button></div>
+        <form onSubmit={(event) => { event.preventDefault(); handleSend(); }} className="border-t border-fotus-blue/10 bg-fotus-neutral p-4">
+          <div className="flex items-center gap-2 rounded-2xl border border-fotus-blue/20 bg-fotus-neutral/40 p-1.5 focus-within:border-fotus-blue focus-within:bg-fotus-neutral focus-within:ring-2 focus-within:ring-fotus-blue/10"><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Peça um relatório ou faça uma pergunta sobre os dados..." className="flex-1 bg-transparent px-3 py-2 text-sm outline-none" /><button type="submit" disabled={!input.trim() || isTyping} className="flex h-10 w-10 items-center justify-center rounded-xl bg-fotus-blue text-fotus-neutral disabled:opacity-40"><Send className="h-4 w-4" /></button></div>
         </form>
       </div>
     </div>

@@ -10,6 +10,14 @@ export interface RaReputation {
   classification: 'Ótima' | 'Boa' | 'Regular' | 'Ruim' | 'Não recomendada' | 'Sem avaliações';
 }
 
+// Duas casas por truncamento; o cálculo e a classificação usam o valor completo.
+export function formatRaNumber(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return '—';
+  const expanded = value.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 20 });
+  const [integer, fraction = ''] = expanded.split('.');
+  return `${Number(integer).toLocaleString('pt-BR')},${fraction.slice(0, 2).padEnd(2, '0')}`;
+}
+
 export function percentValue(value: number | null | undefined) {
   if (typeof value !== 'number' || Number.isNaN(value)) return null;
   return Math.max(0, Math.min(100, value <= 10 ? value * 10 : value));
