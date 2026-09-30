@@ -123,39 +123,64 @@ export default function App() {
       return;
     }
     let cancelled = false;
+    let loading = false;
+    let refreshQueued = false;
+    // O carregamento de tela inteira é necessário apenas ao entrar na conta.
+    // Sincronizações posteriores mantêm as abas e os formulários montados.
+    setAccessProfileLoading(true);
     const load = async () => {
-      setAccessProfileLoading(true);
-      setDataError('');
+      if (cancelled) return;
+      if (loading) {
+        // Uma alteração feita durante a consulta ainda precisa ser buscada.
+        refreshQueued = true;
+        return;
+      }
+      loading = true;
       try {
-        const data = await loadNeonBootstrap(user);
-        if (cancelled) return;
-        setAccessProfiles(data.profiles);
-        setOccurrenceAgents(data.occurrenceAgents.length ? data.occurrenceAgents : DEFAULT_OCCURRENCE_AGENTS);
-        setOrganizationPeople(data.organizationPeople);
-        setOrganizationUnits(data.organizationUnits);
-        setOccurrences(data.occurrences);
-        setExtraCosts(data.extraCosts);
-        setRaCases(data.raCases);
-        setVisits(data.visits);
-        setCases(data.cases);
-      } catch (error) {
-        if (!cancelled) setDataError(error instanceof Error ? error.message : 'Não foi possível carregar os dados do Neon.');
+        do {
+          refreshQueued = false;
+          try {
+            const data = await loadNeonBootstrap(user);
+            if (cancelled) return;
+            setDataError('');
+            setAccessProfiles(data.profiles);
+            setOccurrenceAgents(data.occurrenceAgents.length ? data.occurrenceAgents : DEFAULT_OCCURRENCE_AGENTS);
+            setOrganizationPeople(data.organizationPeople);
+            setOrganizationUnits(data.organizationUnits);
+            setOccurrences(data.occurrences);
+            setExtraCosts(data.extraCosts);
+            setRaCases(data.raCases);
+            setVisits(data.visits);
+            setCases(data.cases);
+          } catch (error) {
+            if (!cancelled) setDataError(error instanceof Error ? error.message : 'Não foi possível carregar os dados do Neon.');
+          } finally {
+            if (!cancelled) setAccessProfileLoading(false);
+          }
+        } while (refreshQueued && !cancelled);
       } finally {
-        if (!cancelled) setAccessProfileLoading(false);
+        loading = false;
       }
     };
+    const onDataChanged = () => { void load(); };
     void load();
-    window.addEventListener('fotus:data-changed', load);
+    window.addEventListener('fotus:data-changed', onDataChanged);
     return () => {
       cancelled = true;
-      window.removeEventListener('fotus:data-changed', load);
+      window.removeEventListener('fotus:data-changed', onDataChanged);
     };
   }, [user]);
 
   // Pedidos chegam de outro site; atualize a agenda enquanto a aba estiver aberta.
   useEffect(() => {
     if (!user || activeTab !== 'visitas') return;
-    const refresh = () => { if (document.visibilityState === 'visible') window.dispatchEvent(new Event('fotus:data-changed')); };
+    let lastRefreshAt = 0;
+    const refresh = () => {
+      const now = Date.now();
+      if (document.visibilityState !== 'visible' || now - lastRefreshAt < 30_000) return;
+      lastRefreshAt = now;
+      window.dispatchEvent(new Event('fotus:data-changed'));
+    };
     refresh();
     window.addEventListener('focus', refresh);
     const timer = window.setInterval(refresh, 60_000);
