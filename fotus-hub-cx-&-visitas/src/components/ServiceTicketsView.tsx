@@ -214,7 +214,7 @@ export default function ServiceTicketsView({
     <div className="space-y-5 sm:space-y-6">
       <section
         aria-label="Resumo dos atendimentos Neppo"
-        className="relative isolate overflow-hidden rounded-[30px]"
+        className="fotus-glass relative isolate overflow-hidden rounded-[30px]"
       >
         <div className="relative overflow-hidden bg-fotus-blue">
           <img
@@ -223,24 +223,22 @@ export default function ServiceTicketsView({
             className="block h-24 w-full object-cover object-[60%_center] sm:h-auto"
           />
         </div>
-        <div className="relative z-10 -mt-3 px-3 pb-3 sm:-mt-4 sm:px-5 sm:pb-5">
-          <div className="overflow-hidden rounded-[26px] bg-fotus-neutral">
-            <div className="fotus-glass grid min-w-0 gap-5 rounded-[inherit] p-5 lg:grid-cols-[1.1fr_1fr] lg:p-6">
+        <div className="grid min-w-0 gap-5 p-5 lg:grid-cols-[1.1fr_1fr] lg:p-6">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <img
+                src="/neppo-ia-icon.png"
+                alt=""
+                className="h-11 w-11 shrink-0 rounded-2xl object-cover shadow-sm"
+              />
               <div className="min-w-0">
-                <div className="flex items-center gap-3">
-                  <img
-                    src="/neppo-ia-icon.png"
-                    alt=""
-                    className="h-11 w-11 shrink-0 rounded-2xl object-cover shadow-sm"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-fotus-blue">
-                      Neppo · Atendimentos da equipe
-                    </p>
-                    <h2 className="text-xl font-extrabold text-fotus-ink">
-                      Cada solicitação, uma solução
-                    </h2>
-                  </div>
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-fotus-blue">
+                  Neppo · Atendimentos da equipe
+                </p>
+                <h2 className="text-xl font-extrabold text-fotus-ink">
+                  Cada solicitação, uma solução
+                </h2>
+              </div>
                 </div>
                 <p className="mt-3 max-w-2xl text-xs leading-relaxed text-fotus-ink/80">
                   Centralize as tratativas e acompanhe a evolução dos
@@ -344,8 +342,6 @@ export default function ServiceTicketsView({
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
         </div>
       </section>
       <section className="fotus-glass space-y-4 rounded-3xl p-4 sm:p-5">
