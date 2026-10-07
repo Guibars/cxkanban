@@ -28,6 +28,7 @@ import { updateData } from '../lib/dataMutations';
 import { exportOccurrencesExcel } from '../lib/excelExport';
 import { onlyNewImportedOccurrences, readOccurrencesSpreadsheet, saveImportedOccurrences } from '../lib/occurrenceImport';
 import { occurrenceProducts, occurrenceProductsLabel } from '../lib/occurrenceProducts';
+import { activeAgentRecords, agentKey } from '../lib/occurrences';
 import { Occurrence, OccurrenceStage, OrganizationUnit } from '../types';
 import OccurrenceModal from './OccurrenceModal';
 import PillBarChart from './PillBarChart';
@@ -193,10 +194,14 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
 
   const productivityChart = useMemo(() => {
     const year = new Date().getFullYear();
-    const currentYear = occurrences.filter((item) => item.date?.startsWith(`${year}-`));
+    const eligible = analyticsDimension === 'agents' ? activeAgentRecords(occurrences, agents) : occurrences;
+    const currentYear = eligible.filter((item) => item.date?.startsWith(`${year}-`));
     const valueFor = (item: Occurrence) => analyticsDimension === 'agents' ? item.agentName : analyticsDimension === 'carriers' ? item.carrier : item.state;
     const seriesLimit = analyticsDimension === 'agents' ? 50 : analyticsDimension === 'states' ? 27 : 12;
-    const topSeries = rankBy(currentYear.map(valueFor), seriesLimit).map((item) => item.label);
+    const topSeries = analyticsDimension === 'agents'
+      ? [...agents].sort((a, b) => currentYear.filter(item => agentKey(item.agentName) === agentKey(b)).length
+        - currentYear.filter(item => agentKey(item.agentName) === agentKey(a)).length || a.localeCompare(b, 'pt-BR'))
+      : rankBy(currentYear.map(valueFor), seriesLimit).map((item) => item.label);
     const months = Array.from({ length: 12 }, (_, index) => {
       const monthKey = `${year}-${String(index + 1).padStart(2, '0')}`;
       const monthItems = currentYear.filter((item) => item.date?.startsWith(`${monthKey}-`));
@@ -204,11 +209,13 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
         key: monthKey,
         label: new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date(year, index, 1)).replace('.', ''),
         total: monthItems.length,
-        values: topSeries.map((label) => monthItems.filter((item) => String(valueFor(item) || '').trim().localeCompare(label.trim(), 'pt-BR', { sensitivity: 'base' }) === 0).length),
+        values: topSeries.map((label) => monthItems.filter((item) => analyticsDimension === 'agents'
+          ? agentKey(item.agentName) === agentKey(label)
+          : String(valueFor(item) || '').trim().localeCompare(label.trim(), 'pt-BR', { sensitivity: 'base' }) === 0).length),
       };
     });
     return { year, topSeries, months };
-  }, [analyticsDimension, occurrences]);
+  }, [analyticsDimension, occurrences, agents]);
 
   const openNew = () => {
     setEditingOccurrence(null);

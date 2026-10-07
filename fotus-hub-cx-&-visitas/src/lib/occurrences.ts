@@ -3,7 +3,16 @@ export const BRAZIL_STATES = [
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ];
 
-export const DEFAULT_OCCURRENCE_AGENTS = ['Adriely', 'Carol', 'Júlia', 'Laís', 'Marcela', 'Naiane', 'Lara'];
+export const DEFAULT_OCCURRENCE_AGENTS = ['Marcela', 'Naiane', 'Lara'];
+
+export function agentKey(name: string) {
+  return name.trim().replace(/\s+/g, ' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+}
+
+export function activeAgentRecords<T extends { agentName: string }>(records: T[], agents: string[]) {
+  const active = new Set(agents.map(agentKey));
+  return records.filter((record) => active.has(agentKey(record.agentName || '')));
+}
 /** Backwards-compatible alias for consumers that still use the built-in list. */
 export const OCCURRENCE_AGENTS = DEFAULT_OCCURRENCE_AGENTS;
 export const OCCURRENCE_TYPES = ['Material Avariado', 'Material Faltando', 'Material Errado'];

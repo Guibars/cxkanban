@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { verifyNeonIdentity } from '../src/server/neonAuth.js';
 
-type AdminAction = 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile' | 'delete-profile';
+type AdminAction = 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile' | 'delete-profile' | 'deactivate-profile';
 type ApiRequest = {
   method?: string;
   headers?: Record<string, string | string[] | undefined>;
@@ -14,7 +14,7 @@ type ApiResponse = {
 };
 
 const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com', 'matheus.gaspar@fotus.com.br']);
-const SECTION_KEYS = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura'];
+const SECTION_KEYS = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura', 'atendimentos', 'voc'];
 
 function getPool() {
   const connectionString = (process.env.DATABASE_URL || '')
@@ -39,6 +39,7 @@ function requestOrigin(request: ApiRequest) {
 export async function listAccessProfiles() {
   const result = await getPool().query(`select users.email::text as id,users.email::text,users.display_name as "displayName",users.role,
     users.agent_name as "agentName",users.active,
+    coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='voc'),false) as "canDeleteVoc",
     coalesce(array_agg(distinct permissions.section_key order by permissions.section_key)
       filter (where permissions.can_view),'{}') as "visibleTabs",
     jsonb_build_object(
@@ -59,6 +60,7 @@ export async function listAccessProfiles() {
 }
 
 export async function saveAccessProfile(email: string, profile: Record<string, unknown>, operatorEmail: string) {
+  if (profile.active === false && (MASTER_EMAILS.has(email) || email === operatorEmail)) throw new Error('cannot-delete-primary');
   const client = await getPool().connect();
   try {
     await client.query('begin');
@@ -95,7 +97,7 @@ export async function saveAccessProfile(email: string, profile: Record<string, u
         (user_id,section_key,can_view,can_create,can_edit,can_delete)
         values ($1,$2,$3,$3,$3,$4) on conflict (user_id,section_key) do update set
         can_view=excluded.can_view,can_create=excluded.can_create,can_edit=excluded.can_edit,can_delete=excluded.can_delete,updated_at=now()`,
-      [userId, section, allowed, isAdmin && allowed]);
+      [userId, section, allowed, allowed && (isAdmin || section === 'atendimentos')]);
     }
     await client.query('delete from public.user_unit_scopes where user_id=$1', [userId]);
     const unitIds = Array.isArray(profile.organizationUnitIds) ? profile.organizationUnitIds.map(String) : [];
@@ -105,6 +107,8 @@ export async function saveAccessProfile(email: string, profile: Record<string, u
       on conflict (user_id,unit_id) do update set access_level=excluded.access_level`, [userId, unitIds, level]);
     await client.query(`insert into public.audit_events (actor_email,action,entity_type,entity_id,after_data)
       values ($1,'save_profile','app_user',$2,$3::jsonb)`, [operatorEmail, email, JSON.stringify(profile)]);
+    if (profile.active === false && profile.role === 'Agente') await client.query(`update public.occurrence_agents set active=false
+      where app_user_id=$1 or lower(trim(name::text))=lower(trim($2))`, [userId, profile.agentName || '']);
     await client.query('commit');
   } catch (error) {
     await client.query('rollback');
@@ -132,7 +136,7 @@ async function listAuthAccounts(email?: string) {
 }
 
 async function deleteAccessProfile(email: string, operatorEmail: string) {
-  if (email === 'guilhermebarbosars@gmail.com' || email === operatorEmail) throw new Error('cannot-delete-primary');
+  if (MASTER_EMAILS.has(email) || email === operatorEmail) throw new Error('cannot-delete-primary');
   const client = await getPool().connect();
   try {
     await client.query('begin');
@@ -141,6 +145,29 @@ async function deleteAccessProfile(email: string, operatorEmail: string) {
       values ($1,'delete_profile','app_user',$2,$3::jsonb)`, [operatorEmail, email, JSON.stringify({ email })]);
     await client.query('commit');
     return Boolean(deleted.rowCount);
+  } catch (error) {
+    await client.query('rollback');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function deactivateAccessProfile(pool: Pool, email: string, operatorEmail: string) {
+  if (MASTER_EMAILS.has(email) || email === operatorEmail) throw new Error('cannot-delete-primary');
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    const result = await client.query<{ id: string; role: string; agentName: string | null }>(`update public.app_users set active=false,updated_at=now()
+      where email=$1 returning id,role,agent_name as "agentName"`, [email]);
+    const user = result.rows[0];
+    if (!user) throw new Error('invalid-profile');
+    if (user.role === 'Agente') await client.query(`update public.occurrence_agents set active=false
+      where app_user_id=$1 or lower(trim(name::text))=lower(trim($2))`, [user.id, user.agentName || '']);
+    await client.query(`insert into public.audit_events (actor_email,action,entity_type,entity_id,after_data)
+      values ($1,'deactivate_profile','app_user',$2,$3::jsonb)`, [operatorEmail, email, JSON.stringify({ active: false })]);
+    await client.query('commit');
+    return { deactivated: true };
   } catch (error) {
     await client.query('rollback');
     throw error;
@@ -186,13 +213,18 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     const action = request.body?.action as AdminAction;
     const email = typeof request.body?.email === 'string' ? request.body.email.trim().toLowerCase() : '';
     const displayName = typeof request.body?.displayName === 'string' ? request.body.displayName.trim() : '';
-    if (!['ensure-user', 'inspect', 'list-users', 'reset-link', 'save-profile', 'delete-profile'].includes(action)) return response.status(400).json({ error: 'Ação inválida.' });
+    if (!['ensure-user', 'inspect', 'list-users', 'reset-link', 'save-profile', 'delete-profile', 'deactivate-profile'].includes(action)) return response.status(400).json({ error: 'Ação inválida.' });
 
     if (action === 'list-users') {
       response.status(200).json({ users: await listAuthAccounts(), profiles: await listAccessProfiles() });
       return;
     }
     if (!/^[^@\s]+@fotus[.]com[.]br$/i.test(email) && email !== 'guilhermebarbosars@gmail.com') return response.status(400).json({ error: 'Use um e-mail corporativo @fotus.com.br.' });
+
+    if (action === 'deactivate-profile') {
+      response.status(200).json(await deactivateAccessProfile(getPool(), email, identity.email));
+      return;
+    }
 
     if (action === 'delete-profile') {
       response.status(200).json({ deleted: await deleteAccessProfile(email, identity.email), email });
@@ -241,7 +273,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     if (message === 'unauthorized') return response.status(403).json({ error: 'Esta conta não está liberada.' });
     if (message === 'database-not-configured') return response.status(503).json({ error: 'O banco Neon ainda não foi configurado na Vercel.' });
     if (message === 'invalid-profile') return response.status(400).json({ error: 'Confira os dados e as permissões selecionadas.' });
-    if (message === 'cannot-delete-primary') return response.status(400).json({ error: 'O operador principal não pode ser excluído.' });
+    if (message === 'cannot-delete-primary') return response.status(400).json({ error: 'Você não pode desativar ou excluir sua própria conta nem os operadores mestres por essa ação.' });
     console.error('Erro na administração de usuários Neon:', error);
     response.status(500).json({ error: 'Não foi possível administrar esta conta no Neon.' });
   }

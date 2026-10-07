@@ -1,6 +1,6 @@
 import type { CurrentUser } from './currentUser';
 
-export type DataResource = 'occurrences' | 'extra_costs' | 'ra_cases' | 'integrator_visits' | 'occurrence_agents' | 'organization_people' | 'organization_units';
+export type DataResource = 'occurrences' | 'extra_costs' | 'ra_cases' | 'integrator_visits' | 'occurrence_agents' | 'organization_people' | 'organization_units' | 'service_tickets' | 'voc_feedback';
 
 async function neonMutation(user: CurrentUser, body: Record<string, unknown>) {
   const token = await user.getIdToken();

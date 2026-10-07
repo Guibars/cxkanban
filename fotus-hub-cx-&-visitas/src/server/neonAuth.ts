@@ -105,14 +105,14 @@ export async function verifyNeonIdentity(request: RequestLike, pool: Pool, optio
     if (automaticallyCreated) {
       await client.query(`
         insert into public.user_section_permissions (user_id,section_key,can_view,can_create,can_edit,can_delete)
-        select $1,section_key,true,true,true,false from public.app_sections
+        select $1,section_key,true,true,true,section_key='atendimentos' from public.app_sections
         where section_key=any($2::text[])
         on conflict (user_id,section_key) do nothing
-      `, [appUser.rows[0].id, ['visao-geral', 'ocorrencias', 'visitas']]);
+      `, [appUser.rows[0].id, ['visao-geral', 'ocorrencias', 'visitas', 'atendimentos', 'voc']]);
       await client.query(`
         insert into public.audit_events (actor_email,action,entity_type,entity_id,after_data)
         values ($1,'self_registration','app_user',$1,$2::jsonb)
-      `, [email, JSON.stringify({ email, displayName: name, role: 'Agente', visibleTabs: ['visao-geral', 'ocorrencias', 'visitas'] })]);
+      `, [email, JSON.stringify({ email, displayName: name, role: 'Agente', visibleTabs: ['visao-geral', 'ocorrencias', 'visitas', 'atendimentos', 'voc'] })]);
     }
     await client.query('commit');
   } catch (error) {

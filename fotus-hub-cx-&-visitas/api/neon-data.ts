@@ -16,7 +16,7 @@ type ApiResponse = {
 };
 
 type AccessRole = 'Agente' | 'Gerente' | 'Líder' | 'Coordenador' | 'Administrador';
-type SectionKey = 'visao-geral' | 'ocorrencias' | 'custos' | 'ra' | 'visitas' | 'estrutura';
+type SectionKey = 'visao-geral' | 'ocorrencias' | 'custos' | 'ra' | 'visitas' | 'estrutura' | 'atendimentos' | 'voc';
 
 const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com', 'matheus.gaspar@fotus.com.br']);
 
@@ -53,6 +53,7 @@ async function loadProfile(email: string) {
     visibleTabs: SectionKey[] | null;
     canDeleteVisits: boolean;
     canDeleteCosts: boolean;
+    canDeleteVoc: boolean;
     organizationUnitIds: string[] | null;
     createdAt: Date;
     updatedAt: Date;
@@ -63,6 +64,7 @@ async function loadProfile(email: string) {
         filter (where permissions.can_view), '{}') as "visibleTabs",
       coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='visitas'), false) as "canDeleteVisits",
       coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='custos'), false) as "canDeleteCosts",
+      coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='voc'), false) as "canDeleteVoc",
       jsonb_build_object(
         'canCreate',coalesce(bool_or(permissions.can_create) filter (where permissions.section_key='estrutura'),false),
         'canEdit',coalesce(bool_or(permissions.can_edit) filter (where permissions.section_key='estrutura'),false),
@@ -89,6 +91,7 @@ async function loadProfiles() {
         filter (where permissions.can_view), '{}') as "visibleTabs",
       coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='visitas'), false) as "canDeleteVisits",
       coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='custos'), false) as "canDeleteCosts",
+      coalesce(bool_or(permissions.can_delete) filter (where permissions.section_key='voc'), false) as "canDeleteVoc",
       jsonb_build_object(
         'canCreate',coalesce(bool_or(permissions.can_create) filter (where permissions.section_key='estrutura'),false),
         'canEdit',coalesce(bool_or(permissions.can_edit) filter (where permissions.section_key='estrutura'),false),
@@ -117,9 +120,9 @@ export async function loadBootstrap(email: string) {
   const agentOnly = !master && profile.role === 'Agente';
   const pool = getPool();
 
-  const [profiles, agents, people, units, occurrences, costs, raCases, visits, cxCases] = await Promise.all([
+  const [profiles, agents, people, units, occurrences, costs, raCases, visits, cxCases, tickets, feedback] = await Promise.all([
     master ? loadProfiles() : Promise.resolve(normalizeRows([{ ...profile, id: email }])),
-    canView('ocorrencias') ? pool.query(`select name::text from public.occurrence_agents where active order by sort_order,name`) : Promise.resolve({ rows: [] }),
+    canView('ocorrencias') || canView('atendimentos') || canView('voc') ? pool.query(`select name::text from public.occurrence_agents where active order by sort_order,name`) : Promise.resolve({ rows: [] }),
     canView('estrutura') || canView('ocorrencias') ? pool.query(`
       select people.legacy_firestore_id as id,people.name,coalesce(people.email::text,'') as email,people.job_title as "jobTitle",
         case when $1::boolean then people.phone else '' end as phone,
@@ -191,6 +194,14 @@ export async function loadBootstrap(email: string) {
         escalation_leader_name_snapshot as "escalationLeaderName",escalation_leader_email_snapshot::text as "escalationLeaderEmail",
         extra_cost_reason as "extraCostReason",observations,created_at as "createdAt",updated_at as "updatedAt"
       from public.cx_cases order by created_at desc`) : Promise.resolve({ rows: [] }),
+    canView('atendimentos') ? pool.query(`select legacy_firestore_id as id,ticket_date::text as date,title,customer_name as "customerName",
+      order_number as "orderNumber",categories,description,assignee_name as "assigneeName",status,resolution,
+      created_by_email::text as "createdByEmail",created_by_name as "createdByName",created_at as "createdAt",updated_at as "updatedAt"
+      from public.service_tickets order by ticket_date desc,created_at desc`) : Promise.resolve({ rows: [] }),
+    canView('voc') ? pool.query(`select legacy_firestore_id as id,feedback_date::text as date,title,customer_name as "customerName",
+      order_number as "orderNumber",description,kind,theme,responsible_area as "responsibleArea",source,priority,status,
+      assignee_name as "assigneeName",action_plan as "actionPlan",created_by_email::text as "createdByEmail",created_by_name as "createdByName",
+      created_at as "createdAt",updated_at as "updatedAt" from public.voc_feedback order by feedback_date desc,created_at desc`) : Promise.resolve({ rows: [] }),
   ]);
 
   return {
@@ -204,6 +215,8 @@ export async function loadBootstrap(email: string) {
     raCases: normalizeRows(raCases.rows),
     visits: normalizeRows(visits.rows),
     cases: normalizeRows(cxCases.rows),
+    serviceTickets: normalizeRows(tickets.rows),
+    vocFeedback: normalizeRows(feedback.rows),
   };
 }
 
@@ -245,6 +258,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     if (message === 'forbidden') return response.status(403).json({ error: request.body?.resource === 'organization_people' ? 'Seu perfil não permite esta ação na Estrutura. Peça ao administrador para liberá-la em Gerenciar usuários → Ações na Estrutura.' : 'Seu perfil não permite esta alteração.' });
     if (message === 'invalid-mutation') return response.status(400).json({ error: 'Alteração inválida.' });
     if (message === 'too-many-records') return response.status(400).json({ error: 'Importe no máximo 1.500 registros por vez.' });
+    if (databaseCode === '42P01' && /service_tickets|voc_feedback/.test(message)) return response.status(503).json({ error: 'Aplique a migração 019_atendimentos_voc.sql no SQL Editor do Neon para ativar Atendimentos e VoC.' });
     console.error('Erro ao carregar dados do Neon:', error);
     return response.status(500).json({ error: 'Não foi possível carregar os dados do Neon.' });
   }

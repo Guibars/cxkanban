@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import type { CurrentUser } from '../lib/currentUser';
-import { ArchiveRestore, Building2, Check, CircleDollarSign, ClipboardList, Copy, KeyRound, LayoutDashboard, LoaderCircle, Mail, Network, RefreshCw, Save, Search, SearchCheck, Send, ShieldCheck, Trash2, UserCog, UserPlus, X } from 'lucide-react';
+import { ArchiveRestore, Building2, Check, CircleDollarSign, ClipboardList, Copy, KeyRound, LayoutDashboard, LoaderCircle, Mail, MessageSquareQuote, Network, RefreshCw, Save, Search, SearchCheck, Send, ShieldCheck, Trash2, UserCog, UserPlus, X } from 'lucide-react';
 import { neonAuth } from '../lib/neonAuth';
 import { AppSection, OrganizationUnit, UserAccessProfile, UserAccessRole } from '../types';
 
@@ -21,12 +21,14 @@ const TAB_OPTIONS: Array<{ id: AppSection; label: string; description: string; i
   { id: 'ra', label: 'Reclame Aqui', description: 'Casos e indicadores', icon: ArchiveRestore },
   { id: 'visitas', label: 'Visitas', description: 'Agenda de integradores', icon: Building2 },
   { id: 'estrutura', label: 'Estrutura', description: 'Times e lideranças', icon: Network },
+  { id: 'atendimentos', label: 'Atendimentos', description: 'Tratativas e soluções', icon: ClipboardList },
+  { id: 'voc', label: 'VoC', description: 'Voz do cliente e melhorias', icon: MessageSquareQuote },
 ];
 
 function defaultTabs(role: UserAccessRole): AppSection[] {
   if (role === 'Administrador') return TAB_OPTIONS.map((tab) => tab.id);
-  if (['Gerente', 'Líder', 'Coordenador'].includes(role)) return ['visao-geral', 'ocorrencias', 'visitas', 'estrutura'];
-  return ['visao-geral', 'ocorrencias', 'visitas'];
+  if (['Gerente', 'Líder', 'Coordenador'].includes(role)) return ['visao-geral', 'ocorrencias', 'visitas', 'estrutura', 'atendimentos', 'voc'];
+  return ['visao-geral', 'ocorrencias', 'visitas', 'atendimentos', 'voc'];
 }
 
 const EMPTY_FORM = {
@@ -66,7 +68,7 @@ interface ManagedUser {
   account?: AuthAccountStatus;
 }
 
-async function requestMasterAction<T = AuthAccountStatus>(currentUser: CurrentUser, action: 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile' | 'delete-profile', email = '', displayName = '', profile?: Record<string, unknown>) {
+async function requestMasterAction<T = AuthAccountStatus>(currentUser: CurrentUser, action: 'ensure-user' | 'inspect' | 'list-users' | 'reset-link' | 'save-profile' | 'delete-profile' | 'deactivate-profile', email = '', displayName = '', profile?: Record<string, unknown>) {
   const idToken = await currentUser.getIdToken();
   const response = await fetch('/api/admin-users', {
     method: 'POST',
@@ -383,20 +385,20 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
   const removeProfile = async () => {
     const email = form.email.trim().toLowerCase();
     if (!editingId || !email || email === (currentUser.email || '').trim().toLowerCase()) return;
-    if (!window.confirm(`Remover o acesso de ${form.displayName || email}? Os cards e históricos criados por esta pessoa serão preservados.`)) return;
+    if (!window.confirm(`Desativar o acesso de ${form.displayName || email} (${email})? A pessoa perderá o acesso à plataforma. A agente vinculada sairá da lista ativa e o histórico será preservado.`)) return;
     setSaving(true);
     setMessage('');
     try {
-      await requestMasterAction<{ deleted: boolean }>(currentUser, 'delete-profile', email);
-      setServerProfiles((current) => current.filter((profile) => profile.email.toLowerCase() !== email));
+      await requestMasterAction<{ deactivated: boolean }>(currentUser, 'deactivate-profile', email);
+      const profile = allProfiles.find(item => item.email.toLowerCase() === email);
+      if (profile) setServerProfiles(current => [...current.filter(item => item.email.toLowerCase() !== email), { ...profile, active: false }]);
       window.dispatchEvent(new Event('fotus:data-changed'));
-      setEditingId(null);
-      setForm(EMPTY_FORM);
+      setForm(current => ({ ...current, active: false }));
       setAuthStatus(null);
       setResetLink('');
-      setMessage('Perfil removido. Os dados operacionais foram preservados e o e-mail poderá ser cadastrado novamente.');
+      setMessage('Acesso desativado e agente vinculada retirada da lista ativa. Os cards e históricos foram preservados.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Não foi possível remover o perfil.');
+      setMessage(error instanceof Error ? error.message : 'Não foi possível desativar o perfil.');
     } finally {
       setSaving(false);
     }
@@ -500,15 +502,15 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
               </section>
 
             <label className="flex items-center justify-between gap-4 rounded-2xl border border-fotus-blue/20 p-4">
-              <span><strong className="block text-xs text-fotus-ink">Perfil ativo</strong><small className="mt-0.5 block text-[10px] text-fotus-ink/80">Ao desativar, a pessoa continua com o login existente, mas perde o acesso aos dados do sistema.</small></span>
+              <span><strong className="block text-xs text-fotus-ink">Perfil ativo</strong><small className="mt-0.5 block text-[10px] text-fotus-ink/80">Ao desativar e salvar, a pessoa perde acesso aos dados e a agente vinculada sai da lista ativa. O histórico é preservado. Para voltar à produtividade após reativar, adicione-a novamente em Gerenciar agentes.</small></span>
               <input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} className="h-5 w-5 accent-fotus-blue" />
             </label>
           </div>
 
-          <div className="sticky bottom-0 flex items-center gap-2 border-t border-fotus-blue/10 bg-fotus-neutral/95 px-5 py-4 backdrop-blur-xl sm:px-7">
-            {editingId && form.email.trim().toLowerCase() !== (currentUser.email || '').trim().toLowerCase() && <button type="button" onClick={() => void removeProfile()} disabled={saving} className="mr-auto flex items-center gap-2 rounded-xl border border-fotus-yellow/25 bg-fotus-neutral px-4 py-2.5 text-xs font-bold text-fotus-ink hover:bg-fotus-yellow/7 disabled:opacity-50"><Trash2 className="h-4 w-4" />Excluir perfil</button>}
+          <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-fotus-blue/10 bg-fotus-neutral/95 px-5 py-4 backdrop-blur-xl sm:px-7">
+            {editingId && form.active && form.email.trim().toLowerCase() !== (currentUser.email || '').trim().toLowerCase() && <button type="button" onClick={() => void removeProfile()} disabled={saving || !allProfiles.some(profile => profile.email.toLowerCase() === form.email.trim().toLowerCase())} className="mr-auto flex items-center gap-2 rounded-xl border border-fotus-yellow/50 bg-fotus-yellow/20 px-4 py-2.5 text-xs font-bold text-fotus-ink disabled:opacity-50"><Trash2 className="h-4 w-4" />Desativar acesso</button>}
             <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-fotus-ink hover:bg-fotus-neutral/70">Fechar</button>
-            <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-fotus-blue px-5 py-2.5 text-xs font-bold text-fotus-neutral disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar acesso'}</button>
+            <button type="submit" disabled={saving} className="fotus-action flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar acesso'}</button>
           </div>
         </form>
       </div>

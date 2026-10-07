@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   LogOut,
   MessageCircle,
+  MessageSquareQuote,
   Network,
   RefreshCw,
   Settings2,
@@ -16,7 +17,7 @@ import { isMasterOperatorEmail } from './lib/auth';
 import { CurrentUser, currentUserFromNeon } from './lib/currentUser';
 import { cn } from './lib/utils';
 import { DEFAULT_OCCURRENCE_AGENTS } from './lib/occurrences';
-import { loadNeonBootstrap } from './lib/neonData';
+import { loadNeonBootstrap, NeonDataError } from './lib/neonData';
 import { getNeonAccessToken, neonAuth } from './lib/neonAuth';
 import { syncChat, type ChatSync } from './lib/chat';
 import {
@@ -29,6 +30,8 @@ import {
   RACase,
   AppSection,
   UserAccessProfile,
+  ServiceTicket,
+  VocFeedback,
 } from './types';
 import AccessControlModal from './components/AccessControlModal';
 import Auth from './components/Auth';
@@ -43,11 +46,13 @@ import RaModal from './components/RaModal';
 import RaView from './components/RaView';
 import VisitModal from './components/VisitModal';
 import VisitsView from './components/VisitsView';
+import ServiceTicketsView from './components/ServiceTicketsView';
+import VocView from './components/VocView';
 
 type MainTab = AppSection | 'chat';
 
 const DEVELOPER_EMAIL = 'guilhermebarbosars@gmail.com';
-const ALL_TABS: MainTab[] = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura'];
+const ALL_TABS: MainTab[] = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visitas', 'estrutura', 'atendimentos', 'voc'];
 
 const ISA_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1776894141/I_matvg6.png';
 const FOTUS_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1787848825/ChatGPT_Image_27_de_ago._de_2026_13_40_18_tzgwxs.png';
@@ -60,6 +65,8 @@ const TAB_COPY: Record<MainTab, { title: string; subtitle: string }> = {
   ra: { title: 'Painel Reclame Aqui', subtitle: 'Monitoramento das reclamações, indicadores e resolução' },
   visitas: { title: 'Visitas de Integradores', subtitle: 'Agenda, recepção e acompanhamento dos parceiros' },
   estrutura: { title: 'Estrutura Organizacional', subtitle: 'Gestores, equipes e consultores comerciais' },
+  atendimentos: { title: 'Atendimentos', subtitle: 'Soluções, encaminhamentos e tratativas da equipe' },
+  voc: { title: 'VoC · Voz do Cliente', subtitle: 'Feedbacks, recorrências e oportunidades de melhoria' },
   chat: { title: 'Chat da equipe', subtitle: 'Converse no grupo geral ou em particular com colegas da plataforma' },
 };
 
@@ -73,12 +80,15 @@ export default function App() {
   const [visits, setVisits] = useState<IntegratorVisit[]>([]);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [extraCosts, setExtraCosts] = useState<ExtraCost[]>([]);
+  const [serviceTickets, setServiceTickets] = useState<ServiceTicket[]>([]);
+  const [vocFeedback, setVocFeedback] = useState<VocFeedback[]>([]);
   const [organizationUnits, setOrganizationUnits] = useState<OrganizationUnit[]>([]);
   const [organizationPeople, setOrganizationPeople] = useState<OrganizationPerson[]>([]);
   const [occurrenceAgents, setOccurrenceAgents] = useState<string[]>(DEFAULT_OCCURRENCE_AGENTS);
   const [accessProfiles, setAccessProfiles] = useState<UserAccessProfile[]>([]);
   const [accessProfileLoading, setAccessProfileLoading] = useState(true);
   const [dataError, setDataError] = useState('');
+  const [dataAccessDenied, setDataAccessDenied] = useState(false);
   const [chatOverview, setChatOverview] = useState<ChatSync>({ onlineUserIds: [], unread: [] });
   const [chatTarget, setChatTarget] = useState<{ conversationId: string; nonce: number } | null>(null);
 
@@ -128,6 +138,7 @@ export default function App() {
     // O carregamento de tela inteira é necessário apenas ao entrar na conta.
     // Sincronizações posteriores mantêm as abas e os formulários montados.
     setAccessProfileLoading(true);
+    setDataAccessDenied(false);
     const load = async () => {
       if (cancelled) return;
       if (loading) {
@@ -143,17 +154,23 @@ export default function App() {
             const data = await loadNeonBootstrap(user);
             if (cancelled) return;
             setDataError('');
+            setDataAccessDenied(false);
             setAccessProfiles(data.profiles);
-            setOccurrenceAgents(data.occurrenceAgents.length ? data.occurrenceAgents : DEFAULT_OCCURRENCE_AGENTS);
+            setOccurrenceAgents(Array.isArray(data.occurrenceAgents) ? data.occurrenceAgents : DEFAULT_OCCURRENCE_AGENTS);
             setOrganizationPeople(data.organizationPeople);
             setOrganizationUnits(data.organizationUnits);
             setOccurrences(data.occurrences);
             setExtraCosts(data.extraCosts);
+            setServiceTickets(data.serviceTickets || []);
+            setVocFeedback(data.vocFeedback || []);
             setRaCases(data.raCases);
             setVisits(data.visits);
             setCases(data.cases);
           } catch (error) {
-            if (!cancelled) setDataError(error instanceof Error ? error.message : 'Não foi possível carregar os dados do Neon.');
+            if (!cancelled) {
+              setDataError(error instanceof Error ? error.message : 'Não foi possível carregar os dados do Neon.');
+              setDataAccessDenied(error instanceof NeonDataError && error.status === 403);
+            }
           } finally {
             if (!cancelled) setAccessProfileLoading(false);
           }
@@ -191,7 +208,7 @@ export default function App() {
     const email = (user?.email || '').toLowerCase();
     const isDeveloper = email === DEVELOPER_EMAIL;
     const isMasterOperator = isMasterOperatorEmail(email);
-    if (isDeveloper) return { role: 'Administrador' as const, agentName: '', unitIds: organizationUnits.map((unit) => unit.id), tabs: ALL_TABS, active: true, isDeveloper, isMasterOperator, canDeleteVisits: true, canDeleteCosts: true, structurePermissions: { canCreate: true, canEdit: true, canDelete: true } };
+    if (isDeveloper) return { role: 'Administrador' as const, agentName: '', unitIds: organizationUnits.map((unit) => unit.id), tabs: ALL_TABS, active: true, isDeveloper, isMasterOperator, canDeleteVisits: true, canDeleteCosts: true, canDeleteVoc: true, structurePermissions: { canCreate: true, canEdit: true, canDelete: true } };
 
     const profile = accessProfiles.find((item) => item.email.toLowerCase() === email);
     const inferredUnits = organizationUnits.filter((unit) => [unit.managerEmail, unit.leaderEmail, unit.coordinatorEmail || ''].some((value) => value.toLowerCase() === email));
@@ -207,8 +224,8 @@ export default function App() {
     const role = profile?.role || inferredRole;
     const unitIds = profile?.organizationUnitIds?.length ? profile.organizationUnitIds : inferredUnits.map((unit) => unit.id);
     const defaultTabs: MainTab[] = role === 'Líder' || role === 'Coordenador' || role === 'Administrador'
-      ? ['visao-geral', 'ocorrencias', 'visitas', 'estrutura']
-      : ['visao-geral', 'ocorrencias', 'visitas'];
+      ? ['visao-geral', 'ocorrencias', 'visitas', 'estrutura', 'atendimentos', 'voc']
+      : ['visao-geral', 'ocorrencias', 'visitas', 'atendimentos', 'voc'];
     return {
       role,
       agentName: profile?.agentName || user?.displayName || '',
@@ -219,6 +236,7 @@ export default function App() {
       isMasterOperator,
       canDeleteVisits: isMasterOperator || Boolean(profile?.canDeleteVisits),
       canDeleteCosts: isMasterOperator || Boolean(profile?.canDeleteCosts),
+      canDeleteVoc: isMasterOperator || Boolean(profile?.canDeleteVoc),
       structurePermissions: isMasterOperator ? { canCreate: true, canEdit: true, canDelete: true }
         : profile?.structurePermissions || { canCreate: false, canEdit: false, canDelete: false },
     };
@@ -232,7 +250,7 @@ export default function App() {
   const visibleRaCases = raCases;
   const visibleOrganizationUnits = organizationUnits;
   const chatUnreadTotal = chatOverview.unread.reduce((total, item) => total + item.count, 0);
-  const canManageAgents = access.isDeveloper || ['Administrador', 'Coordenador', 'Líder'].includes(access.role);
+  const canManageAgents = access.isMasterOperator || ['Administrador', 'Coordenador', 'Líder'].includes(access.role);
   const scopeLabel = access.isMasterOperator
     ? `operador mestre · ${visibleTabs.length} ${visibleTabs.length === 1 ? 'área liberada' : 'áreas liberadas'}`
     : `${visibleTabs.length} ${visibleTabs.length === 1 ? 'área liberada' : 'áreas liberadas'}`;
@@ -247,7 +265,7 @@ export default function App() {
 
   useEffect(() => {
     if (!user) { setChatOverview({ onlineUserIds: [], unread: [] }); return; }
-    if (accessProfileLoading || !access.active || access.tabs.length === 0) return;
+    if (accessProfileLoading || dataAccessDenied || !access.active || access.tabs.length === 0) return;
     let cancelled = false;
     let busy = false;
     let lastActivity = Date.now();
@@ -288,14 +306,14 @@ export default function App() {
       window.removeEventListener('fotus:chat-changed', onChatChanged);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [user, accessProfileLoading, access.active, access.tabs.join('|')]);
+  }, [user, accessProfileLoading, dataAccessDenied, access.active, access.tabs.join('|')]);
 
   if (authLoading || (user && accessProfileLoading)) {
     return <div className="flex min-h-screen items-center justify-center bg-fotus-neutral"><RefreshCw className="h-8 w-8 animate-spin text-fotus-blue" /></div>;
   }
 
   if (!user) return <Auth />;
-  if (!access.active || visibleTabs.length === 0) {
+  if (dataAccessDenied || !access.active || visibleTabs.length === 0) {
     return <div className="flex min-h-screen items-center justify-center bg-fotus-neutral p-6"><div className="w-full max-w-md rounded-3xl border border-fotus-neutral bg-fotus-neutral p-8 text-center shadow-xl"><img src={FOTUS_LOGO} alt="Fotus" className="mx-auto h-14 w-auto object-contain" /><h1 className="mt-6 text-xl font-extrabold text-fotus-ink">Acesso temporariamente indisponível</h1><p className="mt-2 text-sm leading-relaxed text-fotus-ink/80">Seu perfil está desativado ou ainda não possui nenhuma aba liberada. Procure um operador mestre.</p><button type="button" onClick={() => void handleSignOut()} className="mt-6 inline-flex items-center gap-2 rounded-xl fotus-action px-5 py-3 text-xs font-bold"><LogOut className="h-4 w-4" />Sair da conta</button></div></div>;
   }
 
@@ -306,6 +324,8 @@ export default function App() {
     { id: 'ra', label: 'Reclame Aqui', icon: ArchiveRestore, alert: visibleRaCases.some((item) => item.status === 'Em Andamento') },
     { id: 'visitas', label: 'Visitas', icon: Building2, alert: visits.some((item) => item.status === 'Solicitada' || item.status === 'Agendada') },
     { id: 'estrutura', label: 'Estrutura', icon: Network, alert: organizationPeople.length === 0 },
+    { id: 'atendimentos', label: 'Atendimentos', icon: MessageCircle, alert: serviceTickets.some(item => item.status !== 'Finalizado') },
+    { id: 'voc', label: 'VoC', icon: MessageSquareQuote },
     { id: 'chat', label: 'Chat', icon: MessageCircle, alert: chatUnreadTotal > 0 },
   ];
   const tabs = allNavigationTabs.filter((tab) => canView(tab.id));
@@ -318,7 +338,7 @@ export default function App() {
           {tabs.map(({ id, label, icon: Icon, alert }) => {
             const selected = activeTab === id;
             return <button key={id} type="button" onClick={() => setActiveTab(id)} title={label} aria-label={label} aria-current={selected ? 'page' : undefined} className={cn('group relative flex h-12 w-12 items-center justify-center rounded-[15px] transition-all duration-200', selected ? 'bg-fotus-yellow text-fotus-ink shadow-[0_8px_18px_rgb(250_181_21_/_0.25)]' : 'text-fotus-blue hover:bg-fotus-blue/6 hover:text-fotus-blue')}>
-              {id === 'ra' ? <img src={RA_LOGO} alt="" className={cn('h-7 w-7 rounded-lg object-contain', selected && 'ring-2 ring-fotus-neutral/70')} /> : <Icon className="h-[22px] w-[22px]" strokeWidth={selected ? 2.25 : 2} />}
+              {id === 'ra' ? <img src={RA_LOGO} alt="" className={cn('h-7 w-7 rounded-lg object-contain', selected && 'ring-2 ring-fotus-neutral/70')} /> : id === 'atendimentos' ? <img src="/neppo-ia-icon.png" alt="" className="h-8 w-8 rounded-lg object-cover" /> : <Icon className="h-[22px] w-[22px]" strokeWidth={selected ? 2.25 : 2} />}
               <span className="sr-only">{label}</span>
               {id === 'chat' && chatUnreadTotal > 0 ? <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-fotus-ink/30 bg-fotus-yellow px-1 text-[9px] font-extrabold text-fotus-ink" aria-label={`${chatUnreadTotal} mensagens novas`}>{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span> : alert && <span className={cn('absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full border-2', selected ? 'border-fotus-yellow bg-fotus-blue' : 'border-fotus-neutral bg-fotus-yellow')} aria-label="Há itens que precisam de atenção" />}
             </button>;
@@ -350,7 +370,7 @@ export default function App() {
 
           <nav className="mt-3 flex gap-1.5 overflow-x-auto rounded-2xl border border-fotus-blue/14 bg-fotus-neutral p-1.5 sm:hidden" aria-label="Navegação principal">
             {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab === id ? 'page' : undefined} className={cn('flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[10px] font-extrabold transition-all', activeTab === id ? 'bg-fotus-yellow text-fotus-ink shadow-sm' : 'text-fotus-ink/80')}>
-              {id === 'ra' ? <img src={RA_LOGO} alt="" className="h-4 w-4 rounded object-contain" /> : <Icon className="h-3.5 w-3.5" />}{label}{id === 'chat' && chatUnreadTotal > 0 && <span className="rounded-full bg-fotus-yellow px-1.5 py-0.5 text-[9px] text-fotus-ink">{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span>}
+              {id === 'ra' ? <img src={RA_LOGO} alt="" className="h-4 w-4 rounded object-contain" /> : id === 'atendimentos' ? <img src="/neppo-ia-icon.png" alt="" className="h-5 w-5 rounded object-cover" /> : <Icon className="h-3.5 w-3.5" />}{label}{id === 'chat' && chatUnreadTotal > 0 && <span className="rounded-full bg-fotus-yellow px-1.5 py-0.5 text-[9px] text-fotus-ink">{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span>}
             </button>)}
           </nav>
         </header>
@@ -368,12 +388,14 @@ export default function App() {
 
           {canView('visitas') && <section hidden={activeTab !== 'visitas'}><VisitsView visits={visits} currentUser={user} canDeleteVisits={access.canDeleteVisits} onNewVisit={() => { setVisitToEdit(null); setIsVisitModalOpen(true); }} onEditVisit={(visit) => { setVisitToEdit(visit); setIsVisitModalOpen(true); }} /></section>}
           {canView('estrutura') && <section hidden={activeTab !== 'estrutura'}><OrganizationView units={organizationUnits} people={organizationPeople} currentUser={user} canManage={access.structurePermissions.canEdit} canCreate={access.structurePermissions.canCreate} canDelete={access.structurePermissions.canDelete} canDeleteLegacy={access.isDeveloper} /></section>}
+          {canView('atendimentos') && <section hidden={activeTab !== 'atendimentos'}><ServiceTicketsView tickets={serviceTickets} currentUser={user} agents={occurrenceAgents} /></section>}
+          {canView('voc') && <section hidden={activeTab !== 'voc'}><VocView feedback={vocFeedback} currentUser={user} agents={occurrenceAgents} canDelete={access.canDeleteVoc} /></section>}
           <section hidden={activeTab !== 'chat'}><ChatView currentUser={user} active={activeTab === 'chat'} onlineUserIds={chatOverview.onlineUserIds} unread={chatOverview.unread} target={chatTarget} onRead={(conversationId) => setChatOverview((current) => ({ ...current, unread: current.unread.filter((item) => item.conversationId !== conversationId) }))} /></section>
         </main>
 
         <RaModal isOpen={isRaModalOpen} onClose={() => setIsRaModalOpen(false)} caseToEdit={raCaseToEdit} currentUser={user} />
         <VisitModal isOpen={isVisitModalOpen} onClose={() => setIsVisitModalOpen(false)} visitToEdit={visitToEdit} currentUser={user} />
-        <AgentManagerModal isOpen={isAgentManagerOpen} onClose={() => setIsAgentManagerOpen(false)} agents={occurrenceAgents} currentUser={user} />
+        <AgentManagerModal isOpen={isAgentManagerOpen} onClose={() => setIsAgentManagerOpen(false)} agents={occurrenceAgents} currentUser={user} onManageAccess={access.isMasterOperator ? () => { setIsAgentManagerOpen(false); setIsAccessControlOpen(true); } : undefined} />
         <AccessControlModal isOpen={isAccessControlOpen} onClose={() => setIsAccessControlOpen(false)} profiles={accessProfiles} units={organizationUnits} agents={occurrenceAgents} currentUser={user} />
         <IsaChatModal currentUser={user} isOpen={isIsaChatOpen} onClose={() => setIsIsaChatOpen(false)} cases={access.isDeveloper ? cases : []} raCases={visibleRaCases} visits={visits} occurrences={visibleOccurrences} extraCosts={visibleCosts} organizationUnits={visibleOrganizationUnits} organizationPeople={organizationPeople} />
       </div>

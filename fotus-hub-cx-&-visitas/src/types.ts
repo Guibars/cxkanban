@@ -179,7 +179,7 @@ export interface Occurrence {
   updatedAt: number;
 }
 
-export type AppSection = 'visao-geral' | 'ocorrencias' | 'custos' | 'ra' | 'visitas' | 'estrutura';
+export type AppSection = 'visao-geral' | 'ocorrencias' | 'custos' | 'ra' | 'visitas' | 'estrutura' | 'atendimentos' | 'voc';
 export type UserAccessRole = 'Agente' | 'Gerente' | 'Líder' | 'Coordenador' | 'Administrador';
 
 export interface UserAccessProfile {
@@ -192,6 +192,7 @@ export interface UserAccessProfile {
   visibleTabs: AppSection[];
   canDeleteVisits?: boolean;
   canDeleteCosts?: boolean;
+  canDeleteVoc?: boolean;
   structurePermissions?: { canCreate: boolean; canEdit: boolean; canDelete: boolean };
   active: boolean;
   createdAt: number;
@@ -220,6 +221,49 @@ export interface ExtraCost {
   createdByName: string;
   importSource?: string;
   importRow?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type ServiceCategory = 'Solução para entrega' | 'Solução fiscal' | 'Avarias na Entrega' | 'Processo Seletivo' | 'Compliance';
+export type ServiceStatus = 'Aberto' | 'Em Andamento' | 'Finalizado';
+export interface ServiceTicket {
+  id: string;
+  date: string;
+  title: string;
+  customerName: string;
+  orderNumber: string;
+  categories: ServiceCategory[];
+  description: string;
+  assigneeName: string;
+  status: ServiceStatus;
+  resolution: string;
+  createdByEmail: string;
+  createdByName: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type VocKind = 'Reclamação' | 'Sugestão' | 'Elogio' | 'Dor';
+export type VocStatus = 'Novo' | 'Em análise' | 'Em melhoria' | 'Concluído';
+export type VocPriority = 'Baixa' | 'Média' | 'Alta';
+export interface VocFeedback {
+  id: string;
+  date: string;
+  title: string;
+  customerName: string;
+  orderNumber: string;
+  description: string;
+  kind: VocKind;
+  theme: string;
+  responsibleArea: string;
+  source: string;
+  priority: VocPriority;
+  status: VocStatus;
+  assigneeName: string;
+  actionPlan: string;
+  createdByEmail: string;
+  createdByName: string;
   createdAt: number;
   updatedAt: number;
 }

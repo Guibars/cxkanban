@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
+import { SERVICE_CATEGORIES, SERVICE_STATUSES, VOC_KINDS, VOC_STATUSES, VOC_PRIORITIES } from '../src/lib/serviceDesk.js';
 
 export type MutationBody = {
   resource?: unknown;
@@ -9,7 +10,7 @@ export type MutationBody = {
   records?: unknown;
 };
 
-type Resource = 'occurrences' | 'extra_costs' | 'ra_cases' | 'integrator_visits' | 'occurrence_agents' | 'organization_people' | 'organization_units';
+type Resource = 'occurrences' | 'extra_costs' | 'ra_cases' | 'integrator_visits' | 'occurrence_agents' | 'organization_people' | 'organization_units' | 'service_tickets' | 'voc_feedback';
 type Action = 'create' | 'update' | 'delete' | 'bulk-upsert' | 'replace' | 'reorder';
 type Payload = Record<string, unknown>;
 
@@ -21,6 +22,8 @@ const RESOURCE_SECTION: Record<Resource, string> = {
   occurrence_agents: 'ocorrencias',
   organization_people: 'estrutura',
   organization_units: 'estrutura',
+  service_tickets: 'atendimentos',
+  voc_feedback: 'voc',
 };
 
 const MASTER_EMAILS = new Set(['guilhermebarbosars@gmail.com', 'matheus.gaspar@fotus.com.br']);
@@ -79,15 +82,22 @@ async function access(pool: Pool, email: string, resource: Resource, action: Act
     canCreate: boolean;
     canEdit: boolean;
     canDelete: boolean;
+    canView: boolean;
   }>(`select users.id,users.role,users.agent_name as "agentName",users.display_name as "displayName",users.active,
     coalesce(permissions.can_create,false) as "canCreate",coalesce(permissions.can_edit,false) as "canEdit",
-    coalesce(permissions.can_delete,false) as "canDelete"
+    coalesce(permissions.can_delete,false) as "canDelete",coalesce(permissions.can_view,false) as "canView"
     from public.app_users users left join public.user_section_permissions permissions
       on permissions.user_id=users.id and permissions.section_key=$2
     where users.email=$1`, [email, RESOURCE_SECTION[resource]]);
   const profile = result.rows[0];
   if (!profile?.active) throw new Error('forbidden');
   if (MASTER_EMAILS.has(email)) return profile;
+  // Atendimentos é compartilhado: todo usuário ativo com acesso à aba pode excluir e tratar os cards.
+  if (resource === 'service_tickets') {
+    if (!profile.canView) throw new Error('forbidden');
+    return profile;
+  }
+  if (resource === 'voc_feedback' && !profile.canView) throw new Error('forbidden');
   const allowed = action === 'delete' ? profile.canDelete
     : action === 'update' || action === 'reorder' ? profile.canEdit
       : action === 'bulk-upsert' ? profile.canCreate && profile.canEdit
@@ -247,6 +257,58 @@ async function upsertOrganizationPerson(client: PoolClient, legacyId: string, da
     data.active !== false, actorEmail, time(data.createdAt), time(data.updatedAt)]);
 }
 
+function experienceText(value: unknown, maximum: number, required = false) {
+  if (typeof value !== 'string' && value != null) throw new Error('invalid-mutation');
+  const text = (value as string | null | undefined)?.trim() || '';
+  if (text.length > maximum || (required && !text)) throw new Error('invalid-mutation');
+  return text;
+}
+
+function experienceEnum(value: unknown, choices: readonly string[]) {
+  if (typeof value !== 'string' || !choices.includes(value)) throw new Error('invalid-mutation');
+  return value;
+}
+
+function experienceRecord(data: Payload) {
+  const date = experienceText(data.date, 10, true);
+  const parsed = new Date(`${date}T12:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) throw new Error('invalid-mutation');
+  return { date, title: experienceText(data.title, 180, true), customer: experienceText(data.customerName, 150),
+    order: experienceText(data.orderNumber, 80), description: experienceText(data.description, 8000, true),
+    assignee: experienceText(data.assigneeName, 150, true) };
+}
+
+async function upsertExperience(client: PoolClient, resource: 'service_tickets' | 'voc_feedback', id: string, data: Payload, actorEmail: string, actorUserId: string, actorName: string) {
+  const record = experienceRecord(data);
+  if (resource === 'service_tickets') {
+    if (!Array.isArray(data.categories) || !data.categories.length || data.categories.length > SERVICE_CATEGORIES.length) throw new Error('invalid-mutation');
+    const categories = [...new Set(data.categories.map(value => experienceEnum(value, SERVICE_CATEGORIES)))];
+    const status = experienceEnum(data.status, SERVICE_STATUSES);
+    const resolution = experienceText(data.resolution, 4000);
+    await client.query(`insert into public.service_tickets
+      (legacy_firestore_id,ticket_date,title,customer_name,order_number,categories,description,assignee_name,status,resolution,created_by_user_id,created_by_email,created_by_name)
+      values ($1,$2::date,$3,$4,$5,$6::text[],$7,$8,$9,$10,$11,$12,$13)
+      on conflict (legacy_firestore_id) do update set ticket_date=excluded.ticket_date,title=excluded.title,
+        customer_name=excluded.customer_name,order_number=excluded.order_number,categories=excluded.categories,
+        description=excluded.description,assignee_name=excluded.assignee_name,status=excluded.status,resolution=excluded.resolution,updated_at=now()`,
+    [id, record.date, record.title, record.customer, record.order, categories, record.description, record.assignee, status, resolution, actorUserId, actorEmail, actorName]);
+  } else {
+    const kind = experienceEnum(data.kind, VOC_KINDS);
+    const status = experienceEnum(data.status, VOC_STATUSES);
+    const priority = experienceEnum(data.priority, VOC_PRIORITIES);
+    await client.query(`insert into public.voc_feedback
+      (legacy_firestore_id,feedback_date,title,customer_name,order_number,description,kind,theme,responsible_area,source,priority,status,assignee_name,action_plan,created_by_user_id,created_by_email,created_by_name)
+      values ($1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+      on conflict (legacy_firestore_id) do update set feedback_date=excluded.feedback_date,title=excluded.title,
+        customer_name=excluded.customer_name,order_number=excluded.order_number,description=excluded.description,kind=excluded.kind,
+        theme=excluded.theme,responsible_area=excluded.responsible_area,source=excluded.source,priority=excluded.priority,
+        status=excluded.status,assignee_name=excluded.assignee_name,action_plan=excluded.action_plan,updated_at=now()`,
+    [id, record.date, record.title, record.customer, record.order, record.description, kind, experienceText(data.theme, 120, true),
+      experienceText(data.responsibleArea, 120, true), experienceText(data.source, 80, true), priority, status, record.assignee,
+      experienceText(data.actionPlan, 4000), actorUserId, actorEmail, actorName]);
+  }
+}
+
 export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationBody) {
   const resource = s(body.resource) as Resource;
   const action = s(body.action) as Action;
@@ -254,6 +316,7 @@ export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationB
   if ((action === 'replace') !== (resource === 'occurrence_agents')
     || (action === 'reorder' && resource !== 'organization_people')
     || (action === 'bulk-upsert' && resource !== 'occurrences' && resource !== 'extra_costs')) throw new Error('invalid-mutation');
+  if (['service_tickets', 'voc_feedback'].includes(resource) && !['create', 'update', 'delete'].includes(action)) throw new Error('invalid-mutation');
   const profile = await access(pool, actorEmail, resource, action);
   const client = await pool.connect();
   let bulkOccurrenceResult: { inserted: number; skipped: number } | null = null;
@@ -262,6 +325,7 @@ export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationB
     await client.query("set local statement_timeout='30s'");
     const payload = body.data && typeof body.data === 'object' ? body.data as Payload : {};
     const id = action === 'create' ? randomUUID() : s(body.id);
+    if (['service_tickets', 'voc_feedback'].includes(resource) && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error('invalid-mutation');
     if (action === 'update') {
       if (!id) throw new Error('invalid-mutation');
       const existing = await client.query(`select 1 from public.${resource} where legacy_firestore_id=$1 for update`, [id]);
@@ -283,10 +347,10 @@ export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationB
       }
       const table = resource;
       const deleted = await client.query(`delete from public.${table} where legacy_firestore_id=$1 returning id`, [id]);
-      if (resource === 'integrator_visits' && !deleted.rowCount) throw new Error('invalid-mutation');
+      if (['integrator_visits', 'service_tickets', 'voc_feedback'].includes(resource) && !deleted.rowCount) throw new Error('invalid-mutation');
     } else if (resource === 'occurrence_agents' && action === 'replace') {
       const names = Array.isArray(payload.names) ? [...new Set(payload.names.map((item) => s(item)).filter(Boolean))] : [];
-      if (!names.length) throw new Error('invalid-mutation');
+      if (!names.length || names.length > 100 || names.some(name => name.length > 150)) throw new Error('invalid-mutation');
       await client.query('update public.occurrence_agents set active=false');
       for (let index = 0; index < names.length; index += 1) await client.query(`insert into public.occurrence_agents (name,active,sort_order,created_by_email)
         values ($1,true,$2,$3) on conflict (name) do update set active=true,sort_order=excluded.sort_order`, [names[index], index, actorEmail]);
@@ -321,6 +385,7 @@ export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationB
         else if (resource === 'ra_cases') await upsertRaCase(client, legacyId, record, actorEmail, profile.id);
         else if (resource === 'integrator_visits') await upsertVisit(client, legacyId, record, actorEmail, profile.id);
         else if (resource === 'organization_people') await upsertOrganizationPerson(client, legacyId, record, actorEmail);
+        else if (resource === 'service_tickets' || resource === 'voc_feedback') await upsertExperience(client, resource, legacyId, record, actorEmail, profile.id, profile.displayName);
         else if (resource === 'organization_units') throw new Error('invalid-mutation');
       }
       if (resource === 'occurrences' && action === 'bulk-upsert') {
@@ -329,13 +394,15 @@ export async function mutateNeon(pool: Pool, actorEmail: string, body: MutationB
           values ($1,$2,'bulk-import-result','occurrences',null,$3::jsonb)`, [profile.id, actorEmail, JSON.stringify({ inserted, skipped })]);
       }
     }
-    const auditData = action === 'bulk-upsert'
+    const auditData = resource === 'service_tickets' || resource === 'voc_feedback'
+      ? { status: payload.status || null, kind: payload.kind || null, categories: payload.categories || null }
+      : action === 'bulk-upsert'
       ? { count: Array.isArray(body.records) ? body.records.length : 0 }
       : resource === 'organization_people' && 'photoUrl' in payload
         ? { ...payload, photoUrl: payload.photoUrl ? '[foto]' : null }
         : payload;
     await client.query(`insert into public.audit_events (actor_user_id,actor_email,action,entity_type,entity_id,after_data)
-      values ($1,$2,$3,$4,$5,$6::jsonb)`, [profile.id, actorEmail, action, resource, s(body.id) || null, JSON.stringify(auditData)]);
+      values ($1,$2,$3,$4,$5,$6::jsonb)`, [profile.id, actorEmail, action, resource, resource === 'service_tickets' || resource === 'voc_feedback' ? id : s(body.id) || null, JSON.stringify(auditData)]);
     await client.query('commit');
     if (bulkOccurrenceResult) return { ok: true, id, ...bulkOccurrenceResult };
     return { ok: true, id };
