@@ -1,5 +1,13 @@
 import { useMemo, useState } from 'react';
-import { CalendarDays, Pencil, Plus, Trash2, UserRound } from 'lucide-react';
+import {
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  Pencil,
+  Plus,
+  Trash2,
+  UserRound,
+} from 'lucide-react';
 import type { CurrentUser } from '../lib/currentUser';
 import { deleteData } from '../lib/dataMutations';
 import {
@@ -12,7 +20,6 @@ import type { ServiceTicket } from '../types';
 import ExperienceRecordModal from './ExperienceRecordModal';
 import {
   ExperienceDialog,
-  ExperienceMetric,
   ExperiencePagination,
   ExperienceSearch,
 } from './ExperienceUi';
@@ -37,6 +44,20 @@ export default function ServiceTicketsView({
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('');
   const available = tickets.filter((ticket) => !deletedIds.has(ticket.id));
+  const finalized = available.filter(
+    (ticket) => ticket.status === 'Finalizado',
+  ).length;
+  const inTreatment = available.length - finalized;
+  const opened = available.filter(
+    (ticket) => ticket.status === 'Aberto',
+  ).length;
+  const inProgress = available.filter(
+    (ticket) => ticket.status === 'Em Andamento',
+  ).length;
+  const completionRate = available.length
+    ? (finalized / available.length) * 100
+    : 0;
+
   const filtered = useMemo(() => {
     const term = normalizedTopic(search);
     return tickets.filter(
@@ -117,56 +138,138 @@ export default function ServiceTicketsView({
 
   return (
     <div className="space-y-6">
-      <header className="fotus-glass flex flex-col justify-between gap-5 rounded-3xl border-fotus-yellow/40 p-6 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-4">
+      <section
+        aria-label="Resumo dos atendimentos Neppo"
+        className="overflow-hidden rounded-[30px] border border-fotus-neutral bg-fotus-neutral/80 pb-5 shadow-sm sm:pb-6"
+      >
+        <div className="relative overflow-hidden bg-fotus-blue">
           <img
-            src="/neppo-ia-icon.png"
-            alt="Atendimentos"
-            className="h-16 w-16 shrink-0 rounded-2xl object-cover shadow-sm"
+            src="/neppo-banner.png"
+            alt="Fotus e Neppo — ao seu lado, em cada projeto"
+            className="block h-24 w-full object-cover object-[60%_center] sm:h-auto"
           />
-          <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-widest text-fotus-blue">
-              Atendimentos da equipe
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-fotus-blue/20 to-transparent" />
+        </div>
+        <div className="relative z-10 mx-3 -mt-4 grid gap-5 rounded-[26px] border border-fotus-neutral/90 bg-fotus-neutral p-5 shadow-[0_18px_45px_rgb(13_81_142_/_0.12)] sm:mx-6 sm:-mt-6 lg:grid-cols-[1.1fr_1fr] lg:p-6">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <img
+                src="/neppo-ia-icon.png"
+                alt=""
+                className="h-11 w-11 shrink-0 rounded-2xl object-cover shadow-sm"
+              />
+              <div className="min-w-0">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-fotus-blue">
+                  Neppo · Atendimentos da equipe
+                </p>
+                <h2 className="text-xl font-extrabold text-fotus-ink">
+                  Cada solicitação, uma solução
+                </h2>
+              </div>
+            </div>
+            <p className="mt-3 max-w-2xl text-xs leading-relaxed text-fotus-ink/80">
+              Centralize as tratativas e acompanhe a evolução dos atendimentos.
             </p>
-            <h2 className="mt-1 text-2xl font-extrabold">
-              Cada solicitação, uma solução
-            </h2>
-            <p className="mt-2 text-xs text-fotus-ink/80">
-              Centralize as tratativas e acompanhe os próximos passos.
+            <dl className="mt-4 grid grid-cols-1 gap-2 min-[360px]:grid-cols-3">
+              {[
+                {
+                  label: 'Atendimentos',
+                  value: available.length,
+                  detail: 'Total registrado',
+                },
+                {
+                  label: 'Em tratamento',
+                  value: inTreatment,
+                  detail: 'Abertos ou em andamento',
+                },
+                {
+                  label: 'Finalizados',
+                  value: finalized,
+                  detail: 'Tratativas encerradas',
+                },
+              ].map((metric) => (
+                <div
+                  key={metric.label}
+                  className="min-w-0 rounded-2xl border border-fotus-blue/10 bg-fotus-neutral/40 p-3"
+                >
+                  <dt className="break-words text-[9px] font-extrabold uppercase tracking-wide text-fotus-ink/80">
+                    {metric.label}
+                  </dt>
+                  <dd className="mt-1 text-2xl font-extrabold text-fotus-blue">
+                    {metric.value.toLocaleString('pt-BR')}
+                  </dd>
+                  <p className="mt-1 text-[10px] leading-relaxed text-fotus-ink/80">
+                    {metric.detail}
+                  </p>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-3 text-[10px] font-bold text-fotus-blue">
+              Visão geral · Todo o histórico de atendimentos
             </p>
           </div>
+          <div className="fotus-glass flex min-w-0 flex-col justify-center rounded-3xl p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-fotus-yellow/25">
+                  <CheckCircle2 className="h-6 w-6 text-fotus-blue" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-extrabold uppercase tracking-wider text-fotus-ink/80">
+                    Taxa de finalização
+                  </p>
+                  <h3 className="mt-1 text-sm font-extrabold text-fotus-blue">
+                    Tratativas concluídas
+                  </h3>
+                </div>
+              </div>
+              <strong className="shrink-0 text-2xl font-extrabold text-fotus-blue">
+                {completionRate.toLocaleString('pt-BR', {
+                  maximumFractionDigits: 1,
+                })}
+                %
+              </strong>
+            </div>
+            <div
+              role="progressbar"
+              aria-label="Percentual de atendimentos finalizados"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={completionRate}
+              className="mt-5 h-3 overflow-hidden rounded-full bg-fotus-yellow/40"
+            >
+              <span
+                className="block h-full rounded-full bg-fotus-blue transition-[width] duration-300"
+                style={{ width: `${completionRate}%` }}
+              />
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold text-fotus-ink/80">
+              <span className="flex items-center gap-1.5">
+                <Clock3 className="h-3.5 w-3.5 text-fotus-blue" />
+                {opened} aberto(s) · {inProgress} em andamento
+              </span>
+              <span>
+                {finalized} de {available.length} finalizados
+              </span>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-fotus-blue/10 pt-3">
+              <p className="text-[10px] text-fotus-ink/80">
+                {available.length
+                  ? 'Acompanhe cada etapa da operação.'
+                  : 'Cadastre o primeiro atendimento.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => edit(null)}
+                className="fotus-action inline-flex w-fit shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-xs font-extrabold"
+              >
+                <Plus className="h-4 w-4" />
+                Novo atendimento
+              </button>
+            </div>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={() => edit(null)}
-          className="fotus-action flex w-fit shrink-0 items-center gap-2 rounded-xl px-5 py-3 text-xs font-extrabold"
-        >
-          <Plus className="h-4 w-4" />
-          Novo atendimento
-        </button>
-      </header>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <ExperienceMetric
-          label="Atendimentos"
-          value={available.length}
-          detail="Registros compartilhados com a equipe"
-          yellow
-        />
-        <ExperienceMetric
-          label="Em tratamento"
-          value={
-            available.filter((item) => item.status !== 'Finalizado').length
-          }
-          detail="Abertos ou em andamento"
-        />
-        <ExperienceMetric
-          label="Finalizados"
-          value={
-            available.filter((item) => item.status === 'Finalizado').length
-          }
-          detail="Tratativas encerradas"
-        />
-      </div>
+      </section>
       <section className="fotus-glass space-y-4 rounded-2xl p-4">
         <div className="flex flex-wrap gap-2">
           <button
