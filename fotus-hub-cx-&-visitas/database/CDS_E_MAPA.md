@@ -20,7 +20,7 @@ Nenhum SQL foi executado automaticamente. As permissões existentes de acesso ao
 - O ranking compara quantidade de registros. Para medir uma taxa de problemas por CD, futuramente será necessário também informar o volume total de pedidos expedidos.
 - A exportação Excel inclui **CD de origem**. A planilha antiga de importação continua funcionando e seus registros novos entram sem CD.
 - Em **VoC**, clique no botão arredondado **Filtros** para abrir os campos. O resumo do período continua visível quando fechado.
-- Em computadores e notebooks, a visualização começa em **80%**. O seletor no cabeçalho permite escolher 90% ou 100% e salva a preferência nesse navegador. Deixe o zoom do próprio navegador em **100%**, para não reduzir duas vezes. Em telas menores de 1024 pixels, a plataforma usa o tamanho normal.
+- A visualização se adapta automaticamente à largura e à altura disponíveis, inclusive ao redimensionar a janela. Notebooks e janelas com pouca altura usam uma apresentação mais compacta; monitores amplos com mais altura usam tamanhos progressivamente maiores. Celulares e tablets mantêm o tamanho natural e suas grades responsivas. Não há seletor manual e a antiga preferência salva não é utilizada. Deixe o zoom do próprio navegador em **100%** para conferir o ajuste automático.
 
 ## Consumo do banco
 
@@ -32,4 +32,4 @@ O mapa calcula os números usando as ocorrências já carregadas na plataforma. 
 2. Abra o mapa, selecione esse CD e confira a contagem e o botão que filtra os cards.
 3. Troque o período e a etapa; confira se o mapa acompanha os filtros.
 4. Confira os cards sem CD e teste a navegação por teclado na lista e nos marcadores.
-5. Confira a escala de 80%, 90% e 100% e os filtros recolhidos da VoC.
+5. Redimensione a janela e confira o ajuste automático em notebook, monitor e celular, além dos filtros recolhidos da VoC.

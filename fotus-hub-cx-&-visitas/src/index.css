@@ -20,14 +20,23 @@
   :focus-visible { outline: 2px solid var(--color-fotus-blue); outline-offset: 3px; }
 }
 
-/* Escala da plataforma, independente do zoom escolhido no navegador.
-   No celular o tamanho permanece natural; vh é compensado na estrutura fixa. */
+/* A densidade acompanha a largura e a altura disponíveis, inclusive ao
+   redimensionar a janela. Celulares e tablets mantêm o tamanho natural. */
 @media (min-width: 1024px) {
+  html.fotus-authenticated { --fotus-ui-scale: 0.8; }
   html.fotus-authenticated body { zoom: var(--fotus-ui-scale, 0.8); }
   html.fotus-authenticated .fotus-app-shell { min-height: calc(100dvh / var(--fotus-ui-scale, 0.8)); }
   html.fotus-authenticated .fotus-app-sidebar { height: calc(100dvh / var(--fotus-ui-scale, 0.8)); overflow-y: auto; }
   html.fotus-authenticated .fotus-app-main { max-width: calc(1560px / var(--fotus-ui-scale, 0.8)); }
   html.fotus-authenticated .fotus-dialog { max-height: calc(92dvh / var(--fotus-ui-scale, 0.8)); }
+}
+
+@media (min-width: 1600px) and (min-height: 850px) {
+  html.fotus-authenticated { --fotus-ui-scale: 0.9; }
+}
+
+@media (min-width: 1920px) and (min-height: 1000px) {
+  html.fotus-authenticated { --fotus-ui-scale: 1; }
 }
 
 .cd-map-pin:focus-visible { outline: none; }
