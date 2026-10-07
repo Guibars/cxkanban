@@ -102,7 +102,7 @@ export default function RaModal({ isOpen, onClose, caseToEdit, currentUser }: Ra
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-fotus-ink/45 p-3 backdrop-blur-sm sm:p-5">
-      <div className="flex max-h-[94vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-fotus-neutral bg-fotus-neutral shadow-2xl">
+      <div className="fotus-dialog flex max-h-[94vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-fotus-neutral shadow-2xl">
         <header className="flex items-center justify-between border-b border-fotus-blue/10 bg-gradient-to-r from-fotus-blue/6 to-fotus-neutral px-5 py-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-fotus-blue text-fotus-neutral"><FileText className="h-5 w-5" /></span>

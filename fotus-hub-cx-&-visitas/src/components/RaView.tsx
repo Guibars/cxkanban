@@ -84,13 +84,13 @@ export default function RaView({ cases, currentUser, onNew, onEdit }: RaViewProp
   };
 
   return (
-    <div className="space-y-5">
-      <section className="overflow-hidden rounded-[30px] border border-fotus-neutral bg-fotus-neutral/80 shadow-sm">
+    <div className="space-y-6">
+      <section className="fotus-glass overflow-hidden rounded-[30px]">
         <div className="relative overflow-hidden bg-fotus-blue">
           <img src="/ra-banner.png" alt="Fotus — ao seu lado, em cada projeto" className="block h-24 w-full object-cover object-[35%_center] sm:h-auto" />
           <span className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-fotus-blue/20 to-transparent" />
         </div>
-        <div className="relative z-10 mx-3 -mt-4 grid gap-5 rounded-[26px] border border-fotus-neutral/90 bg-fotus-neutral p-5 shadow-[0_18px_45px_rgb(13_81_142_/_0.12)] sm:mx-6 sm:-mt-6 lg:grid-cols-[1.1fr_1fr] lg:p-6">
+        <div className="fotus-glass relative z-10 mx-3 -mt-4 grid gap-5 rounded-[26px] p-5 sm:mx-6 sm:-mt-6 lg:grid-cols-[1.1fr_1fr] lg:p-6">
           <div>
             <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-fotus-blue text-fotus-neutral"><ArchiveRestore className="h-5 w-5" /></span><div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-fotus-blue">Reputação do período</p><h2 className="text-xl font-extrabold text-fotus-ink">Calculadora Reclame Aqui</h2></div></div>
             <p className="mt-3 max-w-2xl text-xs leading-relaxed text-fotus-ink/80">Nota automática com os pesos oficiais. Entram no cálculo somente reclamações finalizadas e com avaliação completa.</p>
@@ -102,7 +102,7 @@ export default function RaView({ cases, currentUser, onNew, onEdit }: RaViewProp
         <div className="h-4 sm:h-6" />
       </section>
 
-      <section className="rounded-2xl border border-fotus-neutral bg-fotus-neutral/75 p-3 shadow-sm">
+      <section className="fotus-glass rounded-3xl p-3">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="flex items-center gap-2 px-1 text-[10px] font-extrabold uppercase tracking-wider text-fotus-ink/80"><CalendarRange className="h-4 w-4 text-fotus-blue" />Período</div>
           <div className="flex gap-1.5 overflow-x-auto rounded-xl bg-fotus-neutral/70 p-1.5">{[{ id: 'month', label: 'Mês atual' }, { id: 'custom', label: 'Escolher período' }, { id: 'all', label: 'Todo o histórico' }].map((option) => <button key={option.id} onClick={() => setDatePreset(option.id as DatePreset)} className={`shrink-0 rounded-lg px-3 py-2 text-[10px] font-extrabold ${datePreset === option.id ? 'bg-fotus-neutral text-fotus-blue shadow-sm' : 'text-fotus-ink/80'}`}>{option.label}</button>)}</div>
@@ -112,17 +112,17 @@ export default function RaView({ cases, currentUser, onNew, onEdit }: RaViewProp
       </section>
 
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex flex-wrap gap-1.5 rounded-2xl border border-fotus-neutral bg-fotus-neutral/60 p-1.5">{statuses.map((item) => <button key={item} onClick={() => setStatusFilter(item)} className={`rounded-xl px-3 py-2 text-xs font-bold ${statusFilter === item ? 'bg-fotus-yellow text-fotus-ink shadow-sm' : 'text-fotus-ink hover:bg-fotus-neutral'}`}>{item}</button>)}</div>
+        <div className="fotus-glass-inset flex flex-wrap gap-1.5 rounded-full p-1.5">{statuses.map((item) => <button key={item} onClick={() => setStatusFilter(item)} className={`rounded-full px-3 py-2 text-xs font-bold ${statusFilter === item ? 'bg-fotus-yellow text-fotus-ink shadow-sm' : 'text-fotus-ink hover:bg-fotus-neutral'}`}>{item}</button>)}</div>
         <div className="flex flex-col gap-2 sm:flex-row"><label className="relative min-w-0 sm:w-64"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fotus-ink/80" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="RA, cliente, contato..." className="w-full rounded-xl border border-fotus-blue/20 bg-fotus-neutral py-2.5 pl-9 pr-3 text-xs outline-none focus:border-fotus-blue" /></label><button onClick={generatePdf} className="flex items-center justify-center gap-2 rounded-xl border border-fotus-blue/20 bg-fotus-neutral px-4 py-2.5 text-xs font-extrabold text-fotus-blue"><FileText className="h-4 w-4" />PDF</button><button onClick={() => exportRaExcel(filtered, periodLabel)} className="flex items-center justify-center gap-2 rounded-xl border border-fotus-blue/25 bg-fotus-neutral px-4 py-2.5 text-xs font-extrabold text-fotus-blue"><FileSpreadsheet className="h-4 w-4" />Excel</button><button onClick={onNew} className="flex items-center justify-center gap-2 rounded-xl fotus-action px-4 py-2.5 text-xs font-extrabold"><Plus className="h-4 w-4" />Novo chamado</button></div>
       </div>
 
       {message && <p className="rounded-2xl border border-fotus-blue/25 bg-fotus-blue/7 px-4 py-3 text-xs font-semibold text-fotus-blue">{message}</p>}
 
-      {filtered.length === 0 ? <div className="rounded-3xl border border-dashed border-fotus-blue/20 bg-fotus-neutral/60 px-6 py-14 text-center"><ArchiveRestore className="mx-auto h-11 w-11 text-fotus-ink/50" /><h3 className="mt-3 text-sm font-extrabold text-fotus-ink">Nenhum chamado neste período</h3><p className="mt-1 text-xs text-fotus-ink/80">Altere o período ou registre um novo chamado.</p></div> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filtered.map((item) => {
+      {filtered.length === 0 ? <div className="fotus-glass rounded-3xl border-dashed px-6 py-14 text-center"><ArchiveRestore className="mx-auto h-11 w-11 text-fotus-ink/50" /><h3 className="mt-3 text-sm font-extrabold text-fotus-ink">Nenhum chamado neste período</h3><p className="mt-1 text-xs text-fotus-ink/80">Altere o período ou registre um novo chamado.</p></div> : <div className="fotus-bento-grid grid gap-5 md:grid-cols-2 xl:grid-cols-3">{filtered.map((item) => {
         const customerScore = customerScoreValue(item);
         const wouldReturn = wouldDoBusinessValue(item);
         const includedInReputation = isRaCaseIncludedInReputation(item);
-        return <article key={item.id} className="fotus-glass-card ra-case-card group relative flex min-w-0 flex-col rounded-3xl p-5 sm:p-6">
+        return <article key={item.id} className="fotus-glass-card ra-case-card group relative flex min-w-0 flex-col rounded-3xl p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
               <span className={`fotus-pill ${item.status === 'Finalizado' ? 'ra-pill-success' : item.status === 'Desativado' ? 'fotus-pill-neutral' : item.status === 'Moderado' ? 'fotus-pill-blue' : 'fotus-pill-yellow'}`}>{item.status}</span>
@@ -130,12 +130,12 @@ export default function RaView({ cases, currentUser, onNew, onEdit }: RaViewProp
             </div>
             <div className="flex shrink-0 gap-1"><button onClick={() => onEdit(item)} className="rounded-xl p-2 text-fotus-ink/80 hover:bg-fotus-neutral/70 hover:text-fotus-blue" title="Editar" aria-label={`Editar chamado ${item.raNumber}`}><Pencil className="h-4 w-4" /></button><button disabled={deletingId === item.id} onClick={() => void remove(item)} className="rounded-xl p-2 text-fotus-ink/80 hover:bg-fotus-yellow/20 hover:text-fotus-ink disabled:opacity-40" title="Excluir" aria-label={`Excluir chamado ${item.raNumber}`}><Trash2 className="h-4 w-4" /></button></div>
           </div>
-          <div className="mt-4 min-w-0"><p className="text-[9px] font-extrabold uppercase tracking-wide text-fotus-ink/80">Reclamação</p><h3 className="break-words text-lg font-extrabold text-fotus-ink">{item.raNumber}</h3></div>
-          <div className="mt-4 rounded-2xl bg-fotus-neutral/40 p-3"><strong className="block text-sm text-fotus-ink">{item.customerName}</strong><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-fotus-ink/80">{item.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{item.phone}</span>}{item.email && <span className="flex min-w-0 items-center gap-1 break-all"><Mail className="h-3 w-3" />{item.email}</span>}</div></div>
+          <div className="mt-4 flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-fotus-yellow/20 ring-1 ring-white/70"><ArchiveRestore className="h-5 w-5 text-fotus-blue" /></span><div className="min-w-0"><p className="text-[9px] font-extrabold uppercase tracking-wide text-fotus-ink/80">Reclamação</p><h3 className="break-words text-lg font-extrabold text-fotus-ink">{item.raNumber}</h3></div></div>
+          <div className="fotus-glass-inset mt-4 rounded-2xl p-3.5"><strong className="block break-words text-sm text-fotus-ink">{item.customerName}</strong><div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5 text-[10px] text-fotus-ink/80">{item.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{item.phone}</span>}{item.email && <span className="flex min-w-0 items-center gap-1 break-all"><Mail className="h-3 w-3 shrink-0" />{item.email}</span>}</div></div>
           <dl className="ra-evaluation my-4">
-            <div className="flex min-w-0 flex-col items-start gap-2 rounded-xl border border-fotus-blue/10 bg-fotus-neutral/40 p-3"><dt className="text-[9px] font-bold uppercase leading-relaxed text-fotus-ink/80">Resolvido?</dt><dd className={`fotus-pill ${item.resolved == null ? 'fotus-pill-neutral' : item.resolved ? 'ra-pill-success' : 'ra-pill-danger'}`}>{item.resolved == null ? 'Sem resposta' : item.resolved ? 'Sim' : 'Não'}</dd></div>
-            <div className="flex min-w-0 flex-col items-start gap-2 rounded-xl border border-fotus-blue/10 bg-fotus-neutral/40 p-3"><dt className="text-[9px] font-bold uppercase leading-relaxed text-fotus-ink/80">Nota do cliente</dt><dd className="text-lg font-extrabold text-fotus-ink">{customerScore === null ? '—' : formatRaNumber(customerScore)}</dd></div>
-            <div className="flex min-w-0 flex-col items-start gap-2 rounded-xl border border-fotus-blue/10 bg-fotus-neutral/40 p-3"><dt className="text-[9px] font-bold uppercase leading-relaxed text-fotus-ink/80">Voltaria</dt><dd className={`fotus-pill ${wouldReturn === null ? 'fotus-pill-neutral' : wouldReturn ? 'ra-pill-success' : 'ra-pill-danger'}`}>{wouldReturn === null ? 'Sem resposta' : wouldReturn ? 'Sim' : 'Não'}</dd></div>
+            <div className="fotus-glass-inset flex min-w-0 flex-col items-start gap-2 rounded-2xl p-3"><dt className="text-[9px] font-bold uppercase leading-relaxed text-fotus-ink/80">Resolvido?</dt><dd className={`fotus-pill ${item.resolved == null ? 'fotus-pill-neutral' : item.resolved ? 'ra-pill-success' : 'ra-pill-danger'}`}>{item.resolved == null ? 'Sem resposta' : item.resolved ? 'Sim' : 'Não'}</dd></div>
+            <div className="fotus-glass-inset flex min-w-0 flex-col items-start gap-2 rounded-2xl p-3"><dt className="text-[9px] font-bold uppercase leading-relaxed text-fotus-ink/80">Nota do cliente</dt><dd className="text-lg font-extrabold text-fotus-ink">{customerScore === null ? '—' : formatRaNumber(customerScore)}</dd></div>
+            <div className="fotus-glass-inset flex min-w-0 flex-col items-start gap-2 rounded-2xl p-3"><dt className="text-[9px] font-bold uppercase leading-relaxed text-fotus-ink/80">Voltaria</dt><dd className={`fotus-pill ${wouldReturn === null ? 'fotus-pill-neutral' : wouldReturn ? 'ra-pill-success' : 'ra-pill-danger'}`}>{wouldReturn === null ? 'Sem resposta' : wouldReturn ? 'Sim' : 'Não'}</dd></div>
           </dl>
           {item.information && <p className="mb-4 line-clamp-3 text-xs leading-relaxed text-fotus-ink/80">{item.information}</p>}
           <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-fotus-blue/10 pt-4 text-[10px] text-fotus-ink/80"><span>Reclamação: {item.complaintDate ? item.complaintDate.split('-').reverse().join('/') : displayDate(item.createdAt)}</span><span>{item.assigneeName || 'Sem responsável'}</span></div>
@@ -146,7 +146,7 @@ export default function RaView({ cases, currentUser, onNew, onEdit }: RaViewProp
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-2xl bg-fotus-neutral/40 p-3"><span className="block text-[9px] font-bold uppercase tracking-wide text-fotus-ink/80">{label}</span><strong className="mt-1 block text-lg text-fotus-ink">{value}</strong></div>;
+  return <div className="fotus-glass-inset min-w-0 rounded-2xl p-3"><span className="block text-[9px] font-bold uppercase tracking-wide text-fotus-ink/80">{label}</span><strong className="mt-1 block break-words text-lg tabular-nums text-fotus-ink">{value}</strong></div>;
 }
 
 function ReputationGauge({ score, classification }: { score: number | null; classification: string }) {

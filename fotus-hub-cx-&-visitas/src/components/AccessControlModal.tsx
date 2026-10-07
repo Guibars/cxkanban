@@ -406,8 +406,8 @@ export default function AccessControlModal({ isOpen, onClose, profiles, units, a
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-fotus-ink/45 p-3 backdrop-blur-sm sm:p-6">
-      <div className="grid max-h-[94vh] w-full max-w-6xl overflow-hidden rounded-3xl border border-fotus-neutral bg-fotus-neutral shadow-2xl lg:grid-cols-[340px_1fr]">
-        <aside className="flex max-h-[40vh] flex-col border-b border-fotus-blue/10 bg-fotus-neutral p-4 lg:max-h-[94vh] lg:border-b-0 lg:border-r">
+      <div className="fotus-dialog grid max-h-[94vh] w-full max-w-6xl overflow-hidden rounded-3xl shadow-2xl lg:grid-cols-[340px_1fr]">
+        <aside className="flex max-h-[40vh] flex-col border-b border-fotus-blue/10 bg-fotus-neutral/40 p-4 lg:max-h-[94vh] lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-2">
             <div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-fotus-blue">Administração</p><h2 className="mt-1 text-base font-extrabold text-fotus-ink">Todos os usuários</h2></div>
             <div className="flex gap-1.5"><button type="button" onClick={() => void loadAuthAccounts()} disabled={accountsLoading} title="Atualizar usuários" className="flex h-9 w-9 items-center justify-center rounded-xl border border-fotus-blue/20 bg-fotus-neutral text-fotus-ink/80 transition-colors hover:text-fotus-blue disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${accountsLoading ? 'animate-spin' : ''}`} /></button><button type="button" onClick={newProfile} className="rounded-xl bg-fotus-blue px-3 py-2 text-[10px] font-extrabold text-fotus-neutral">Novo</button></div>

@@ -1,5 +1,19 @@
-import React, { useState, useMemo } from 'react';
-import { Building2, Calendar, Clock, MapPin, User, Users, Plus, Search, Filter, CheckCircle2, AlertCircle, ArrowRight, MessageSquareQuote, Trash2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import {
+  ArrowRight,
+  Building2,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  LoaderCircle,
+  MapPin,
+  MessageSquareQuote,
+  Plus,
+  Search,
+  Trash2,
+  User,
+  Users,
+} from 'lucide-react';
 import { IntegratorVisit, VisitStatus } from '../types';
 import type { CurrentUser } from '../lib/currentUser';
 import { deleteData, updateData } from '../lib/dataMutations';
@@ -13,285 +27,478 @@ interface VisitsViewProps {
   canDeleteVisits: boolean;
 }
 
-export default function VisitsView({ visits, onNewVisit, onEditVisit, currentUser, canDeleteVisits }: VisitsViewProps) {
-  const [statusFilter, setStatusFilter] = useState<'Todas' | VisitStatus>('Todas');
+const visitStatuses = [
+  'Todas',
+  'Solicitada',
+  'Agendada',
+  'Em Andamento',
+  'Concluída',
+  'Cancelada',
+] as const;
+const statusClass = (status: VisitStatus) =>
+  status === 'Agendada'
+    ? 'fotus-pill-yellow'
+    : status === 'Cancelada'
+      ? 'fotus-pill-neutral'
+      : status === 'Concluída'
+        ? 'fotus-pill-solid'
+        : 'fotus-pill-blue';
+const nextVisitStatus: Partial<
+  Record<VisitStatus, { status: VisitStatus; label: string }>
+> = {
+  Solicitada: { status: 'Agendada', label: 'Confirmar' },
+  Agendada: { status: 'Em Andamento', label: 'Iniciar visita' },
+  'Em Andamento': { status: 'Concluída', label: 'Concluir visita' },
+};
+
+export default function VisitsView({
+  visits,
+  onNewVisit,
+  onEditVisit,
+  currentUser,
+  canDeleteVisits,
+}: VisitsViewProps) {
+  const [statusFilter, setStatusFilter] = useState<'Todas' | VisitStatus>(
+    'Todas',
+  );
   const [search, setSearch] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState('');
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState('');
 
   const filteredVisits = useMemo(() => {
-    return visits.filter(v => {
-      if (statusFilter !== 'Todas' && v.status !== statusFilter) return false;
-      if (search) {
-        const s = search.toLowerCase();
-        const matches = 
-          v.integratorName.toLowerCase().includes(s) ||
-          v.contactPerson.toLowerCase().includes(s) ||
-          (v.cityState && v.cityState.toLowerCase().includes(s)) ||
-          v.hostName.toLowerCase().includes(s) ||
-          v.objective.toLowerCase().includes(s);
-        if (!matches) return false;
-      }
-      return true;
+    const term = search.trim().toLocaleLowerCase('pt-BR');
+    return visits.filter((visit) => {
+      if (statusFilter !== 'Todas' && visit.status !== statusFilter)
+        return false;
+      if (!term) return true;
+      return [
+        visit.integratorName,
+        visit.contactPerson,
+        visit.cityState,
+        visit.hostName,
+        visit.objective,
+      ].some((value) => value?.toLocaleLowerCase('pt-BR').includes(term));
     });
   }, [visits, statusFilter, search]);
 
-  const stats = useMemo(() => {
-    return {
-      total: visits.length,
-      solicitadas: visits.filter(v => v.status === 'Solicitada').length,
-      agendadas: visits.filter(v => v.status === 'Agendada').length,
-      emAndamento: visits.filter(v => v.status === 'Em Andamento').length,
-      concluidas: visits.filter(v => v.status === 'Concluída').length,
-    };
-  }, [visits]);
+  const metrics = useMemo(
+    () => [
+      {
+        label: 'Todas as visitas',
+        count: visits.length,
+        status: 'Todas' as const,
+        icon: Building2,
+      },
+      {
+        label: 'Solicitadas',
+        count: visits.filter((visit) => visit.status === 'Solicitada').length,
+        status: 'Solicitada' as const,
+        icon: Calendar,
+      },
+      {
+        label: 'Agendadas',
+        count: visits.filter((visit) => visit.status === 'Agendada').length,
+        status: 'Agendada' as const,
+        icon: Clock,
+      },
+      {
+        label: 'Em andamento',
+        count: visits.filter((visit) => visit.status === 'Em Andamento').length,
+        status: 'Em Andamento' as const,
+        icon: Users,
+      },
+      {
+        label: 'Concluídas',
+        count: visits.filter((visit) => visit.status === 'Concluída').length,
+        status: 'Concluída' as const,
+        icon: CheckCircle2,
+      },
+    ],
+    [visits],
+  );
 
-  const handleQuickStatusChange = async (e: React.MouseEvent, visit: IntegratorVisit, newStatus: VisitStatus) => {
-    e.stopPropagation();
+  const handleQuickStatusChange = async (
+    event: React.MouseEvent,
+    visit: IntegratorVisit,
+    newStatus: VisitStatus,
+  ) => {
+    event.stopPropagation();
+    if (updatingId) return;
+    setActionError('');
+    setUpdatingId(visit.id);
     try {
       await updateData(currentUser, 'integrator_visits', visit.id, {
         ...visit,
         status: newStatus,
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       });
-    } catch (err) {
-      console.error('Error updating visit status:', err);
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível atualizar o status da visita.',
+      );
+    } finally {
+      setUpdatingId(null);
     }
   };
 
-  const handleDeleteVisit = async (event: React.MouseEvent, visit: IntegratorVisit) => {
+  const handleDeleteVisit = async (
+    event: React.MouseEvent,
+    visit: IntegratorVisit,
+  ) => {
     event.stopPropagation();
     if (!canDeleteVisits || deletingId) return;
-    const confirmed = window.confirm(`Excluir definitivamente a visita de “${visit.integratorName}” em ${visit.visitDate.split('-').reverse().join('/')}? O card, o briefing e a logomarca serão removidos e não poderão ser recuperados pela plataforma.`);
+    const confirmed = window.confirm(
+      `Excluir definitivamente a visita de “${visit.integratorName}” em ${visit.visitDate.split('-').reverse().join('/')}? O card, o briefing e a logomarca serão removidos e não poderão ser recuperados pela plataforma.`,
+    );
     if (!confirmed) return;
-    setDeleteError('');
+    setActionError('');
     setDeletingId(visit.id);
     try {
       await deleteData(currentUser, 'integrator_visits', visit.id);
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : 'Não foi possível excluir a visita.');
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível excluir a visita.',
+      );
     } finally {
       setDeletingId(null);
     }
   };
 
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
   return (
-    <div className="space-y-6">
-      {deleteError && <div role="alert" className="rounded-xl border border-fotus-yellow/25 bg-fotus-yellow/20 px-4 py-3 text-xs font-semibold text-fotus-ink">{deleteError}</div>}
-      
-      {/* Top Metrics Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
-        <div className="bg-fotus-neutral/70 backdrop-blur-md p-4 rounded-2xl border border-fotus-blue/25 shadow-[0_4px_20px_rgb(69_68_68_/_0.02)] flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-fotus-blue/7 text-fotus-blue flex items-center justify-center"><Calendar className="w-5 h-5" /></div>
-          <div><p className="text-[11px] font-bold text-fotus-blue uppercase tracking-wider">Solicitadas</p><p className="text-xl font-extrabold text-fotus-ink">{stats.solicitadas}</p></div>
+    <div className="space-y-5">
+      {actionError && (
+        <div
+          role="alert"
+          className="rounded-2xl border border-fotus-yellow/40 bg-fotus-yellow/15 px-4 py-3 text-xs font-semibold text-fotus-ink"
+        >
+          {actionError}
         </div>
-
-        <div className="bg-fotus-neutral/70 backdrop-blur-md p-4 rounded-2xl border border-fotus-neutral/80 shadow-[0_4px_20px_rgb(69_68_68_/_0.02)] flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-fotus-neutral/70 text-fotus-ink flex items-center justify-center font-bold">
-            <Building2 className="w-5 h-5" />
+      )}
+      <section className="fotus-glass relative overflow-hidden rounded-3xl p-4 sm:p-5">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-12 -top-20 h-60 w-60 rounded-full bg-fotus-yellow/10 blur-3xl"
+        />
+        <div className="relative mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-fotus-yellow/45 bg-fotus-yellow/20 text-fotus-blue">
+              <Building2 className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-fotus-blue">
+                Relacionamento · Fotus
+              </p>
+              <h2 className="mt-1 text-lg font-extrabold tracking-tight text-fotus-ink">
+                Visitas de integradores
+              </h2>
+              <p className="mt-1 text-xs text-fotus-ink/75">
+                Organize a recepção e acompanhe cada encontro.
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-[11px] font-bold text-fotus-ink/80 uppercase tracking-wider">Total de Visitas</p>
-            <p className="text-xl font-extrabold text-fotus-ink">{stats.total}</p>
-          </div>
-        </div>
-
-        <div className="bg-fotus-neutral/70 backdrop-blur-md p-4 rounded-2xl border border-fotus-neutral/80 shadow-[0_4px_20px_rgb(69_68_68_/_0.02)] flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-fotus-yellow/20 text-fotus-ink flex items-center justify-center font-bold">
-            <Clock className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-fotus-ink uppercase tracking-wider">Agendadas</p>
-            <p className="text-xl font-extrabold text-fotus-ink">{stats.agendadas}</p>
-          </div>
-        </div>
-
-        <div className="bg-fotus-neutral/70 backdrop-blur-md p-4 rounded-2xl border border-fotus-neutral/80 shadow-[0_4px_20px_rgb(69_68_68_/_0.02)] flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-fotus-blue/7 text-fotus-blue flex items-center justify-center font-bold">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-fotus-blue uppercase tracking-wider">Em Andamento</p>
-            <p className="text-xl font-extrabold text-fotus-ink">{stats.emAndamento}</p>
-          </div>
-        </div>
-
-        <div className="bg-fotus-neutral/70 backdrop-blur-md p-4 rounded-2xl border border-fotus-neutral/80 shadow-[0_4px_20px_rgb(69_68_68_/_0.02)] flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-fotus-blue/7 text-fotus-blue flex items-center justify-center font-bold">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-fotus-blue uppercase tracking-wider">Concluídas</p>
-            <p className="text-xl font-extrabold text-fotus-ink">{stats.concluidas}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Action Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        {/* Status Filter Pills */}
-        <div className="flex flex-wrap gap-1.5 p-1 bg-fotus-neutral/60 backdrop-blur-md rounded-2xl border border-fotus-neutral/80 shadow-xs">
-          {(['Todas', 'Solicitada', 'Agendada', 'Em Andamento', 'Concluída', 'Cancelada'] as const).map((st) => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={cn(
-                "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all",
-                statusFilter === st 
-                  ? "bg-fotus-yellow text-fotus-ink shadow-2xs" 
-                  : "text-fotus-ink hover:text-fotus-ink hover:bg-fotus-neutral/60"
-              )}
-            >
-              {st === 'Todas' ? 'Todas as Visitas' : st}
-            </button>
-          ))}
-        </div>
-
-        {/* Search & New Visit */}
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fotus-ink/80" />
-            <input
-              type="text"
-              placeholder="Buscar integrador, anfitrião..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-fotus-neutral/70 border border-fotus-blue/14 rounded-xl text-xs focus:bg-fotus-neutral focus:border-fotus-blue outline-none transition-all shadow-2xs"
-            />
-          </div>
-
           <button
+            type="button"
             onClick={onNewVisit}
-            className="flex items-center gap-2 fotus-action px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all shrink-0 active:scale-95"
+            className="fotus-action inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-bold"
           >
-            <Plus className="w-4 h-4" />
-            <span>Agendar Visita</span>
+            <Plus className="h-4 w-4" /> Agendar visita
           </button>
         </div>
+        <div className="relative grid grid-cols-2 gap-3 lg:grid-cols-5">
+          {metrics.map(
+            ({ label, count, status: metricStatus, icon: Icon }, index) => (
+              <button
+                key={metricStatus}
+                type="button"
+                onClick={() => setStatusFilter(metricStatus)}
+                aria-pressed={statusFilter === metricStatus}
+                className={cn(
+                  'fotus-glass-inset flex min-w-0 items-center gap-3 rounded-2xl p-3 text-left transition-colors sm:p-4',
+                  index === 0 && 'col-span-2 lg:col-span-1',
+                  statusFilter === metricStatus && 'border-fotus-yellow/70',
+                )}
+              >
+                <span
+                  className={cn(
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+                    metricStatus === 'Agendada' || metricStatus === 'Todas'
+                      ? 'bg-fotus-yellow/22 text-fotus-blue'
+                      : 'bg-fotus-blue/6 text-fotus-blue',
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold leading-snug text-fotus-ink/75">
+                    {label}
+                  </p>
+                  <p className="mt-1 text-xl font-extrabold leading-none text-fotus-ink">
+                    {count}
+                  </p>
+                </div>
+              </button>
+            ),
+          )}
+        </div>
+      </section>
+
+      <section
+        aria-label="Filtros de visitas"
+        className="fotus-glass rounded-2xl p-3 sm:p-4"
+      >
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {visitStatuses.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setStatusFilter(option)}
+                aria-pressed={statusFilter === option}
+                className={cn(
+                  'rounded-full px-3 py-2 text-[11px] font-bold transition-colors',
+                  statusFilter === option
+                    ? 'bg-fotus-yellow/85 text-fotus-ink shadow-xs'
+                    : 'text-fotus-ink/80 hover:bg-fotus-neutral/65',
+                )}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+          <label className="relative block min-w-0 xl:w-72 xl:shrink-0">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fotus-blue"
+            />
+            <input
+              aria-label="Buscar visitas"
+              type="search"
+              placeholder="Integrador, contato, anfitrião..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="field-input min-w-0 bg-fotus-neutral/45 pl-9 text-xs"
+            />
+          </label>
+        </div>
+      </section>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <p className="text-xs font-semibold text-fotus-ink/75">
+          {filteredVisits.length}{' '}
+          {filteredVisits.length === 1
+            ? 'visita encontrada'
+            : 'visitas encontradas'}
+        </p>
+        <span className="text-[11px] text-fotus-ink/65">
+          Clique em um card para ver o briefing e editar.
+        </span>
       </div>
 
-      {/* Visits List / Grid */}
       {filteredVisits.length === 0 ? (
-        <div className="bg-fotus-neutral/50 backdrop-blur-md rounded-3xl border border-fotus-neutral p-12 text-center flex flex-col items-center justify-center">
-          <Building2 className="w-12 h-12 text-fotus-ink/50 mb-3" />
-          <h3 className="text-base font-bold text-fotus-ink mb-1">Nenhuma visita encontrada</h3>
-          <p className="text-xs text-fotus-ink/80 max-w-sm mb-4">
-            Não há visitas cadastradas com os filtros selecionados.
+        <div className="fotus-glass rounded-3xl px-5 py-12 text-center">
+          <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-fotus-yellow/20 text-fotus-blue">
+            <Building2 className="h-6 w-6" />
+          </span>
+          <h3 className="text-base font-bold text-fotus-ink">
+            Nenhuma visita encontrada
+          </h3>
+          <p className="mx-auto mt-2 max-w-sm text-xs text-fotus-ink/75">
+            Não há visitas com os filtros selecionados.
           </p>
-          <div className="flex gap-3">
-            <button
-              onClick={onNewVisit}
-              className="px-4 py-2 fotus-action text-xs font-bold rounded-xl shadow-xs transition-all"
-            >
-              Nova Visita
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onNewVisit}
+            className="fotus-action mt-5 inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-bold"
+          >
+            <Plus className="h-4 w-4" /> Nova visita
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredVisits.map((visit) => {
-            const isToday = visit.visitDate === new Date().toISOString().split('T')[0];
+            const isToday = visit.visitDate === todayKey;
+            const nextAction = nextVisitStatus[visit.status];
+            const isBusy = updatingId === visit.id || deletingId === visit.id;
             return (
-              <div
+              <article
                 key={visit.id}
                 onClick={() => onEditVisit(visit)}
-                className="fotus-glass-card rounded-3xl p-5 flex flex-col justify-between cursor-pointer group relative overflow-hidden"
+                className="fotus-glass-card group relative flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-3xl p-4 sm:p-5"
               >
-                {/* Status Bar Top Line */}
-                <div className={`h-1.5 w-full absolute top-0 left-0 ${
-                  visit.status === 'Solicitada' ? 'bg-fotus-blue' :
-                  visit.status === 'Agendada' ? 'bg-fotus-yellow' :
-                  visit.status === 'Em Andamento' ? 'bg-fotus-blue' :
-                  visit.status === 'Concluída' ? 'bg-fotus-blue' : 'bg-fotus-neutral'
-                }`} />
-
-                <div>
-                  {/* Top Badges */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className={`fotus-pill ${visit.status === 'Concluída' ? 'fotus-pill-solid' : visit.status === 'Agendada' ? 'fotus-pill-yellow' : visit.status === 'Cancelada' ? 'fotus-pill-neutral' : 'fotus-pill-blue'}`}>
-                      {visit.status}
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-fotus-yellow/8 blur-2xl"
+                />
+                <div className="relative mb-4 flex flex-wrap items-center justify-between gap-2">
+                  <span className={cn('fotus-pill', statusClass(visit.status))}>
+                    {visit.status === 'Concluída' && (
+                      <CheckCircle2 className="h-3 w-3" />
+                    )}
+                    {visit.status}
+                  </span>
+                  {visit.requestSource === 'conecta' && (
+                    <span className="fotus-pill fotus-pill-neutral">
+                      Via Conecta
                     </span>
-
-                    <div className="flex items-center gap-1.5 text-xs text-fotus-ink bg-fotus-neutral/40 px-2.5 py-0.5 rounded-full border border-fotus-blue/12 font-semibold">
-                      <Calendar className="w-3.5 h-3.5 text-fotus-ink/80" />
-                      <span>{visit.visitDate.split('-').reverse().join('/')}</span>
-                      {visit.visitTime && <span className="text-fotus-ink/80">• {visit.visitTime}</span>}
-                    </div>
-                  </div>
-
-                  {/* Integrator & Contact */}
-                  <div className="mb-3">
-                    <h3 className="text-base font-bold text-fotus-ink group-hover:text-fotus-blue transition-colors leading-snug">
+                  )}
+                </div>
+                <div className="relative flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-fotus-blue/10 bg-fotus-neutral/50 text-fotus-blue">
+                    <Building2 className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="break-words text-base font-extrabold leading-snug text-fotus-ink transition-colors group-hover:text-fotus-blue">
                       {visit.integratorName}
                     </h3>
-                    <p className="text-xs text-fotus-ink/80 flex items-center gap-1 mt-0.5">
-                      <User className="w-3.5 h-3.5 text-fotus-ink/80" />
-                      <span>{visit.requestSource === 'conecta' ? `Solicitante: ${visit.requesterName || visit.contactPerson}` : visit.contactPerson}</span>
-                      {visit.cityState && <span className="text-fotus-ink/80">• {visit.cityState}</span>}
+                    <p className="mt-1 flex items-start gap-1.5 text-xs text-fotus-ink/75">
+                      <User className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span className="break-words">
+                        {visit.requestSource === 'conecta'
+                          ? `Solicitante: ${visit.requesterName || visit.contactPerson}`
+                          : visit.contactPerson}
+                      </span>
+                    </p>
+                    {visit.cityState && (
+                      <p className="mt-1 flex items-start gap-1.5 text-[11px] text-fotus-ink/70">
+                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span className="break-words">{visit.cityState}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="fotus-glass-inset my-4 grid grid-cols-2 gap-3 rounded-2xl p-3">
+                  <div className="min-w-0">
+                    <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-fotus-ink/65">
+                      <Calendar className="h-3 w-3" /> Data{' '}
+                      {isToday && (
+                        <span className="rounded-full bg-fotus-yellow/35 px-1.5 normal-case tracking-normal text-fotus-ink">
+                          Hoje
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs font-bold text-fotus-ink">
+                      {visit.visitDate.split('-').reverse().join('/')}
                     </p>
                   </div>
-
-                  {/* Objective */}
-                  <div className="p-3 bg-fotus-neutral/32 rounded-xl border border-fotus-blue/10 mb-3 text-xs">
-                    <p className="font-semibold text-fotus-ink line-clamp-2">{visit.objective}</p>
+                  <div className="min-w-0 border-l border-fotus-blue/10 pl-3">
+                    <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-fotus-ink/65">
+                      <Clock className="h-3 w-3" /> Horário
+                    </p>
+                    <p className="text-xs font-bold text-fotus-ink">
+                      {visit.visitTime || 'Não informado'}
+                      {visit.visitTime && visit.visitEndTime
+                        ? `–${visit.visitEndTime}`
+                        : ''}
+                    </p>
                   </div>
-
-                  {/* Feedback preview if present */}
+                </div>
+                <div className="mb-4 flex-1">
+                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-fotus-blue">
+                    Objetivo do encontro
+                  </p>
+                  <p className="line-clamp-3 break-words text-xs leading-relaxed text-fotus-ink">
+                    {visit.objective}
+                  </p>
                   {visit.feedback && (
-                    <div className="p-2.5 bg-fotus-blue/4 rounded-xl border border-fotus-blue/15 mb-3 text-[11px] text-fotus-blue flex items-start gap-1.5">
-                      <MessageSquareQuote className="w-3.5 h-3.5 text-fotus-blue shrink-0 mt-0.5" />
-                      <p className="line-clamp-2 italic">"{visit.feedback}"</p>
+                    <div className="mt-3 flex items-start gap-2 rounded-2xl border border-fotus-yellow/25 bg-fotus-yellow/7 p-3 text-xs text-fotus-ink">
+                      <MessageSquareQuote className="mt-0.5 h-4 w-4 shrink-0 text-fotus-blue" />
+                      <p className="line-clamp-2 break-words leading-relaxed">
+                        {visit.feedback}
+                      </p>
                     </div>
                   )}
                 </div>
-
-                {/* Footer & Fast Actions */}
-                <div className="pt-3 border-t border-fotus-blue/10 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-fotus-blue/6 text-fotus-blue flex items-center justify-center font-bold text-[10px]">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-t border-fotus-blue/10 pt-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-fotus-yellow/25 bg-fotus-yellow/18 text-[10px] font-extrabold text-fotus-blue">
                       {visit.hostName?.[0]?.toUpperCase() || 'F'}
-                    </div>
-                    <span className="text-fotus-ink font-medium truncate max-w-[110px]" title={visit.hostName}>
-                      {visit.hostName}
                     </span>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-fotus-ink/60">
+                        Anfitrião Fotus
+                      </p>
+                      <p
+                        className="max-w-48 truncate text-[11px] font-semibold text-fotus-ink"
+                        title={visit.hostName}
+                      >
+                        {visit.hostName || 'Equipe Fotus'}
+                      </p>
+                    </div>
                   </div>
-
-                  {/* Quick Status Pill Advancer */}
-                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    {visit.status === 'Solicitada' && <button onClick={(e) => handleQuickStatusChange(e, visit, 'Agendada')} className="px-2 py-1 bg-fotus-blue/7 text-fotus-blue hover:bg-fotus-blue/12 border border-fotus-blue/25 rounded-lg text-[10px] font-bold transition-all">Confirmar</button>}
-                    {visit.status === 'Agendada' && (
+                  {!!visit.participantsCount && (
+                    <span className="flex items-center gap-1.5 text-[11px] text-fotus-ink/70">
+                      <Users className="h-3.5 w-3.5" />
+                      {visit.participantsCount}{' '}
+                      {visit.participantsCount === 1 ? 'pessoa' : 'pessoas'}
+                    </span>
+                  )}
+                </div>
+                <div
+                  className="flex flex-wrap items-center justify-between gap-2"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onEditVisit(visit)}
+                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-2 text-[11px] font-bold text-fotus-blue transition-colors hover:bg-fotus-blue/6"
+                    aria-label={`Ver detalhes da visita de ${visit.integratorName}`}
+                  >
+                    Ver detalhes <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                  <div className="flex items-center gap-2">
+                    {nextAction && (
                       <button
-                        onClick={(e) => handleQuickStatusChange(e, visit, 'Em Andamento')}
-                        className="px-2 py-1 bg-fotus-blue/7 text-fotus-blue hover:bg-fotus-blue/12 border border-fotus-blue/25 rounded-lg text-[10px] font-bold transition-all"
+                        type="button"
+                        disabled={isBusy || updatingId !== null}
+                        onClick={(event) =>
+                          void handleQuickStatusChange(
+                            event,
+                            visit,
+                            nextAction.status,
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-full border border-fotus-yellow/40 bg-fotus-yellow/20 px-3 py-2 text-[11px] font-bold text-fotus-ink transition-colors hover:bg-fotus-yellow/35 disabled:cursor-wait disabled:opacity-50"
                       >
-                        Iniciar
+                        {updatingId === visit.id ? (
+                          <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        )}
+                        {nextAction.label}
                       </button>
                     )}
-                    {visit.status === 'Em Andamento' && (
+                    {canDeleteVisits && (
                       <button
-                        onClick={(e) => handleQuickStatusChange(e, visit, 'Concluída')}
-                        className="px-2 py-1 bg-fotus-blue/7 text-fotus-blue hover:bg-fotus-blue/12 border border-fotus-blue/25 rounded-lg text-[10px] font-bold transition-all"
+                        type="button"
+                        disabled={isBusy}
+                        onClick={(event) =>
+                          void handleDeleteVisit(event, visit)
+                        }
+                        aria-label={`Excluir visita de ${visit.integratorName}`}
+                        title="Excluir visita definitivamente"
+                        className="rounded-full border border-fotus-blue/10 p-2 text-fotus-ink/65 transition-colors hover:bg-fotus-yellow/20 hover:text-fotus-ink disabled:cursor-wait disabled:opacity-40"
                       >
-                        Concluir
+                        {deletingId === visit.id ? (
+                          <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
                       </button>
                     )}
-                    {canDeleteVisits && <button
-                      type="button"
-                      onClick={(event) => void handleDeleteVisit(event, visit)}
-                      disabled={deletingId === visit.id}
-                      aria-label={`Excluir visita de ${visit.integratorName}`}
-                      title="Excluir visita definitivamente"
-                      className="ml-1 rounded-lg p-1.5 text-fotus-ink/80 transition-colors hover:bg-fotus-yellow/20 hover:text-fotus-ink focus-visible:outline-2 focus-visible:outline-fotus-yellow disabled:cursor-wait disabled:opacity-40"
-                    ><Trash2 className="h-4 w-4" /></button>}
                   </div>
                 </div>
-
-              </div>
+              </article>
             );
           })}
         </div>
       )}
-
     </div>
   );
 }

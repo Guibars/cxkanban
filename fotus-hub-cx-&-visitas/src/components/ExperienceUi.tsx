@@ -221,9 +221,9 @@ export function ExperienceDialog({
         )
           onClose();
       }}
-      className={`fotus-dialog fixed inset-0 m-auto flex max-h-[92dvh] w-[calc(100%_-_1.5rem)] ${wide ? 'max-w-7xl' : 'max-w-3xl'} flex-col overflow-hidden rounded-3xl border border-fotus-neutral bg-fotus-neutral p-0 text-fotus-ink shadow-2xl backdrop:bg-fotus-ink/45 backdrop:backdrop-blur-sm`}
+      className={`fotus-dialog fixed inset-0 m-auto flex max-h-[92dvh] w-[calc(100%_-_1.5rem)] ${wide ? 'max-w-7xl' : 'max-w-3xl'} flex-col overflow-hidden rounded-3xl border border-fotus-neutral p-0 text-fotus-ink shadow-2xl backdrop:bg-fotus-ink/45 backdrop:backdrop-blur-sm`}
     >
-      <header className="flex items-start justify-between gap-4 border-b border-fotus-blue/10 bg-gradient-to-r from-fotus-yellow/20 to-fotus-neutral p-5 sm:px-7">
+      <header className="fotus-dialog-header flex items-start justify-between gap-4 p-5 sm:px-7">
         <div className="min-w-0">
           <h2
             id="experience-dialog-title"
@@ -246,7 +246,7 @@ export function ExperienceDialog({
         {children}
       </div>
       {footer && (
-        <footer className="flex flex-wrap justify-end gap-2 border-t border-fotus-blue/10 p-4 sm:px-7">
+        <footer className="flex flex-wrap justify-end gap-2 border-t border-fotus-blue/10 bg-fotus-neutral/40 p-4 sm:px-7">
           {footer}
         </footer>
       )}

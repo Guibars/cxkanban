@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   CalendarDays,
+  ChartNoAxesCombined,
   ChevronDown,
   SlidersHorizontal,
   MessageSquareQuote,
@@ -44,6 +45,7 @@ export default function VocView({
   canDelete: boolean;
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [dashboardOpen, setDashboardOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState('Todos');
   const [theme, setTheme] = useState('Todos');
@@ -146,7 +148,7 @@ export default function VocView({
         type="button"
         disabled={Boolean(deleting)}
         onClick={() => edit(item)}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-fotus-blue/20 px-3 py-2 text-xs font-bold text-fotus-blue disabled:opacity-40"
+        className="fotus-glass-inset inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold text-fotus-blue disabled:opacity-40"
       >
         <Pencil className="h-3.5 w-3.5" />
         Editar / tratar
@@ -156,7 +158,7 @@ export default function VocView({
           type="button"
           disabled={Boolean(deleting)}
           onClick={() => void remove(item)}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-fotus-yellow/50 bg-fotus-yellow/20 px-3 py-2 text-xs font-bold disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-full border border-fotus-yellow/50 bg-fotus-yellow/15 px-3 py-2 text-xs font-bold disabled:opacity-40"
         >
           <Trash2 className="h-3.5 w-3.5" />
           {deleting === item.id ? 'Excluindo...' : 'Excluir'}
@@ -166,7 +168,7 @@ export default function VocView({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <header className="fotus-glass flex flex-col justify-between gap-5 rounded-3xl border-fotus-yellow/40 p-6 sm:flex-row sm:items-center">
         <div>
           <p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-widest text-fotus-blue">
@@ -184,7 +186,7 @@ export default function VocView({
         <button
           type="button"
           onClick={() => edit(null)}
-          className="fotus-action flex w-fit shrink-0 items-center gap-2 rounded-xl px-5 py-3 text-xs font-extrabold"
+          className="fotus-action flex w-fit shrink-0 items-center gap-2 rounded-full px-5 py-3 text-xs font-extrabold"
         >
           <Plus className="h-4 w-4" />
           Novo feedback
@@ -349,133 +351,158 @@ export default function VocView({
 
       <section
         aria-label="Dashboard dos feedbacks filtrados"
-        className="space-y-4"
+        className="fotus-glass rounded-3xl p-4 sm:p-5"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-lg font-extrabold">Dashboard do filtro</h3>
-          <span className="fotus-pill fotus-pill-yellow">
-            Clique nos temas e áreas para explorar
-          </span>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <ExperienceMetric
-            label="Feedbacks"
-            value={filtered.length}
-            detail={`${filtered.filter((item) => item.kind === 'Elogio').length} elogios · ${filtered.filter((item) => item.kind === 'Sugestão').length} sugestões`}
-            yellow
-          />
-          <ExperienceMetric
-            label="Em acompanhamento"
-            value={
-              filtered.filter((item) => item.status !== 'Concluído').length
-            }
-            detail={`${filtered.filter((item) => item.priority === 'Alta' && item.status !== 'Concluído').length} com prioridade alta`}
-          />
-          <ExperienceMetric
-            label="Temas recorrentes"
-            value={recurringThemes.length}
-            detail={`${recurringThemes.reduce((sum, item) => sum + item.count, 0)} relatos em temas com 2 ou mais registros`}
-            yellow
-          />
-          <ExperienceMetric
-            label="Reclamações e dores"
-            value={
-              filtered.filter(
-                (item) => item.kind === 'Reclamação' || item.kind === 'Dor',
-              ).length
-            }
-            detail={`${filtered.filter((item) => item.status === 'Concluído').length} feedbacks concluídos no filtro`}
-          />
-        </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <ExperienceRanking
-            title="Principais temas e motivos"
-            items={themes}
-            total={filtered.length}
-            selected={theme}
-            onSelect={(value) => {
-              setTheme(
-                normalizedTopic(theme) === normalizedTopic(value)
-                  ? 'Todos'
-                  : canonicalFilter('theme', value),
-              );
-              setPage(1);
-            }}
-          />
-          <ExperienceRanking
-            title="Áreas responsáveis"
-            items={areas}
-            total={filtered.length}
-            selected={area}
-            onSelect={(value) => {
-              setArea(
-                normalizedTopic(area) === normalizedTopic(value)
-                  ? 'Todas'
-                  : canonicalFilter('responsibleArea', value),
-              );
-              setPage(1);
-            }}
-          />
-          <ExperienceRanking
-            title="Distribuição dos feedbacks"
-            items={rankFeedback(filtered, 'kind')}
-            total={filtered.length}
-            selected={kind}
-            onSelect={(value) => {
-              setKind(kind === value ? 'Todos' : value);
-              setPage(1);
-            }}
-          />
-        </div>
-      </section>
-
-      <section className="fotus-glass rounded-3xl p-5">
-        <h3 className="flex items-center gap-2 text-sm font-extrabold">
-          <Target className="h-4 w-4 text-fotus-blue" />
-          Oportunidades de melhoria
-        </h3>
-        <p className="mt-1 text-xs text-fotus-ink/80">
-          Reclamações, dores e sugestões ainda em acompanhamento, agrupadas por
-          tema e área. Prioridades altas aparecem primeiro.
-        </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {opportunities.slice(0, 6).map((item) => (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
-              key={JSON.stringify([item.theme, item.area])}
               type="button"
-              onClick={() => {
-                setTheme(canonicalFilter('theme', item.theme));
-                setArea(canonicalFilter('responsibleArea', item.area));
+              onClick={() => setDashboardOpen((open) => !open)}
+              aria-expanded={dashboardOpen}
+              aria-controls="voc-dashboard"
+              className="fotus-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-extrabold"
+            >
+              <ChartNoAxesCombined className="h-4 w-4" />
+              Dashboard do filtro
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${dashboardOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            <span className="text-xs text-fotus-ink/80">
+              {filtered.length} feedback(s) · {opportunities.length}{' '}
+              oportunidade(s)
+            </span>
+          </div>
+          {dashboardOpen && (
+            <span className="fotus-pill fotus-pill-yellow">
+              Explore os temas e áreas
+            </span>
+          )}
+        </div>
+        <div
+          id="voc-dashboard"
+          hidden={!dashboardOpen}
+          className="mt-5 space-y-5"
+        >
+          <div className="fotus-bento-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <ExperienceMetric
+              label="Feedbacks"
+              value={filtered.length}
+              detail={`${filtered.filter((item) => item.kind === 'Elogio').length} elogios · ${filtered.filter((item) => item.kind === 'Sugestão').length} sugestões`}
+              yellow
+            />
+            <ExperienceMetric
+              label="Em acompanhamento"
+              value={
+                filtered.filter((item) => item.status !== 'Concluído').length
+              }
+              detail={`${filtered.filter((item) => item.priority === 'Alta' && item.status !== 'Concluído').length} com prioridade alta`}
+            />
+            <ExperienceMetric
+              label="Temas recorrentes"
+              value={recurringThemes.length}
+              detail={`${recurringThemes.reduce((sum, item) => sum + item.count, 0)} relatos em temas com 2 ou mais registros`}
+              yellow
+            />
+            <ExperienceMetric
+              label="Reclamações e dores"
+              value={
+                filtered.filter(
+                  (item) => item.kind === 'Reclamação' || item.kind === 'Dor',
+                ).length
+              }
+              detail={`${filtered.filter((item) => item.status === 'Concluído').length} feedbacks concluídos no filtro`}
+            />
+          </div>
+          <div className="fotus-bento-grid grid gap-5 lg:grid-cols-3">
+            <ExperienceRanking
+              title="Principais temas e motivos"
+              items={themes}
+              total={filtered.length}
+              selected={theme}
+              onSelect={(value) => {
+                setTheme(
+                  normalizedTopic(theme) === normalizedTopic(value)
+                    ? 'Todos'
+                    : canonicalFilter('theme', value),
+                );
                 setPage(1);
               }}
-              className="rounded-2xl border border-fotus-yellow/50 bg-fotus-yellow/10 p-4 text-left hover:bg-fotus-yellow/20"
-            >
-              <span className="fotus-pill fotus-pill-yellow">
-                {item.count} relato(s) em aberto
-              </span>
-              <strong className="mt-3 block break-words text-sm">
-                {item.theme}
-              </strong>
-              <p className="mt-1 text-xs text-fotus-ink/80">{item.area}</p>
-              <p className="mt-3 text-[10px] text-fotus-ink/80">
-                {item.complaints} reclamações / dores · {item.suggestions}{' '}
-                sugestões
-                {item.highPriority > 0
-                  ? ` · ${item.highPriority} prioridade alta`
-                  : ''}
+            />
+            <ExperienceRanking
+              title="Áreas responsáveis"
+              items={areas}
+              total={filtered.length}
+              selected={area}
+              onSelect={(value) => {
+                setArea(
+                  normalizedTopic(area) === normalizedTopic(value)
+                    ? 'Todas'
+                    : canonicalFilter('responsibleArea', value),
+                );
+                setPage(1);
+              }}
+            />
+            <ExperienceRanking
+              title="Distribuição dos feedbacks"
+              items={rankFeedback(filtered, 'kind')}
+              total={filtered.length}
+              selected={kind}
+              onSelect={(value) => {
+                setKind(kind === value ? 'Todos' : value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <section className="fotus-glass-inset rounded-3xl p-4 sm:p-5">
+            <h3 className="flex items-center gap-2 text-sm font-extrabold">
+              <Target className="h-4 w-4 text-fotus-blue" />
+              Oportunidades de melhoria
+            </h3>
+            <p className="mt-1 text-xs text-fotus-ink/80">
+              Reclamações, dores e sugestões ainda em acompanhamento, agrupadas
+              por tema e área. Prioridades altas aparecem primeiro.
+            </p>
+            <div className="fotus-bento-grid mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {opportunities.slice(0, 6).map((item) => (
+                <button
+                  key={JSON.stringify([item.theme, item.area])}
+                  type="button"
+                  onClick={() => {
+                    setTheme(canonicalFilter('theme', item.theme));
+                    setArea(canonicalFilter('responsibleArea', item.area));
+                    setPage(1);
+                  }}
+                  className="fotus-glass-card rounded-2xl border-fotus-yellow/35 p-4 text-left hover:bg-fotus-yellow/15"
+                >
+                  <span className="fotus-pill fotus-pill-yellow">
+                    {item.count} relato(s) em aberto
+                  </span>
+                  <strong className="mt-3 block break-words text-sm">
+                    {item.theme}
+                  </strong>
+                  <p className="mt-1 text-xs text-fotus-ink/80">{item.area}</p>
+                  <p className="mt-3 text-[10px] text-fotus-ink/80">
+                    {item.complaints} reclamações / dores · {item.suggestions}{' '}
+                    sugestões
+                    {item.highPriority > 0
+                      ? ` · ${item.highPriority} prioridade alta`
+                      : ''}
+                  </p>
+                  <span className="mt-2 block text-[10px] font-bold text-fotus-blue">
+                    Ver relatos e planos de ação →
+                  </span>
+                </button>
+              ))}
+            </div>
+            {!opportunities.length && (
+              <p className="fotus-glass-inset mt-4 rounded-2xl p-4 text-xs text-fotus-ink/80">
+                Nenhuma oportunidade pendente identificada nos registros deste
+                filtro.
               </p>
-              <span className="mt-2 block text-[10px] font-bold text-fotus-blue">
-                Ver relatos e planos de ação →
-              </span>
-            </button>
-          ))}
+            )}
+          </section>
         </div>
-        {!opportunities.length && (
-          <p className="mt-4 rounded-xl bg-fotus-neutral/50 p-4 text-xs text-fotus-ink/80">
-            Nenhuma oportunidade pendente identificada nos registros deste
-            filtro.
-          </p>
-        )}
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -492,20 +519,25 @@ export default function VocView({
           {message}
         </p>
       )}
-      <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+      <div className="fotus-bento-grid grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
         {filtered
           .slice((currentPage - 1) * 12, currentPage * 12)
           .map((item) => (
             <article
               key={item.id}
-              className="fotus-glass-card flex min-w-0 flex-col rounded-3xl p-5"
+              className="fotus-glass-card flex min-w-0 flex-col rounded-[26px] p-4 sm:p-5"
             >
-              <div className="mb-4 flex flex-wrap gap-2">
-                <span className="fotus-pill fotus-pill-yellow">
-                  {item.kind}
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <span className="fotus-glass-inset inline-flex h-10 w-10 items-center justify-center rounded-2xl text-fotus-blue">
+                  <MessageSquareQuote className="h-5 w-5" />
                 </span>
                 <span className="fotus-pill fotus-pill-blue">
                   {item.status}
+                </span>
+              </div>
+              <div className="mb-4 flex flex-wrap gap-2">
+                <span className="fotus-pill fotus-pill-yellow">
+                  {item.kind}
                 </span>
                 {item.priority === 'Alta' && (
                   <span className="fotus-pill fotus-pill-yellow">
@@ -516,9 +548,9 @@ export default function VocView({
               <button
                 type="button"
                 onClick={() => setSelected(item)}
-                className="text-left"
+                className="min-w-0 text-left"
               >
-                <h4 className="break-words text-lg font-extrabold">
+                <h4 className="break-words text-base font-extrabold leading-snug">
                   {item.title}
                 </h4>
                 <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-fotus-ink/80">
@@ -528,25 +560,35 @@ export default function VocView({
                   Abrir relato →
                 </span>
               </button>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="fotus-pill fotus-pill-neutral">
-                  {item.theme}
-                </span>
-                <span className="fotus-pill fotus-pill-neutral">
-                  {item.responsibleArea}
-                </span>
-              </div>
+              <dl className="fotus-glass-inset mt-4 grid gap-3 rounded-2xl p-3 sm:grid-cols-2">
+                <div className="min-w-0">
+                  <dt className="text-[9px] font-bold uppercase tracking-wide text-fotus-ink/70">
+                    Tema
+                  </dt>
+                  <dd className="mt-1 break-words text-xs font-bold">
+                    {item.theme}
+                  </dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-[9px] font-bold uppercase tracking-wide text-fotus-ink/70">
+                    Área responsável
+                  </dt>
+                  <dd className="mt-1 break-words text-xs font-bold">
+                    {item.responsibleArea}
+                  </dd>
+                </div>
+              </dl>
               {item.actionPlan && (
-                <p className="mt-3 line-clamp-2 text-xs text-fotus-ink/80">
+                <p className="mt-3 line-clamp-2 border-l-2 border-fotus-yellow/80 pl-3 text-xs leading-relaxed text-fotus-ink/80">
                   <strong>Ação:</strong> {item.actionPlan}
                 </p>
               )}
-              <div className="my-4 flex flex-wrap gap-3 text-[10px] text-fotus-ink/80">
+              <div className="my-4 grid gap-2 text-[10px] text-fotus-ink/80 sm:grid-cols-[auto_1fr]">
                 <span className="flex items-center gap-1">
                   <CalendarDays className="h-3.5 w-3.5" />
                   {experienceDate(item.date)}
                 </span>
-                <span>
+                <span className="min-w-0 break-words sm:text-right">
                   {item.customerName || 'Cliente não informado'} · {item.source}
                 </span>
               </div>
@@ -603,7 +645,7 @@ export default function VocView({
                 Prioridade {selected.priority.toLowerCase()}
               </span>
             </div>
-            <dl className="grid gap-4 rounded-2xl bg-fotus-ink/4 p-4 text-xs sm:grid-cols-2">
+            <dl className="fotus-glass-inset grid gap-4 rounded-2xl p-4 text-xs sm:grid-cols-2">
               {[
                 ['Tema', selected.theme],
                 ['Área responsável', selected.responsibleArea],
@@ -619,13 +661,13 @@ export default function VocView({
                 </div>
               ))}
             </dl>
-            <section>
+            <section className="fotus-glass-inset rounded-2xl p-4">
               <h3 className="text-xs font-extrabold">Relato do cliente</h3>
               <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">
                 {selected.description}
               </p>
             </section>
-            <section className="rounded-2xl border border-fotus-yellow/40 bg-fotus-yellow/10 p-4">
+            <section className="fotus-glass-inset rounded-2xl border-fotus-yellow/40 p-4">
               <h3 className="text-xs font-extrabold">
                 Plano de ação / oportunidade de melhoria
               </h3>

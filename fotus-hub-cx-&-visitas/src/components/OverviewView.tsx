@@ -62,17 +62,17 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
   const currentTrend = monthlyTrend.find((item) => item.key === currentMonth);
 
   return (
-    <div className="space-y-5">
-      <section className="overflow-hidden rounded-3xl border border-fotus-blue/10 bg-fotus-neutral/85 shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-fotus-blue/10 bg-fotus-neutral p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6">
+    <div className="space-y-6">
+      <section className="fotus-glass overflow-hidden rounded-3xl">
+        <div className="flex flex-col gap-4 border-b border-fotus-blue/8 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6">
           <div><p className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-fotus-blue"><Activity className="h-4 w-4" />Visão Geral</p><h2 className="mt-1 text-xl font-extrabold text-fotus-ink">O Hub inteiro em uma leitura simples</h2><p className="mt-1 text-xs text-fotus-ink/80">Escopo exibido: <strong className="text-fotus-ink">{scopeLabel}</strong>.</p></div>
-          <div className="flex w-fit gap-1 rounded-2xl border border-fotus-neutral bg-fotus-neutral/80 p-1.5 shadow-sm">
+          <div className="fotus-glass-inset flex w-fit gap-1 rounded-full p-1.5">
             <button onClick={() => setPeriod('month')} className={`rounded-xl px-4 py-2 text-[10px] font-extrabold ${period === 'month' ? 'bg-fotus-yellow text-fotus-ink' : 'text-fotus-ink/80'}`}>Mês atual</button>
             <button onClick={() => setPeriod('year')} className={`rounded-xl px-4 py-2 text-[10px] font-extrabold ${period === 'year' ? 'bg-fotus-yellow text-fotus-ink' : 'text-fotus-ink/80'}`}>Ano atual</button>
           </div>
         </div>
 
-        <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4 sm:p-6">
+        <div className="fotus-bento-grid grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-4 sm:p-6">
           {canViewOccurrences ? <OverviewMetric label="Ocorrências no período" value={periodOccurrences.length.toLocaleString('pt-BR')} supporting={`${open} abertas · ${finalized} finalizadas`} icon={ClipboardList} tone="bg-fotus-blue/7 text-fotus-blue" onClick={() => onNavigate('ocorrencias')} /> : <RestrictedMetric label="Ocorrências" />}
           {canViewOccurrences ? <OverviewMetric label="Custo de avarias" value={currency(damageTotal)} supporting={`${damageOccurrences.length} avarias registradas`} icon={Truck} tone="bg-fotus-yellow/20 text-fotus-ink" onClick={() => onNavigate('ocorrencias')} /> : <RestrictedMetric label="Avarias" />}
           {canViewCosts ? <OverviewMetric label="Custos extras" value={currency(extraCostTotal)} supporting={`${periodCosts.length} registros no período`} icon={CircleDollarSign} tone="bg-fotus-yellow/20 text-fotus-ink" onClick={() => onNavigate('custos')} /> : <RestrictedMetric label="Custo Extra" />}
@@ -80,13 +80,13 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[1.55fr_1fr]">
-        {canViewOccurrences ? <section className="rounded-3xl border border-fotus-neutral/90 bg-fotus-neutral/85 p-5 shadow-sm sm:p-6">
+      <div className="fotus-bento-grid grid gap-5 xl:grid-cols-[1.55fr_1fr]">
+        {canViewOccurrences ? <section className="fotus-glass-card min-w-0 rounded-3xl p-5 sm:p-6">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"><div><h3 className="text-sm font-extrabold text-fotus-ink">Ritmo mensal das ocorrências</h3><p className="mt-1 text-[11px] text-fotus-ink/80">Cada coluna é um mês; a linha azul representa as ocorrências finalizadas.</p></div><span className="mt-2 w-fit rounded-full bg-fotus-blue/6 px-3 py-1 text-[10px] font-extrabold text-fotus-blue sm:mt-0">{currentTrend?.total || 0} cards neste mês</span></div>
           <div className="mt-5"><PillBarChart data={monthlyTrend.map((item) => ({ key: item.key, label: item.label, value: item.total, secondaryValue: item.closed, tooltip: `${item.label}: ${item.total} ocorrências, ${item.closed} finalizadas` }))} ariaLabel={`Ritmo mensal das ocorrências em ${now.getFullYear()}`} valueFormatter={(value) => `${value} cards`} primaryLabel="Ocorrências" secondaryLabel="Finalizadas" emptyMessage="Ainda não há ocorrências cadastradas neste ano." /></div>
         </section> : <RestrictedPanel title="Ritmo mensal das ocorrências" />}
 
-        {canViewOccurrences ? <section className="rounded-3xl border border-fotus-neutral/90 bg-fotus-neutral/85 p-5 shadow-sm sm:p-6">
+        {canViewOccurrences ? <section className="fotus-glass-card min-w-0 rounded-3xl p-5 sm:p-6">
           <h3 className="text-sm font-extrabold text-fotus-ink">Impacto financeiro por transportadora</h3>
           <p className="mt-1 text-[11px] text-fotus-ink/80">Ranking calculado apenas com ocorrências marcadas como avaria.</p>
           <div className="mt-5 space-y-4">
@@ -97,7 +97,7 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
         </section> : <RestrictedPanel title="Impacto financeiro por transportadora" />}
       </div>
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="fotus-bento-grid grid gap-4 sm:grid-cols-3">
         {canViewOccurrences ? <QuickStatus label="Taxa de conclusão" value={`${periodOccurrences.length ? Math.round((finalized / periodOccurrences.length) * 100) : 0}%`} detail="das ocorrências do período" icon={CheckCircle2} /> : <RestrictedMetric label="Taxa de conclusão" />}
         {canViewVisits ? <QuickStatus label="Visitas agendadas" value={visits.filter((item) => item.status === 'Agendada').length.toLocaleString('pt-BR')} detail="na agenda visível" icon={Activity} /> : <RestrictedMetric label="Visitas" />}
         {canViewOccurrences ? <QuickStatus label="Maior causa atual" value={groupValues(periodOccurrences, (item) => item.occurrenceType, () => 1)[0]?.label || 'Sem dados'} detail="tipo mais frequente" icon={ClipboardList} /> : <RestrictedMetric label="Causas das ocorrências" />}
@@ -107,15 +107,15 @@ export default function OverviewView({ occurrences, costs, raCases, visits, scop
 }
 
 function OverviewMetric({ label, value, supporting, icon: Icon, tone, valueTone = 'text-fotus-ink', onClick }: { label: string; value: string; supporting: string; icon: typeof ClipboardList; tone: string; valueTone?: string; onClick: () => void }) {
-  return <button onClick={onClick} className="fotus-glass-card group rounded-2xl p-4 text-left"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><span className="text-[9px] font-extrabold uppercase tracking-wider text-fotus-ink/80">{label}</span><strong className={`mt-1 block truncate text-xl ${valueTone}`}>{value}</strong><span className="mt-1 block text-[10px] text-fotus-ink/80">{supporting}</span></div><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}><Icon className="h-5 w-5" /></span></div><span className="mt-3 flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wide text-fotus-blue opacity-0 transition-opacity group-hover:opacity-100">Abrir área <ArrowUpRight className="h-3 w-3" /></span></button>;
+  return <button onClick={onClick} className="fotus-glass-card group flex min-w-0 flex-col rounded-3xl p-4 text-left"><div className="flex items-start justify-between gap-3"><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 ring-white/65 ${tone}`}><Icon className="h-5 w-5" /></span><ArrowUpRight className="h-4 w-4 text-fotus-blue/55 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></div><span className="mt-4 text-[9px] font-extrabold uppercase tracking-wider text-fotus-ink/80">{label}</span><strong className={`mt-1 block truncate text-xl ${valueTone}`}>{value}</strong><span className="mt-3 block border-t border-fotus-blue/8 pt-3 text-[10px] leading-relaxed text-fotus-ink/80">{supporting}</span></button>;
 }
 
 function RestrictedMetric({ label }: { label: string }) {
-  return <div className="rounded-2xl border border-dashed border-fotus-blue/20 bg-fotus-neutral/28 p-4"><span className="text-[9px] font-extrabold uppercase tracking-wider text-fotus-ink/80">{label}</span><strong className="mt-2 block text-sm text-fotus-ink">Área restrita</strong><span className="mt-1 block text-[10px] leading-relaxed text-fotus-ink/80">O administrador controla a visibilidade desta informação.</span></div>;
+  return <div className="fotus-glass-inset rounded-3xl border-dashed p-4"><span className="text-[9px] font-extrabold uppercase tracking-wider text-fotus-ink/80">{label}</span><strong className="mt-2 block text-sm text-fotus-ink">Área restrita</strong><span className="mt-1 block text-[10px] leading-relaxed text-fotus-ink/80">O administrador controla a visibilidade desta informação.</span></div>;
 }
 
 function RestrictedPanel({ title }: { title: string }) {
-  return <section className="flex min-h-64 items-center justify-center rounded-3xl border border-dashed border-fotus-blue/20 bg-fotus-neutral/55 p-6 text-center"><div><ShieldCheckIcon /><h3 className="mt-3 text-sm font-extrabold text-fotus-ink">{title}</h3><p className="mt-1 text-[11px] text-fotus-ink/80">Esta análise não está liberada para o seu perfil.</p></div></section>;
+  return <section className="fotus-glass flex min-h-64 items-center justify-center rounded-3xl border-dashed p-6 text-center"><div><ShieldCheckIcon /><h3 className="mt-3 text-sm font-extrabold text-fotus-ink">{title}</h3><p className="mt-1 text-[11px] text-fotus-ink/80">Esta análise não está liberada para o seu perfil.</p></div></section>;
 }
 
 function ShieldCheckIcon() {

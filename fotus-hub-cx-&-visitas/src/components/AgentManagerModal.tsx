@@ -64,7 +64,7 @@ export default function AgentManagerModal({ isOpen, onClose, agents, currentUser
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-fotus-ink/45 p-3 backdrop-blur-sm sm:p-6">
-      <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-fotus-neutral bg-fotus-neutral shadow-2xl">
+      <div className="fotus-dialog w-full max-w-lg overflow-hidden rounded-3xl border border-fotus-neutral shadow-2xl">
         <header className="flex items-center justify-between border-b border-fotus-blue/10 bg-gradient-to-r from-fotus-blue/6 via-fotus-neutral to-fotus-neutral px-5 py-4 sm:px-6">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-fotus-blue/6 text-fotus-blue"><UserRound className="h-5 w-5" /></span>

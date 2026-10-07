@@ -156,8 +156,8 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-fotus-ink/45 p-3 backdrop-blur-sm sm:p-6">
-      <form onSubmit={handleSubmit} className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-fotus-neutral bg-fotus-neutral shadow-2xl">
-        <div className="sticky top-0 z-20 flex flex-col gap-3 border-b border-fotus-blue/10 bg-fotus-neutral/95 px-5 py-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-7">
+      <form onSubmit={handleSubmit} className="fotus-dialog max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-fotus-neutral shadow-2xl">
+        <div className="sticky top-0 z-20 flex flex-col gap-3 border-b border-fotus-blue/10 bg-fotus-neutral/60 px-5 py-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <div>
             <h2 className="text-lg font-extrabold text-fotus-ink">{occurrence ? 'Editar ocorrência' : 'Nova ocorrência'}</h2>
             <p className="text-xs text-fotus-ink/80">Fluxo digital baseado no controle operacional atual.</p>
@@ -253,7 +253,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
           </section>
         </div>
 
-        <div className="sticky bottom-0 flex items-center justify-between border-t border-fotus-blue/10 bg-fotus-neutral/95 px-5 py-4 backdrop-blur-xl sm:px-7">
+        <div className="sticky bottom-0 flex items-center justify-between border-t border-fotus-blue/10 bg-fotus-neutral/60 px-5 py-4 backdrop-blur-xl sm:px-7">
           <span className="hidden items-center gap-1.5 text-xs text-fotus-ink/80 sm:flex"><CheckCircle2 className="h-4 w-4 text-fotus-blue" />Os campos essenciais são obrigatórios.</span>
           <div className="ml-auto flex gap-2">
             <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-fotus-ink hover:bg-fotus-neutral/70">Cancelar</button>

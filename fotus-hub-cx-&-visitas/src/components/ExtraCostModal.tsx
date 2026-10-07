@@ -108,8 +108,8 @@ export default function ExtraCostModal({ isOpen, onClose, cost, currentUser }: E
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-fotus-ink/45 p-3 backdrop-blur-sm sm:p-6">
-      <form onSubmit={handleSubmit} className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-fotus-neutral bg-fotus-neutral shadow-2xl">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-fotus-blue/10 bg-fotus-neutral/95 px-5 py-4 backdrop-blur-xl sm:px-7">
+      <form onSubmit={handleSubmit} className="fotus-dialog max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-fotus-neutral shadow-2xl">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-fotus-blue/10 bg-fotus-neutral/60 px-5 py-4 backdrop-blur-xl sm:px-7">
           <div><h2 className="text-lg font-extrabold text-fotus-ink">{cost ? 'Editar custo extra' : 'Novo custo extra'}</h2><p className="text-xs text-fotus-ink/80">Registro de gastos não previstos baseado na planilha da Fotus.</p></div>
           <button type="button" onClick={onClose} className="rounded-xl p-2 text-fotus-ink/80 hover:bg-fotus-neutral/70"><X className="h-5 w-5" /></button>
         </header>
@@ -149,7 +149,7 @@ export default function ExtraCostModal({ isOpen, onClose, cost, currentUser }: E
           </section>
         </div>
 
-        <footer className="sticky bottom-0 flex justify-end gap-2 border-t border-fotus-blue/10 bg-fotus-neutral/95 px-5 py-4 backdrop-blur-xl sm:px-7">
+        <footer className="sticky bottom-0 flex justify-end gap-2 border-t border-fotus-blue/10 bg-fotus-neutral/60 px-5 py-4 backdrop-blur-xl sm:px-7">
           <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-fotus-ink hover:bg-fotus-neutral/70">Cancelar</button>
           <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl fotus-action px-5 py-2.5 text-xs font-bold disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar custo'}</button>
         </footer>

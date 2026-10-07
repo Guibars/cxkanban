@@ -1,15 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  LoaderCircle,
+  MessageSquareText,
   Pencil,
   Plus,
   Trash2,
   UserRound,
 } from 'lucide-react';
 import type { CurrentUser } from '../lib/currentUser';
-import { deleteData } from '../lib/dataMutations';
+import { deleteData, updateData } from '../lib/dataMutations';
 import {
   experienceDate,
   normalizedTopic,
@@ -41,9 +43,29 @@ export default function ServiceTicketsView({
   const [editing, setEditing] = useState<ServiceTicket | null>(null);
   const [selected, setSelected] = useState<ServiceTicket | null>(null);
   const [deleting, setDeleting] = useState('');
+  const [saving, setSaving] = useState('');
+  const mutationRef = useRef(false);
+  const [completed, setCompleted] = useState<
+    Record<string, { record: ServiceTicket; previousUpdatedAt: number }>
+  >({});
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('');
-  const available = tickets.filter((ticket) => !deletedIds.has(ticket.id));
+  const available = useMemo(
+    () =>
+      tickets
+        .filter((ticket) => !deletedIds.has(ticket.id))
+        .map((ticket) => {
+          const saved = completed[ticket.id];
+          return saved && ticket.updatedAt === saved.previousUpdatedAt
+            ? saved.record
+            : ticket;
+        }),
+    [tickets, deletedIds, completed],
+  );
+  const selectedTicket = selected
+    ? available.find((ticket) => ticket.id === selected.id) || selected
+    : null;
+  const busy = Boolean(deleting || saving);
   const finalized = available.filter(
     (ticket) => ticket.status === 'Finalizado',
   ).length;
@@ -60,9 +82,8 @@ export default function ServiceTicketsView({
 
   const filtered = useMemo(() => {
     const term = normalizedTopic(search);
-    return tickets.filter(
+    return available.filter(
       (ticket) =>
-        !deletedIds.has(ticket.id) &&
         (category === 'Todas' ||
           ticket.categories.includes(
             category as ServiceTicket['categories'][number],
@@ -80,22 +101,59 @@ export default function ServiceTicketsView({
             ].join(' '),
           ).includes(term)),
     );
-  }, [tickets, search, category, status, deletedIds]);
+  }, [available, search, category, status]);
   const pages = Math.max(1, Math.ceil(filtered.length / 12));
   const currentPage = Math.min(page, pages);
   const edit = (ticket: ServiceTicket | null) => {
+    if (mutationRef.current) return;
     setSelected(null);
     setEditing(ticket);
     setFormOpen(true);
   };
+  const conclude = async (ticket: ServiceTicket) => {
+    const current = available.find((item) => item.id === ticket.id) || ticket;
+    if (mutationRef.current || current.status === 'Finalizado') return;
+    mutationRef.current = true;
+    setSaving(current.id);
+    setMessage('');
+    try {
+      const finalizedTicket: ServiceTicket = {
+        ...current,
+        status: 'Finalizado',
+        updatedAt: Date.now(),
+      };
+      await updateData(currentUser, 'service_tickets', current.id, {
+        ...finalizedTicket,
+      });
+      setCompleted((records) => ({
+        ...records,
+        [current.id]: {
+          record: finalizedTicket,
+          previousUpdatedAt: current.updatedAt,
+        },
+      }));
+      setSelected((item) => (item?.id === current.id ? finalizedTicket : item));
+      setMessage('Atendimento concluído. Os indicadores foram atualizados.');
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível concluir o atendimento. Tente novamente.',
+      );
+    } finally {
+      mutationRef.current = false;
+      setSaving('');
+    }
+  };
   const remove = async (ticket: ServiceTicket) => {
     if (
-      deleting ||
+      mutationRef.current ||
       !window.confirm(
         `Excluir o atendimento “${ticket.title}” para toda a equipe?`,
       )
     )
       return;
+    mutationRef.current = true;
     setDeleting(ticket.id);
     setMessage('');
     try {
@@ -110,16 +168,32 @@ export default function ServiceTicketsView({
           : 'Não foi possível excluir o atendimento.',
       );
     } finally {
+      mutationRef.current = false;
       setDeleting('');
     }
   };
   const actions = (ticket: ServiceTicket) => (
     <>
+      {ticket.status !== 'Finalizado' && (
+        <button
+          type="button"
+          onClick={() => void conclude(ticket)}
+          disabled={busy}
+          className="fotus-action inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-extrabold disabled:opacity-40"
+        >
+          {saving === ticket.id ? (
+            <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-3.5 w-3.5" />
+          )}
+          {saving === ticket.id ? 'Concluindo...' : 'Concluir'}
+        </button>
+      )}
       <button
         type="button"
         onClick={() => edit(ticket)}
-        disabled={Boolean(deleting)}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-fotus-blue/20 px-3 py-2 text-xs font-bold text-fotus-blue disabled:opacity-40"
+        disabled={busy}
+        className="fotus-glass-inset inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold text-fotus-blue disabled:opacity-40"
       >
         <Pencil className="h-3.5 w-3.5" />
         Editar
@@ -127,8 +201,8 @@ export default function ServiceTicketsView({
       <button
         type="button"
         onClick={() => void remove(ticket)}
-        disabled={Boolean(deleting)}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-fotus-yellow/50 bg-fotus-yellow/20 px-3 py-2 text-xs font-bold disabled:opacity-40"
+        disabled={busy}
+        className="inline-flex items-center gap-1.5 rounded-full border border-fotus-yellow/50 bg-fotus-yellow/15 px-3 py-2 text-xs font-bold disabled:opacity-40"
       >
         <Trash2 className="h-3.5 w-3.5" />
         {deleting === ticket.id ? 'Excluindo...' : 'Excluir'}
@@ -137,10 +211,10 @@ export default function ServiceTicketsView({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <section
         aria-label="Resumo dos atendimentos Neppo"
-        className="overflow-hidden rounded-[30px] border border-fotus-neutral bg-fotus-neutral/80 pb-5 shadow-sm sm:pb-6"
+        className="fotus-glass overflow-hidden rounded-[30px] pb-5 sm:pb-6"
       >
         <div className="relative overflow-hidden bg-fotus-blue">
           <img
@@ -150,7 +224,7 @@ export default function ServiceTicketsView({
           />
           <span className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-fotus-blue/20 to-transparent" />
         </div>
-        <div className="relative z-10 mx-3 -mt-4 grid gap-5 rounded-[26px] border border-fotus-neutral/90 bg-fotus-neutral p-5 shadow-[0_18px_45px_rgb(13_81_142_/_0.12)] sm:mx-6 sm:-mt-6 lg:grid-cols-[1.1fr_1fr] lg:p-6">
+        <div className="fotus-glass relative z-10 mx-3 -mt-4 grid gap-5 rounded-[26px] p-5 sm:mx-6 sm:-mt-6 lg:grid-cols-[1.1fr_1fr] lg:p-6">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <img
@@ -190,7 +264,7 @@ export default function ServiceTicketsView({
               ].map((metric) => (
                 <div
                   key={metric.label}
-                  className="min-w-0 rounded-2xl border border-fotus-blue/10 bg-fotus-neutral/40 p-3"
+                  className="fotus-glass-inset min-w-0 rounded-2xl p-3"
                 >
                   <dt className="break-words text-[9px] font-extrabold uppercase tracking-wide text-fotus-ink/80">
                     {metric.label}
@@ -270,7 +344,7 @@ export default function ServiceTicketsView({
           </div>
         </div>
       </section>
-      <section className="fotus-glass space-y-4 rounded-2xl p-4">
+      <section className="fotus-glass space-y-4 rounded-3xl p-4 sm:p-5">
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -331,14 +405,28 @@ export default function ServiceTicketsView({
           {message}
         </p>
       )}
-      <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+      <div className="fotus-bento-grid grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
         {filtered
           .slice((currentPage - 1) * 12, currentPage * 12)
           .map((ticket) => (
             <article
               key={ticket.id}
-              className="fotus-glass-card flex min-w-0 flex-col rounded-3xl p-5"
+              aria-busy={saving === ticket.id || deleting === ticket.id}
+              className="fotus-glass-card flex min-w-0 flex-col rounded-[26px] p-4 sm:p-5"
             >
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <span className="fotus-glass-inset inline-flex h-10 w-10 items-center justify-center rounded-2xl text-fotus-blue">
+                  <MessageSquareText className="h-5 w-5" />
+                </span>
+                <span
+                  className={`fotus-pill ${ticket.status === 'Finalizado' ? 'fotus-pill-neutral' : 'fotus-pill-blue'}`}
+                >
+                  {ticket.status === 'Finalizado' && (
+                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                  )}
+                  {ticket.status}
+                </span>
+              </div>
               <div className="mb-4 flex flex-wrap gap-2">
                 {ticket.categories.map((item) => (
                   <span key={item} className="fotus-pill fotus-pill-yellow">
@@ -351,12 +439,7 @@ export default function ServiceTicketsView({
                 onClick={() => setSelected(ticket)}
                 className="min-w-0 text-left"
               >
-                <span
-                  className={`fotus-pill ${ticket.status === 'Finalizado' ? 'fotus-pill-neutral' : 'fotus-pill-blue'}`}
-                >
-                  {ticket.status}
-                </span>
-                <h3 className="mt-3 break-words text-lg font-extrabold text-fotus-ink">
+                <h3 className="break-words text-base font-extrabold leading-snug text-fotus-ink">
                   {ticket.title}
                 </h3>
                 <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-fotus-ink/80">
@@ -366,24 +449,40 @@ export default function ServiceTicketsView({
                   Abrir atendimento →
                 </span>
               </button>
-              {ticket.customerName && (
-                <p className="mt-4 break-words text-xs font-bold">
-                  {ticket.customerName}
-                </p>
+              {(ticket.customerName || ticket.orderNumber) && (
+                <dl className="fotus-glass-inset mt-4 grid gap-3 rounded-2xl p-3 min-[420px]:grid-cols-2">
+                  {ticket.customerName && (
+                    <div className="min-w-0">
+                      <dt className="text-[9px] font-bold uppercase tracking-wide text-fotus-ink/70">
+                        Cliente
+                      </dt>
+                      <dd className="mt-1 break-words text-xs font-bold">
+                        {ticket.customerName}
+                      </dd>
+                    </div>
+                  )}
+                  {ticket.orderNumber && (
+                    <div className="min-w-0">
+                      <dt className="text-[9px] font-bold uppercase tracking-wide text-fotus-ink/70">
+                        Pedido / referência
+                      </dt>
+                      <dd className="mt-1 break-words text-xs font-bold">
+                        {ticket.orderNumber}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
               )}
-              {ticket.orderNumber && (
-                <p className="mt-1 text-xs text-fotus-ink/80">
-                  Referência: {ticket.orderNumber}
-                </p>
-              )}
-              <div className="my-4 flex flex-wrap gap-3 text-[10px] text-fotus-ink/80">
+              <div className="my-4 grid gap-2 text-[10px] text-fotus-ink/80 sm:grid-cols-2">
                 <span className="flex items-center gap-1">
                   <CalendarDays className="h-3.5 w-3.5" />
                   {experienceDate(ticket.date)}
                 </span>
                 <span className="flex min-w-0 items-center gap-1">
                   <UserRound className="h-3.5 w-3.5 shrink-0" />
-                  {ticket.assigneeName}
+                  <span className="truncate" title={ticket.assigneeName}>
+                    {ticket.assigneeName}
+                  </span>
                 </span>
               </div>
               <footer className="mt-auto flex flex-wrap justify-end gap-2 border-t border-fotus-blue/10 pt-4">
@@ -418,52 +517,62 @@ export default function ServiceTicketsView({
           onClose={() => setFormOpen(false)}
         />
       )}
-      {selected && (
+      {selectedTicket && (
         <ExperienceDialog
-          title={selected.title}
-          subtitle={`Atendimento de ${experienceDate(selected.date)} · ${selected.assigneeName}`}
+          title={selectedTicket.title}
+          subtitle={`Atendimento de ${experienceDate(selectedTicket.date)} · ${selectedTicket.assigneeName}`}
           onClose={() => {
-            if (!deleting) setSelected(null);
+            if (!mutationRef.current) setSelected(null);
           }}
-          footer={actions(selected)}
+          footer={actions(selectedTicket)}
         >
           <div className="space-y-5">
+            {message && (
+              <p
+                role="status"
+                className="fotus-glass-inset rounded-2xl p-3 text-xs font-semibold"
+              >
+                {message}
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
-              {selected.categories.map((category) => (
+              {selectedTicket.categories.map((category) => (
                 <span key={category} className="fotus-pill fotus-pill-yellow">
                   {category}
                 </span>
               ))}
               <span className="fotus-pill fotus-pill-blue">
-                {selected.status}
+                {selectedTicket.status}
               </span>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="fotus-glass-inset grid gap-3 rounded-2xl p-4 sm:grid-cols-2">
               <p className="break-words text-xs">
                 <strong>Cliente / contato:</strong>{' '}
-                {selected.customerName || 'Não informado'}
+                {selectedTicket.customerName || 'Não informado'}
               </p>
               <p className="break-words text-xs">
                 <strong>Pedido / referência:</strong>{' '}
-                {selected.orderNumber || 'Não informado'}
+                {selectedTicket.orderNumber || 'Não informado'}
               </p>
             </div>
-            <section>
+            <section className="fotus-glass-inset rounded-2xl p-4">
               <h3 className="text-xs font-extrabold">Descrição</h3>
               <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">
-                {selected.description}
+                {selectedTicket.description}
               </p>
             </section>
-            <section className="rounded-2xl border border-fotus-yellow/40 bg-fotus-yellow/10 p-4">
+            <section className="fotus-glass-inset rounded-2xl border-fotus-yellow/40 p-4">
               <h3 className="text-xs font-extrabold">
                 Solução / encaminhamento
               </h3>
               <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">
-                {selected.resolution || 'Nenhuma solução registrada ainda.'}
+                {selectedTicket.resolution ||
+                  'Nenhuma solução registrada ainda.'}
               </p>
             </section>
             <p className="text-[10px] text-fotus-ink/80">
-              Criado por {selected.createdByName || selected.createdByEmail}
+              Criado por{' '}
+              {selectedTicket.createdByName || selectedTicket.createdByEmail}
             </p>
           </div>
         </ExperienceDialog>

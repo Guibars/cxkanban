@@ -173,8 +173,8 @@ export default function ExtraCostsView({ costs, currentUser, canDeleteCosts }: E
   };
 
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="space-y-6">
+      <div className="fotus-bento-grid grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Metric label="Total gasto" value={currency(total)} icon={CircleDollarSign} tone="bg-fotus-yellow/20 text-fotus-ink" />
         <Metric label="Ocorrências no filtro" value={filtered.length.toLocaleString('pt-BR')} icon={Receipt} tone="bg-fotus-blue/7 text-fotus-blue" />
         <Metric label="Custo médio" value={currency(average)} icon={BarChart3} tone="bg-fotus-yellow/20 text-fotus-ink" />
@@ -182,7 +182,7 @@ export default function ExtraCostsView({ costs, currentUser, canDeleteCosts }: E
       </div>
 
       <div className="fotus-glass flex flex-col gap-3 rounded-3xl p-4 sm:p-5">
-        <div className="flex gap-1.5 rounded-2xl border border-fotus-neutral/90 bg-fotus-neutral/60 p-1.5">
+        <div className="fotus-glass-inset flex w-fit max-w-full gap-1.5 rounded-full p-1.5">
           {(['Todos', 'Comercial', 'Cliente'] as const).map((item) => <button key={item} onClick={() => setResponsibleFilter(item)} className={`rounded-xl px-4 py-2 text-xs font-bold ${responsibleFilter === item ? 'bg-fotus-yellow text-fotus-ink shadow-sm' : 'text-fotus-ink hover:bg-fotus-neutral'}`}>{item}</button>)}
         </div>
         <div className="flex max-w-full gap-1.5 overflow-x-auto rounded-2xl border border-fotus-neutral/90 bg-fotus-neutral/60 p-1.5">
@@ -207,17 +207,17 @@ export default function ExtraCostsView({ costs, currentUser, canDeleteCosts }: E
       {deleteMessage && <div role={deleteFailed ? 'alert' : 'status'} className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-xs font-semibold ${deleteFailed ? 'border-fotus-yellow/45 bg-fotus-yellow/20 text-fotus-ink' : 'border-fotus-blue/25 bg-fotus-blue/7 text-fotus-blue'}`}><Trash2 className="h-4 w-4 shrink-0" /><span className="flex-1">{deleteMessage}</span><button type="button" onClick={() => setDeleteMessage('')} aria-label="Fechar aviso" className="rounded-lg p-1.5 hover:bg-fotus-neutral/60"><X className="h-4 w-4" /></button></div>}
 
       {showInsights && (
-        <section className="rounded-3xl border border-fotus-blue/10 bg-gradient-to-br from-fotus-blue/6 via-fotus-neutral to-fotus-yellow/4 p-5 shadow-sm sm:p-6">
+        <section className="fotus-glass rounded-3xl p-5 sm:p-6">
           <div className="mb-5"><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-fotus-blue">Painel consolidado</p><h2 className="mt-1 text-xl font-extrabold text-fotus-ink">Onde os custos extras estão concentrados</h2><p className="mt-1 text-xs text-fotus-ink/80">Indicadores atualizados automaticamente com os registros do Neon.</p></div>
           {costs.length === 0 ? <div className="rounded-2xl border border-dashed border-fotus-blue/20 bg-fotus-neutral/60 p-8 text-center text-sm text-fotus-ink/80">Importe a planilha ou cadastre o primeiro custo para visualizar os insights.</div> : (
-            <div className="grid gap-4 xl:grid-cols-3">
-              <div className="grid gap-4 sm:grid-cols-2 xl:col-span-2">
+            <div className="fotus-bento-grid grid gap-5 xl:grid-cols-3">
+              <div className="fotus-bento-grid grid gap-4 sm:grid-cols-2 xl:col-span-2">
                 <CostRanking title="Custo por regional" icon={Building2} items={insights.regional} grandTotal={total} />
                 <CostRanking title="Custo por origem" icon={Tag} items={insights.origin} grandTotal={total} />
                 <CostRanking title="Custo por responsável" icon={UserRound} items={insights.responsible} grandTotal={total} />
                 <CostRanking title="Categorias do motivo" icon={BarChart3} items={insights.category} grandTotal={total} />
               </div>
-              <div className="rounded-2xl border border-fotus-neutral bg-fotus-neutral/85 p-4 shadow-sm">
+              <div className="fotus-glass-card rounded-3xl p-4">
                 <h3 className="flex items-center gap-2 text-xs font-extrabold text-fotus-ink"><CalendarDays className="h-4 w-4 text-fotus-blue" />Resumo do período selecionado</h3>
                 <div className="mt-4 space-y-2"><SummaryRow label="Período" value={periodLabel} /><SummaryRow label="Registros" value={filtered.length.toLocaleString('pt-BR')} /><SummaryRow label="Total" value={currency(total)} /><SummaryRow label="Custo médio" value={currency(average)} /></div>
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center"><CostType label="Produto" value={filtered.reduce((sum, cost) => sum + cost.productCost, 0)} /><CostType label="Logística" value={filtered.reduce((sum, cost) => sum + cost.logisticsCost, 0)} /><CostType label="Impostos" value={filtered.reduce((sum, cost) => sum + cost.taxCost, 0)} /></div>
@@ -236,20 +236,20 @@ export default function ExtraCostsView({ costs, currentUser, canDeleteCosts }: E
             <div><h2 className="text-sm font-extrabold text-fotus-blue">Registros de custos extras</h2><p className="mt-1 text-[11px] text-fotus-ink/80">{filtered.length} de {costs.length} registros exibidos · {periodLabel}</p></div>
             <span className="fotus-pill fotus-pill-blue">{currency(total)} no período</span>
           </div>
-          <div className="grid items-stretch gap-5 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="fotus-bento-grid grid items-stretch gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr))]">
             {filtered.map((cost) => (
-              <article key={cost.id} className="fotus-glass-card flex min-w-0 flex-col rounded-3xl p-5 sm:p-6">
+              <article key={cost.id} className="fotus-glass-card flex min-w-0 flex-col rounded-3xl p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="fotus-pill fotus-pill-neutral"><CalendarDays className="h-3.5 w-3.5" />{displayDate(cost.date)}</span>
+                  <span className="flex items-center gap-2 text-[10px] font-bold text-fotus-ink/80"><span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-fotus-yellow/18 ring-1 ring-white/70"><Receipt className="h-4 w-4 text-fotus-blue" /></span><CalendarDays className="h-3 w-3" />{displayDate(cost.date)}</span>
                   <span className={`fotus-pill ${cost.responsible === 'Comercial' ? 'fotus-pill-blue' : 'fotus-pill-yellow'}`}><UserRound className="h-3.5 w-3.5" />{cost.responsible}</span>
                 </div>
-                <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
-                  <div><p className="text-[10px] font-bold uppercase tracking-wider text-fotus-ink/80">Pedido</p><h3 className="mt-1 text-xl font-extrabold text-fotus-blue">#{cost.orderNumber}</h3></div>
-                  <div className="text-right"><span className="text-[10px] font-bold uppercase tracking-wider text-fotus-ink/80">Custo total</span><strong className="mt-1 block text-xl font-extrabold tabular-nums text-fotus-ink">{currency(cost.totalCost)}</strong></div>
+                <div className="fotus-glass-inset mt-4 flex flex-wrap items-end justify-between gap-4 rounded-2xl p-3.5">
+                  <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-wider text-fotus-ink/80">Pedido</p><h3 className="mt-1 break-words text-lg font-extrabold text-fotus-blue">#{cost.orderNumber}</h3></div>
+                  <div className="min-w-0 text-right"><span className="text-[9px] font-bold uppercase tracking-wider text-fotus-ink/80">Custo total</span><strong className="mt-1 block break-words text-lg font-extrabold tabular-nums text-fotus-ink">{currency(cost.totalCost)}</strong></div>
                 </div>
-                <div className="mt-5 rounded-2xl border border-fotus-blue/10 bg-fotus-neutral/40 p-4"><strong className="text-sm leading-relaxed text-fotus-ink">{cost.product}</strong>{cost.quantity > 0 && <span className="fotus-pill fotus-pill-neutral ml-2">×{cost.quantity}</span>}<div className="mt-3 flex flex-wrap gap-2"><span className="fotus-pill fotus-pill-blue"><Building2 className="h-3 w-3 shrink-0" />{cost.regional || 'Regional não informada'}</span>{cost.origin && <span className="fotus-pill fotus-pill-neutral">{cost.origin}</span>}</div></div>
+                <div className="mt-4"><strong className="text-sm leading-relaxed text-fotus-ink">{cost.product}</strong>{cost.quantity > 0 && <span className="fotus-pill fotus-pill-neutral ml-2">×{cost.quantity}</span>}<div className="mt-3 flex flex-wrap gap-2"><span className="fotus-pill fotus-pill-blue"><Building2 className="h-3 w-3 shrink-0" />{cost.regional || 'Regional não informada'}</span>{cost.origin && <span className="fotus-pill fotus-pill-neutral">{cost.origin}</span>}</div></div>
                 <div className="mt-4 grid grid-cols-3 gap-2"><CostType label="Produto" value={cost.productCost} /><CostType label="Logística" value={cost.logisticsCost} /><CostType label="Impostos" value={cost.taxCost} /></div>
-                <div className="my-5">{cost.reasonCategory && <span className="fotus-pill fotus-pill-yellow"><Tag className="h-3 w-3 shrink-0" />{cost.reasonCategory}</span>}<p className="mt-3 text-xs leading-relaxed text-fotus-ink/80">{cost.detailedReason || 'Sem observações adicionais.'}</p></div>
+                <div className="my-4">{cost.reasonCategory && <span className="fotus-pill fotus-pill-yellow"><Tag className="h-3 w-3 shrink-0" />{cost.reasonCategory}</span>}<p className="mt-3 text-xs leading-relaxed text-fotus-ink/80">{cost.detailedReason || 'Sem observações adicionais.'}</p></div>
                 <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-fotus-blue/10 pt-4">
                   {cost.totalCost > 1000 ? <span className="fotus-pill fotus-pill-yellow">Acima de R$ 1.000</span> : <span className="text-[10px] text-fotus-ink/80">Custo registrado</span>}
                   <div className="flex items-center gap-2">
@@ -270,19 +270,19 @@ export default function ExtraCostsView({ costs, currentUser, canDeleteCosts }: E
 }
 
 function Metric({ label, value, icon: Icon, tone }: { label: string; value: string; icon: typeof Receipt; tone: string }) {
-  return <div className="fotus-glass-card rounded-2xl p-4"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-wider text-fotus-ink/80">{label}</p><p className="mt-1 truncate text-xl font-extrabold text-fotus-ink sm:text-2xl">{value}</p></div><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}><Icon className="h-5 w-5" /></span></div></div>;
+  return <div className="fotus-glass-card rounded-3xl p-4"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-wider text-fotus-ink/80">{label}</p><p className="mt-1 truncate text-xl font-extrabold tabular-nums text-fotus-ink">{value}</p></div><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 ring-white/70 ${tone}`}><Icon className="h-5 w-5" /></span></div></div>;
 }
 
 function CostRanking({ title, icon: Icon, items, grandTotal }: { title: string; icon: typeof Tag; items: Array<{ label: string; total: number; count: number }>; grandTotal: number }) {
-  return <div className="rounded-2xl border border-fotus-neutral bg-fotus-neutral/85 p-4 shadow-sm"><h3 className="flex items-center gap-2 text-xs font-extrabold text-fotus-ink"><Icon className="h-4 w-4 text-fotus-blue" />{title}</h3><div className="mt-4 space-y-3">{items.map((item, index) => <div key={item.label}><div className="mb-1 flex items-center justify-between gap-2 text-[11px]"><span className="truncate font-semibold text-fotus-ink">{index + 1}. {item.label} <small className="text-fotus-ink/80">({item.count})</small></span><strong className="text-fotus-ink">{currency(item.total)}</strong></div><div className="h-1.5 overflow-hidden rounded-full bg-fotus-neutral/70"><div className="h-full rounded-full bg-fotus-blue" style={{ width: `${Math.max(5, Math.round((item.total / grandTotal) * 100))}%` }} /></div></div>)}{!items.length && <p className="text-xs text-fotus-ink/80">Sem dados suficientes</p>}</div></div>;
+  return <div className="fotus-glass-card min-w-0 rounded-3xl p-4"><h3 className="flex items-center gap-2 text-xs font-extrabold text-fotus-ink"><Icon className="h-4 w-4 text-fotus-blue" />{title}</h3><div className="mt-4 space-y-3">{items.map((item, index) => <div key={item.label}><div className="mb-1 flex items-center justify-between gap-2 text-[11px]"><span className="truncate font-semibold text-fotus-ink">{index + 1}. {item.label} <small className="text-fotus-ink/80">({item.count})</small></span><strong className="shrink-0 text-fotus-ink">{currency(item.total)}</strong></div><div className="h-1.5 overflow-hidden rounded-full bg-fotus-neutral/70"><div className="h-full rounded-full bg-fotus-blue" style={{ width: `${Math.max(5, Math.round((item.total / grandTotal) * 100))}%` }} /></div></div>)}{!items.length && <p className="text-xs text-fotus-ink/80">Sem dados suficientes</p>}</div></div>;
 }
 
 function CostType({ label, value }: { label: string; value: number }) {
-  return <div className="rounded-xl bg-fotus-neutral/40 p-2"><span className="block text-[9px] font-bold text-fotus-ink/80">{label}</span><strong className="mt-0.5 block truncate text-[10px] text-fotus-ink">{currency(value)}</strong></div>;
+  return <div className="fotus-glass-inset min-w-0 rounded-2xl p-2.5"><span className="block text-[9px] font-bold text-fotus-ink/80">{label}</span><strong className="mt-1 block break-words text-[10px] tabular-nums text-fotus-ink">{currency(value)}</strong></div>;
 }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
-  return <div className="flex items-center justify-between gap-3 rounded-xl bg-fotus-neutral/40 px-3 py-2.5"><span className="text-[10px] font-bold uppercase tracking-wide text-fotus-ink/80">{label}</span><strong className="truncate text-xs capitalize text-fotus-ink">{value}</strong></div>;
+  return <div className="fotus-glass-inset flex items-center justify-between gap-3 rounded-xl px-3 py-2.5"><span className="text-[10px] font-bold uppercase tracking-wide text-fotus-ink/80">{label}</span><strong className="truncate text-xs capitalize text-fotus-ink">{value}</strong></div>;
 }
 
 function AnnualCostChart({ months, year }: { months: Array<{ month: string; total: number; count: number }>; year: number }) {
@@ -293,7 +293,7 @@ function AnnualCostChart({ months, year }: { months: Array<{ month: string; tota
   });
   const compactCurrency = (value: number) => value >= 1000 ? `R$ ${(value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k` : `R$ ${Math.round(value)}`;
   return (
-    <div className="mt-5 rounded-2xl border border-fotus-neutral bg-fotus-neutral/85 p-4 shadow-sm">
+    <div className="fotus-glass-card mt-5 rounded-3xl p-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"><div><h3 className="flex items-center gap-2 text-xs font-extrabold text-fotus-ink"><CalendarDays className="h-4 w-4 text-fotus-blue" />Visão anual de custos · {year}</h3><p className="mt-1 text-[11px] text-fotus-ink/80">Comparativo mensal de todos os registros do ano. Passe o cursor sobre uma coluna para ver os detalhes.</p></div><span className="rounded-full bg-fotus-blue/6 px-3 py-1 text-[10px] font-extrabold text-fotus-blue">12 meses</span></div>
       <div className="mt-4"><PillBarChart data={chartData} ariaLabel={`Visão anual de custos de ${year}`} valueFormatter={compactCurrency} emptyMessage="Ainda não há custos cadastrados neste ano." /></div>
     </div>

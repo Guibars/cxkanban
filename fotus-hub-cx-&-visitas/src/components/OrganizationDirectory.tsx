@@ -112,7 +112,7 @@ function Avatar({
     .toUpperCase();
   return (
     <span
-      className={`relative flex shrink-0 items-center justify-center rounded-2xl bg-fotus-blue/6 font-extrabold text-fotus-blue ${large ? "h-20 w-20 text-xl" : "h-14 w-14 text-base"}`}
+      className={`fotus-glass-inset relative flex shrink-0 items-center justify-center rounded-2xl font-extrabold text-fotus-blue ring-4 ring-white/35 ${large ? "h-20 w-20 text-xl" : "h-14 w-14 text-base"}`}
     >
       {person.photoUrl ? (
         <img
@@ -468,27 +468,26 @@ export default function OrganizationDirectory({
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-3xl border border-fotus-blue/10 bg-fotus-neutral shadow-sm">
-        <div className="flex flex-col gap-5 bg-gradient-to-br from-fotus-yellow/20 via-fotus-neutral to-fotus-neutral p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+      <section className="fotus-glass overflow-hidden rounded-3xl">
+        <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
             <span className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-fotus-blue">
               <Network className="h-4 w-4" />
               Estrutura organizacional
             </span>
-            <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-fotus-ink sm:text-3xl">
+            <h2 className="mt-2 text-xl font-extrabold tracking-tight text-fotus-ink sm:text-2xl">
               Pessoas, lideranças e equipes
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-fotus-ink/80">
+            <p className="mt-2 text-xs leading-relaxed text-fotus-ink/80">
               Encontre um contato ou navegue pela estrutura para conhecer cada
               equipe.
             </p>
-            <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-fotus-ink/80">
-              <span>
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-fotus-ink/80">
+              <span className="fotus-pill fotus-pill-yellow">
                 <strong className="text-fotus-ink">{activeCount}</strong>{" "}
                 pessoas ativas
               </span>
-              <span className="h-1 w-1 rounded-full bg-fotus-neutral" />
-              <span>
+              <span className="fotus-pill fotus-pill-blue">
                 <strong className="text-fotus-ink">{teamCount}</strong> equipes
                 cadastradas
               </span>
@@ -506,7 +505,7 @@ export default function OrganizationDirectory({
           )}
         </div>
         <div
-          className={`grid grid-cols-2 gap-3 border-t border-fotus-blue/10 p-4 sm:p-6 ${displayRoles.length === 5 ? "sm:grid-cols-3 xl:grid-cols-5" : "xl:grid-cols-4"}`}
+          className={`fotus-bento-grid grid grid-cols-2 gap-3 border-t border-fotus-blue/10 p-4 sm:p-6 ${displayRoles.length === 5 ? "sm:grid-cols-3 xl:grid-cols-5" : "xl:grid-cols-4"}`}
         >
           {displayRoles.map((role) => {
             const config = ROLE_CONFIG[role];
@@ -521,10 +520,10 @@ export default function OrganizationDirectory({
                 type="button"
                 onClick={() => chooseRole(role)}
                 aria-pressed={isSelected}
-                className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm ${isSelected ? "border-fotus-yellow/70 bg-fotus-yellow/20 ring-1 ring-fotus-yellow/30" : "border-fotus-blue/10 bg-fotus-neutral hover:border-fotus-yellow/60"}`}
+                className={`fotus-glass-card flex min-w-0 items-center gap-3 rounded-3xl p-4 text-left transition-all ${isSelected ? "ring-2 ring-fotus-yellow/50" : ""}`}
               >
                 <span
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${config.surface} ${config.color}`}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 ring-white/65 ${config.surface} ${config.color}`}
                 >
                   <Icon className="h-5 w-5" />
                 </span>
@@ -543,8 +542,8 @@ export default function OrganizationDirectory({
         </div>
       </section>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="fotus-glass overflow-hidden rounded-2xl xl:sticky xl:top-6">
+      <div className="fotus-bento-grid grid items-start gap-6 xl:grid-cols-[270px_minmax(0,1fr)]">
+        <aside className="fotus-glass overflow-hidden rounded-3xl xl:sticky xl:top-6">
           <div className="hidden p-5 xl:block">
             <h3 className="text-sm font-bold text-fotus-ink">
               Navegar pela estrutura
@@ -609,7 +608,7 @@ export default function OrganizationDirectory({
         </aside>
 
         <section ref={resultsRef} className="min-w-0 scroll-mt-6 space-y-5">
-          <div className="fotus-glass rounded-2xl p-4 sm:p-5">
+          <div className="fotus-glass rounded-3xl p-4 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row">
               <label className="relative min-w-0 flex-1">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-fotus-ink/80" />
@@ -621,7 +620,7 @@ export default function OrganizationDirectory({
                   }}
                   placeholder="Buscar nome, e-mail, telefone ou equipe"
                   aria-label="Buscar pessoas"
-                  className="w-full rounded-xl border border-fotus-blue/20 bg-fotus-neutral/28 py-3 pl-11 pr-4 text-xs outline-none transition-colors focus:border-fotus-blue focus:bg-fotus-neutral focus:ring-2 focus:ring-fotus-blue/10"
+                className="w-full rounded-2xl border border-fotus-blue/15 bg-white/35 py-3 pl-11 pr-4 text-xs outline-none transition-colors focus:border-fotus-blue focus:bg-white/60 focus:ring-2 focus:ring-fotus-blue/10"
                 />
               </label>
               <div
@@ -658,7 +657,7 @@ export default function OrganizationDirectory({
                   setRoleFilter(event.target.value as RoleFilter)
                 }
                 aria-label="Filtrar por função"
-                className="max-w-full rounded-lg border border-fotus-blue/20 bg-fotus-neutral px-3 py-2 text-[11px] text-fotus-ink"
+                className="max-w-full rounded-xl border border-fotus-blue/15 bg-white/35 px-3 py-2 text-[11px] text-fotus-ink"
               >
                 <option value="liderancas">Lideranças</option>
                 <option value="todos">Todas as funções</option>
@@ -672,7 +671,7 @@ export default function OrganizationDirectory({
                 value={regional}
                 onChange={(event) => setRegional(event.target.value)}
                 aria-label="Filtrar por regional"
-                className="max-w-full rounded-lg border border-fotus-blue/20 bg-fotus-neutral px-3 py-2 text-[11px] text-fotus-ink"
+                className="max-w-full rounded-xl border border-fotus-blue/15 bg-white/35 px-3 py-2 text-[11px] text-fotus-ink"
               >
                 <option value="">Todas as regionais</option>
                 {regions.map((region) => (
@@ -687,7 +686,7 @@ export default function OrganizationDirectory({
                   setStatus(event.target.value as StatusFilter)
                 }
                 aria-label="Filtrar por situação"
-                className="rounded-lg border border-fotus-blue/20 bg-fotus-neutral px-3 py-2 text-[11px] text-fotus-ink"
+                className="rounded-xl border border-fotus-blue/15 bg-white/35 px-3 py-2 text-[11px] text-fotus-ink"
               >
                 <option value="active">Pessoas ativas</option>
                 <option value="all">Ativas e inativas</option>
@@ -707,7 +706,7 @@ export default function OrganizationDirectory({
           </div>
 
           {selected && (
-            <div className="fotus-glass rounded-2xl p-5 sm:p-6">
+            <div className="fotus-glass-card rounded-3xl p-5 sm:p-6">
               <div className="mb-4 flex flex-wrap items-center gap-1.5 text-[10px] text-fotus-ink/80">
                 <button
                   type="button"
@@ -839,7 +838,7 @@ export default function OrganizationDirectory({
           <div
             className={
               view === "grid"
-                ? "grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2 2xl:grid-cols-3"
+                ? "fotus-bento-grid grid items-stretch gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,18rem),1fr))]"
                 : "space-y-4"
             }
           >
@@ -896,7 +895,7 @@ export default function OrganizationDirectory({
             })}
           </div>
           {!visible.length && (
-            <div className="rounded-2xl border border-dashed border-fotus-blue/20 bg-fotus-neutral px-6 py-14 text-center">
+            <div className="fotus-glass rounded-3xl border-dashed px-6 py-14 text-center">
               <Users className="mx-auto h-10 w-10 text-fotus-ink/50" />
               <h4 className="mt-4 text-sm font-bold text-fotus-ink">
                 {people.length
@@ -930,7 +929,7 @@ export default function OrganizationDirectory({
             </div>
           )}
           {filtered.length > PAGE_SIZE && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-fotus-blue/14 bg-fotus-neutral px-5 py-4">
+            <div className="fotus-glass flex flex-wrap items-center justify-between gap-3 rounded-3xl px-5 py-4">
               <p className="text-[11px] text-fotus-ink/80">
                 Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–
                 {Math.min(currentPage * PAGE_SIZE, filtered.length)} de{" "}
@@ -979,7 +978,7 @@ export default function OrganizationDirectory({
           if (event.target === event.currentTarget) setDetailId(null);
         }}
         aria-labelledby="organization-contact-title"
-        className="fixed inset-0 m-auto max-h-[90vh] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-3xl border-0 bg-fotus-neutral p-0 text-fotus-ink shadow-2xl backdrop:bg-fotus-ink/45 backdrop:backdrop-blur-sm"
+        className="fotus-glass fixed inset-0 m-auto max-h-[90vh] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-3xl p-0 text-fotus-ink shadow-2xl backdrop:bg-fotus-ink/45 backdrop:backdrop-blur-sm"
       >
         {detail && (
           <>
@@ -1017,7 +1016,7 @@ export default function OrganizationDirectory({
                   </p>
                 </div>
               </div>
-              <div className="space-y-3 rounded-2xl bg-fotus-neutral/40 p-4">
+              <div className="fotus-glass-inset space-y-3 rounded-2xl p-4">
                 {detail.email ? (
                   <a
                     href={`mailto:${detail.email}`}
@@ -1212,7 +1211,7 @@ function PersonCard({
       }}
       className={`fotus-glass-card flex min-w-0 flex-col overflow-hidden rounded-3xl ${view === "list" ? "lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]" : ""} ${acceptsDrop ? "ring-2 ring-fotus-blue/40" : ""} ${isDragged ? "opacity-40" : ""}`}
     >
-      <div className="p-5 sm:p-6">
+      <div className="p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <span
             className={`fotus-pill ${person.role === 'Coordenador' || person.role === 'Head' || person.role === 'Líder' ? 'fotus-pill-yellow' : 'fotus-pill-blue'}`}
@@ -1248,7 +1247,7 @@ function PersonCard({
             )}
           </div>
         </div>
-        <div className="mt-5 space-y-2.5">
+        <div className="fotus-glass-inset mt-4 space-y-2.5 rounded-2xl p-3">
           {person.email && (
             <a
               href={`mailto:${person.email}`}
@@ -1278,7 +1277,7 @@ function PersonCard({
         </div>
       </div>
       <div
-        className={`flex flex-1 flex-col px-5 pb-5 sm:px-6 sm:pb-6 ${view === "list" ? "lg:border-l lg:border-fotus-blue/10 lg:pt-6" : ""}`}
+        className={`flex flex-1 flex-col px-5 pb-5 ${view === "list" ? "lg:border-l lg:border-fotus-blue/10 lg:pt-5" : ""}`}
       >
         {person.teamName && (
           <p className="fotus-pill fotus-pill-neutral mb-3 w-fit text-left">
@@ -1286,7 +1285,7 @@ function PersonCard({
           </p>
         )}
         {person.role !== "Head" && (
-          <div className="mb-4 rounded-xl border border-fotus-blue/10 px-3 py-3">
+          <div className="fotus-glass-inset mb-4 rounded-2xl px-3 py-3">
             <p className="text-[9px] font-bold uppercase tracking-wider text-fotus-ink/80">
               Responsável direto
             </p>
@@ -1312,7 +1311,7 @@ function PersonCard({
           <button
             type="button"
             onClick={onBrowse}
-            className="mb-4 flex w-full items-center justify-between gap-2 rounded-xl bg-fotus-blue/6 px-3 py-3 text-left text-fotus-blue"
+            className="mb-4 flex w-full items-center justify-between gap-2 rounded-2xl border border-fotus-yellow/35 bg-fotus-yellow/14 px-3 py-3 text-left text-fotus-blue hover:bg-fotus-yellow/24"
           >
             <span>
               <strong className="block text-[11px]">Abrir equipe</strong>
