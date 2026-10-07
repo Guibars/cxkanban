@@ -185,12 +185,14 @@ export function ExperienceDialog({
   onClose,
   children,
   footer,
+  wide = false,
 }: {
   title: string;
   subtitle: string;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  wide?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -219,7 +221,7 @@ export function ExperienceDialog({
         )
           onClose();
       }}
-      className="fixed inset-0 m-auto flex max-h-[92dvh] w-[calc(100%_-_1.5rem)] max-w-3xl flex-col overflow-hidden rounded-3xl border border-fotus-neutral bg-fotus-neutral p-0 text-fotus-ink shadow-2xl backdrop:bg-fotus-ink/45 backdrop:backdrop-blur-sm"
+      className={`fotus-dialog fixed inset-0 m-auto flex max-h-[92dvh] w-[calc(100%_-_1.5rem)] ${wide ? 'max-w-7xl' : 'max-w-3xl'} flex-col overflow-hidden rounded-3xl border border-fotus-neutral bg-fotus-neutral p-0 text-fotus-ink shadow-2xl backdrop:bg-fotus-ink/45 backdrop:backdrop-blur-sm`}
     >
       <header className="flex items-start justify-between gap-4 border-b border-fotus-blue/10 bg-gradient-to-r from-fotus-yellow/20 to-fotus-neutral p-5 sm:px-7">
         <div className="min-w-0">

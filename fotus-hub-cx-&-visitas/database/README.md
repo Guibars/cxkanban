@@ -21,6 +21,7 @@ Execute no SQL Editor do Neon, nesta ordem:
 12. `migrations/012_ra_complaint_date.sql` — adiciona a data da reclamação aos cards; os registros antigos recebem inicialmente a data do cadastro, que pode ser corrigida no editor.
 13. `migrations/013_chat_encryption.sql` — prepara a coluna de mensagens para conteúdo cifrado e identifica mensagens antigas para conversão pelo servidor.
 14. Para as novas abas Atendimentos e VoC, após as migrações de Estrutura e Visitas já utilizadas no projeto, execute `migrations/019_atendimentos_voc.sql`. As instruções estão em `ATENDIMENTOS_VOC.md`.
+15. Para o CD de origem das ocorrências e o mapa interativo, execute `migrations/020_occurrence_distribution_centers.sql` antes de publicar o código atualizado. As instruções estão em `CDS_E_MAPA.md`.
 
 O Neon Auth cria a identidade e a senha. O acesso aos dados permanece bloqueado
 até que o e-mail tenha um perfil ativo em `public.app_users`. Essa verificação é

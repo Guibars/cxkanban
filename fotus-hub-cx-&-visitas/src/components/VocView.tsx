@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import {
   CalendarDays,
+  ChevronDown,
+  SlidersHorizontal,
   MessageSquareQuote,
   Pencil,
   Plus,
@@ -41,6 +43,7 @@ export default function VocView({
   agents: string[];
   canDelete: boolean;
 }) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState('Todos');
   const [theme, setTheme] = useState('Todos');
@@ -93,7 +96,9 @@ export default function VocView({
   const pages = Math.max(1, Math.ceil(filtered.length / 12));
   const currentPage = Math.min(page, pages);
   const canonicalFilter = (field: 'theme' | 'responsibleArea', value: string) =>
-    rankFeedback(available, field).find(item => normalizedTopic(item.label) === normalizedTopic(value))?.label || value;
+    rankFeedback(available, field).find(
+      (item) => normalizedTopic(item.label) === normalizedTopic(value),
+    )?.label || value;
   const edit = (item: VocFeedback | null) => {
     setSelected(null);
     setEditing(item);
@@ -188,7 +193,27 @@ export default function VocView({
 
       <section className="fotus-glass space-y-4 rounded-3xl p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-sm font-extrabold">Filtrar a voz do cliente</h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((open) => !open)}
+              aria-expanded={filtersOpen}
+              aria-controls="voc-filters"
+              className="fotus-action inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-extrabold"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filtros
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            <span className="text-xs text-fotus-ink/80">
+              {filtered.length} feedback(s) ·{' '}
+              {start || end
+                ? `${start ? experienceDate(start) : 'Início'} até ${end ? experienceDate(end) : 'sem data final'}`
+                : 'Todo o histórico'}
+            </span>
+          </div>
           <button
             type="button"
             onClick={reset}
@@ -198,104 +223,128 @@ export default function VocView({
             Limpar filtros / todo o histórico
           </button>
         </div>
-        <ExperienceSearch
-          value={search}
-          onChange={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
-          placeholder="Buscar relato, cliente, pedido, responsável ou ação"
-        />
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <ExperienceField label="Tipo">
-            <select
-              value={kind}
-              onChange={(event) => {
-                setKind(event.target.value);
-                setPage(1);
-              }}
-              className="field-input"
-            >
-              <option>Todos</option>
-              {VOC_KINDS.map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
-          </ExperienceField>
-          <ExperienceField label="Tema">
-            <select
-              value={theme}
-              onChange={(event) => {
-                setTheme(event.target.value);
-                setPage(1);
-              }}
-              className="field-input"
-            >
-              <option>Todos</option>
-              {rankFeedback(available, 'theme').map((item) => (
-                <option key={item.label}>{item.label}</option>
-              ))}
-            </select>
-          </ExperienceField>
-          <ExperienceField label="Área responsável">
-            <select
-              value={area}
-              onChange={(event) => {
-                setArea(event.target.value);
-                setPage(1);
-              }}
-              className="field-input"
-            >
-              <option>Todas</option>
-              {rankFeedback(available, 'responsibleArea').map((item) => (
-                <option key={item.label}>{item.label}</option>
-              ))}
-            </select>
-          </ExperienceField>
-          <ExperienceField label="Status">
-            <select
-              value={status}
-              onChange={(event) => {
-                setStatus(event.target.value);
-                setPage(1);
-              }}
-              className="field-input"
-            >
-              <option>Todos</option>
-              {VOC_STATUSES.map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
-          </ExperienceField>
-          <ExperienceField label="De">
-            <input
-              type="date"
-              value={start}
-              onChange={(event) => {
-                setStart(event.target.value);
-                setPage(1);
-              }}
-              className="field-input"
-            />
-          </ExperienceField>
-          <ExperienceField label="Até">
-            <input
-              type="date"
-              value={end}
-              min={start || undefined}
-              onChange={(event) => {
-                setEnd(event.target.value);
-                setPage(1);
-              }}
-              className="field-input"
-            />
-          </ExperienceField>
+        <div id="voc-filters" hidden={!filtersOpen} className="space-y-4">
+          <ExperienceSearch
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
+            placeholder="Buscar relato, cliente, pedido, responsável ou ação"
+          />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <ExperienceField label="Tipo">
+              <select
+                value={kind}
+                onChange={(event) => {
+                  setKind(event.target.value);
+                  setPage(1);
+                }}
+                className="field-input"
+              >
+                <option>Todos</option>
+                {VOC_KINDS.map((value) => (
+                  <option key={value}>{value}</option>
+                ))}
+              </select>
+            </ExperienceField>
+            <ExperienceField label="Tema">
+              <select
+                value={theme}
+                onChange={(event) => {
+                  setTheme(event.target.value);
+                  setPage(1);
+                }}
+                className="field-input"
+              >
+                <option>Todos</option>
+                {rankFeedback(available, 'theme').map((item) => (
+                  <option key={item.label}>{item.label}</option>
+                ))}
+              </select>
+            </ExperienceField>
+            <ExperienceField label="Área responsável">
+              <select
+                value={area}
+                onChange={(event) => {
+                  setArea(event.target.value);
+                  setPage(1);
+                }}
+                className="field-input"
+              >
+                <option>Todas</option>
+                {rankFeedback(available, 'responsibleArea').map((item) => (
+                  <option key={item.label}>{item.label}</option>
+                ))}
+              </select>
+            </ExperienceField>
+            <ExperienceField label="Status">
+              <select
+                value={status}
+                onChange={(event) => {
+                  setStatus(event.target.value);
+                  setPage(1);
+                }}
+                className="field-input"
+              >
+                <option>Todos</option>
+                {VOC_STATUSES.map((value) => (
+                  <option key={value}>{value}</option>
+                ))}
+              </select>
+            </ExperienceField>
+            <ExperienceField label="De">
+              <input
+                type="date"
+                value={start}
+                onChange={(event) => {
+                  setStart(event.target.value);
+                  setPage(1);
+                }}
+                className="field-input"
+              />
+            </ExperienceField>
+            <ExperienceField label="Até">
+              <input
+                type="date"
+                value={end}
+                min={start || undefined}
+                onChange={(event) => {
+                  setEnd(event.target.value);
+                  setPage(1);
+                }}
+                className="field-input"
+              />
+            </ExperienceField>
+          </div>
+          {start && end && end < start && (
+            <p role="alert" className="text-xs font-bold">
+              A data final precisa ser igual ou posterior à inicial.
+            </p>
+          )}
         </div>
-        {start && end && end < start && (
-          <p role="alert" className="text-xs font-bold">
-            A data final precisa ser igual ou posterior à inicial.
-          </p>
-        )}
+        {!filtersOpen &&
+          (search ||
+            kind !== 'Todos' ||
+            theme !== 'Todos' ||
+            area !== 'Todas' ||
+            status !== 'Todos') && (
+            <div className="flex flex-wrap gap-2">
+              {[
+                search && `Busca: ${search}`,
+                kind !== 'Todos' && kind,
+                theme !== 'Todos' && theme,
+                area !== 'Todas' && area,
+                status !== 'Todos' && status,
+              ]
+                .filter(Boolean)
+                .map((label, index) => (
+                  <span key={index} className="fotus-pill fotus-pill-yellow">
+                    {label}
+                  </span>
+                ))}
+            </div>
+          )}
       </section>
 
       <section
@@ -345,7 +394,11 @@ export default function VocView({
             total={filtered.length}
             selected={theme}
             onSelect={(value) => {
-              setTheme(normalizedTopic(theme) === normalizedTopic(value) ? 'Todos' : canonicalFilter('theme', value));
+              setTheme(
+                normalizedTopic(theme) === normalizedTopic(value)
+                  ? 'Todos'
+                  : canonicalFilter('theme', value),
+              );
               setPage(1);
             }}
           />
@@ -355,7 +408,11 @@ export default function VocView({
             total={filtered.length}
             selected={area}
             onSelect={(value) => {
-              setArea(normalizedTopic(area) === normalizedTopic(value) ? 'Todas' : canonicalFilter('responsibleArea', value));
+              setArea(
+                normalizedTopic(area) === normalizedTopic(value)
+                  ? 'Todas'
+                  : canonicalFilter('responsibleArea', value),
+              );
               setPage(1);
             }}
           />

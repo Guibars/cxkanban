@@ -100,6 +100,15 @@ export default function App() {
   const [isAgentManagerOpen, setIsAgentManagerOpen] = useState(false);
   const [isAccessControlOpen, setIsAccessControlOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [uiScale, setUiScale] = useState(() => {
+    try { const saved = Number(localStorage.getItem('fotus-ui-scale')); return [80, 90, 100].includes(saved) ? saved : 80; } catch { return 80; }
+  });
+  useEffect(() => {
+    document.documentElement.classList.toggle('fotus-authenticated', Boolean(user));
+    document.documentElement.style.setProperty('--fotus-ui-scale', String(uiScale / 100));
+    try { localStorage.setItem('fotus-ui-scale', String(uiScale)); } catch { /* Preferência continua válida nesta sessão. */ }
+    return () => { document.documentElement.classList.remove('fotus-authenticated'); document.documentElement.style.removeProperty('--fotus-ui-scale'); };
+  }, [user?.uid, uiScale]);
 
   useEffect(() => {
     const sessionUser = neonSession.data?.user;
@@ -332,7 +341,7 @@ export default function App() {
 
   return (
     <div className="fotus-app-shell flex min-h-screen font-sans text-fotus-ink">
-      <aside className="sticky top-0 hidden h-screen w-[72px] shrink-0 flex-col border-r border-fotus-neutral bg-fotus-neutral/90 px-2 py-3 shadow-[4px_0_24px_rgb(13_81_142_/_0.035)] backdrop-blur-xl sm:flex">
+      <aside className="fotus-app-sidebar sticky top-0 hidden h-screen w-[72px] shrink-0 flex-col border-r border-fotus-neutral bg-fotus-neutral/90 px-2 py-3 shadow-[4px_0_24px_rgb(13_81_142_/_0.035)] backdrop-blur-xl sm:flex">
         <div className="flex h-11 items-center justify-center"><img src={FOTUS_LOGO} alt="Fotus" className="h-auto w-10 object-contain" /></div>
         <nav className="mt-4 flex flex-col items-center gap-1.5" aria-label="Navegação principal">
           {tabs.map(({ id, label, icon: Icon, alert }) => {
@@ -352,6 +361,7 @@ export default function App() {
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3"><img src={FOTUS_LOGO} alt="Fotus" className="h-9 w-auto object-contain sm:hidden" /><div className="min-w-0"><h1 className="truncate text-base font-extrabold tracking-tight text-fotus-ink sm:text-lg">{TAB_COPY[activeTab].title}</h1><p className="hidden truncate text-xs text-fotus-ink/80 md:block">{TAB_COPY[activeTab].subtitle}</p></div></div>
             <div className="flex items-center gap-2 sm:gap-3">
+              <label className="hidden items-center gap-1.5 rounded-full border border-fotus-blue/15 bg-fotus-neutral/70 px-3 py-2 text-[10px] font-bold text-fotus-blue lg:flex"><span>Visualização</span><select aria-label="Tamanho da visualização" value={uiScale} onChange={(event) => setUiScale(Number(event.target.value))} className="bg-transparent text-xs font-extrabold outline-none"><option value={80}>80%</option><option value={90}>90%</option><option value={100}>100%</option></select></label>
               <button type="button" onClick={() => setIsIsaChatOpen(true)} title="Falar com a ISA" className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-fotus-blue/20"><img src={ISA_LOGO} alt="Abrir ISA" className="h-11 w-11 object-contain drop-shadow-sm" /></button>
               <button type="button" onClick={() => { setChatTarget({ conversationId: chatOverview.unread[0]?.conversationId || 'general', nonce: Date.now() }); setActiveTab('chat'); }} title={chatUnreadTotal ? `${chatUnreadTotal} ${chatUnreadTotal === 1 ? 'mensagem nova' : 'mensagens novas'}` : 'Abrir chat'} aria-label={chatUnreadTotal ? `Abrir ${chatUnreadTotal} ${chatUnreadTotal === 1 ? 'mensagem nova' : 'mensagens novas'} no chat` : 'Abrir chat'} className="relative flex h-10 w-10 items-center justify-center rounded-xl text-fotus-blue hover:bg-fotus-blue/6"><Bell className="h-5 w-5" />{chatUnreadTotal > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-fotus-yellow px-1 text-[9px] font-extrabold text-fotus-ink">{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span>}</button>
               <div className="relative border-l border-fotus-blue/20 pl-2 sm:pl-3">
@@ -375,7 +385,7 @@ export default function App() {
           </nav>
         </header>
 
-        <main className="mx-auto w-full max-w-[1560px] flex-1 px-4 py-5 sm:px-8 sm:py-6">
+        <main className="fotus-app-main mx-auto w-full max-w-[1560px] flex-1 px-4 py-5 sm:px-8 sm:py-6">
           {dataError && <div className="mb-5 rounded-2xl border border-fotus-yellow/25 bg-fotus-yellow/20 p-4 text-xs font-semibold text-fotus-ink">{dataError}</div>}
 
           {canView('visao-geral') && <section hidden={activeTab !== 'visao-geral'}><OverviewView occurrences={visibleOccurrences} costs={visibleCosts} raCases={visibleRaCases} visits={visits} scopeLabel={scopeLabel} canViewOccurrences={canView('ocorrencias')} canViewCosts={canView('custos')} canViewRa={canView('ra')} canViewVisits={canView('visitas')} onNavigate={setActiveTab} /></section>}

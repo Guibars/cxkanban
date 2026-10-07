@@ -1,3 +1,4 @@
+import { isDistributionCenterCode } from '../src/lib/distributionCenters.js';
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { SERVICE_CATEGORIES, SERVICE_STATUSES, VOC_KINDS, VOC_STATUSES, VOC_PRIORITIES } from '../src/lib/serviceDesk.js';
@@ -142,6 +143,9 @@ async function assertAgentOwnsOccurrence(
 }
 
 async function upsertOccurrence(client: PoolClient, legacyId: string, data: Payload, actorEmail: string, actorUserId: string, forceAgent?: string) {
+  const hasDistributionCenter = Object.prototype.hasOwnProperty.call(data, 'distributionCenter');
+  const distributionCenter = data.distributionCenter == null || data.distributionCenter === '' ? null : data.distributionCenter;
+  if (distributionCenter !== null && !isDistributionCenterCode(distributionCenter)) throw new Error('invalid-mutation');
   const agentName = forceAgent || s(data.agentName, 'Não informado');
   const products = occurrenceProducts(data);
   const productLabel = products.map((item) => item.product).join(', ') || s(data.product, 'Não informado');
@@ -150,8 +154,8 @@ async function upsertOccurrence(client: PoolClient, legacyId: string, data: Payl
     legacy_firestore_id,occurrence_date,agent_id,agent_name_snapshot,company_name,state,city,region,order_number,unique_number,
     sac_code,occurrence_type,product,quantity,products,stage,approval_status,carrier,comments,consultant,is_damage,damage_amount,
     organization_unit_id,routed_to_name_snapshot,routed_to_email_snapshot,created_by_user_id,created_by_email,created_by_name,
-    import_source,import_row,created_at,updated_at)
-    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)
+    import_source,import_row,created_at,updated_at,distribution_center)
+    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33)
     on conflict (legacy_firestore_id) do update set occurrence_date=excluded.occurrence_date,agent_id=excluded.agent_id,
       agent_name_snapshot=excluded.agent_name_snapshot,company_name=excluded.company_name,state=excluded.state,city=excluded.city,
       region=excluded.region,order_number=excluded.order_number,unique_number=excluded.unique_number,sac_code=excluded.sac_code,
@@ -159,13 +163,14 @@ async function upsertOccurrence(client: PoolClient, legacyId: string, data: Payl
       approval_status=excluded.approval_status,carrier=excluded.carrier,comments=excluded.comments,consultant=excluded.consultant,
       is_damage=excluded.is_damage,damage_amount=excluded.damage_amount,organization_unit_id=excluded.organization_unit_id,
       routed_to_name_snapshot=excluded.routed_to_name_snapshot,routed_to_email_snapshot=excluded.routed_to_email_snapshot,
+      distribution_center=case when $34::boolean then excluded.distribution_center else occurrences.distribution_center end,
       updated_at=excluded.updated_at`, [legacyId, s(data.date), await agentId(client, agentName), agentName, s(data.companyName, 'Não informada'),
     s(data.state).toUpperCase().slice(0, 2), s(data.city), s(data.region), s(data.orderNumber), s(data.uniqueNumber), s(data.sacCode),
     s(data.occurrenceType, 'Não informado'), productLabel, totalQuantity, JSON.stringify(products),
     s(data.stage, 'Recebida'), s(data.approvalStatus, 'Pendente'), s(data.carrier), s(data.comments), s(data.consultant), b(data.isDamage),
     Math.max(0, n(data.damageAmount)), await unitId(client, data.organizationUnitId), s(data.routedToName) || null,
     e(data.routedToEmail) || null, actorUserId, actorEmail, s(data.createdByName) || null, s(data.importSource) || null,
-    data.importRow == null ? null : i(data.importRow), time(data.createdAt), time(data.updatedAt)]);
+    data.importRow == null ? null : i(data.importRow), time(data.createdAt), time(data.updatedAt), distributionCenter, hasDistributionCenter]);
 }
 
 async function upsertExtraCost(client: PoolClient, legacyId: string, data: Payload, actorEmail: string, actorUserId: string) {

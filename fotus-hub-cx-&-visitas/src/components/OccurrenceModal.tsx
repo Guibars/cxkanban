@@ -2,6 +2,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'reac
 import type { CurrentUser } from '../lib/currentUser';
 import { Building2, CalendarDays, CheckCircle2, CircleDollarSign, Hash, MapPin, Package, Plus, Route, Save, ShieldAlert, Trash2, Truck, UserRound, X } from 'lucide-react';
 import { createData, updateData } from '../lib/dataMutations';
+import { DISTRIBUTION_CENTERS, type DistributionCenterCode } from '../lib/distributionCenters';
 import { occurrenceProducts } from '../lib/occurrenceProducts';
 import {
   BRAZIL_STATES,
@@ -37,6 +38,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
   const [agentName, setAgentName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [state, setState] = useState('');
+  const [distributionCenter, setDistributionCenter] = useState<DistributionCenterCode | ''>('');
   const [orderNumber, setOrderNumber] = useState('');
   const [uniqueNumber, setUniqueNumber] = useState('');
   const [sacCode, setSacCode] = useState('');
@@ -69,6 +71,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
     setAgentName(occurrence?.agentName || (agents.length === 1 ? agents[0] : ''));
     setCompanyName(occurrence?.companyName || '');
     setState(occurrence?.state || '');
+    setDistributionCenter(occurrence?.distributionCenter || '');
     setOrderNumber(occurrence?.orderNumber || '');
     setUniqueNumber(occurrence?.uniqueNumber || '');
     setSacCode(occurrence?.sacCode || '');
@@ -109,6 +112,7 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
       companyName: companyName.trim(),
       state,
       region: getRegionFromState(state),
+      distributionCenter: distributionCenter || null,
       orderNumber: orderNumber.trim(),
       uniqueNumber: uniqueNumber.trim(),
       sacCode: sacCode.trim(),
@@ -184,7 +188,8 @@ export default function OccurrenceModal({ isOpen, onClose, occurrence, currentUs
                 </select>
               </Field>
               <div className="sm:col-span-2"><Field label="Nome da empresa" icon={Building2}><input required value={companyName} onChange={(event) => setCompanyName(event.target.value)} className="field-input" placeholder="Razão social ou nome fantasia" /></Field></div>
-              <Field label="UF" icon={MapPin}><select required value={state} onChange={(event) => setState(event.target.value)} className="field-input"><option value="">Selecione</option>{BRAZIL_STATES.map((uf) => <option key={uf} value={uf}>{uf}</option>)}</select></Field>
+              <Field label="CD de origem do pedido" icon={Truck}><select value={distributionCenter} onChange={(event) => setDistributionCenter(event.target.value as DistributionCenterCode | '')} className="field-input"><option value="">Não informado</option>{DISTRIBUTION_CENTERS.map((center) => <option key={center.code} value={center.code}>{center.name} ({center.code})</option>)}</select></Field>
+              <Field label="UF de entrega" icon={MapPin}><select required value={state} onChange={(event) => setState(event.target.value)} className="field-input"><option value="">Selecione</option>{BRAZIL_STATES.map((uf) => <option key={uf} value={uf}>{uf}</option>)}</select></Field>
               <Field label={isDamage ? 'Cidade da avaria' : 'Cidade'} icon={MapPin}><input required={isDamage} value={city} onChange={(event) => setCity(event.target.value)} className="field-input" placeholder="Cidade onde ocorreu" /></Field>
               <Field label="Nº do pedido" icon={Hash}><input required value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} className="field-input" placeholder="Preserva zeros e hífens" /></Field>
               <Field label="Nº único" icon={Hash}><input value={uniqueNumber} onChange={(event) => setUniqueNumber(event.target.value)} className="field-input" /></Field>

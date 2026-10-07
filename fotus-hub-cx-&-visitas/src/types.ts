@@ -147,6 +147,7 @@ export interface OccurrenceProduct {
 }
 
 export interface Occurrence {
+  distributionCenter?: import('./lib/distributionCenters').DistributionCenterCode | null;
   id: string;
   date: string;
   agentName: string;

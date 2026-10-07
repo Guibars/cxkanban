@@ -31,6 +31,8 @@ import { occurrenceProducts, occurrenceProductsLabel } from '../lib/occurrencePr
 import { activeAgentRecords, agentKey } from '../lib/occurrences';
 import { Occurrence, OccurrenceStage, OrganizationUnit } from '../types';
 import OccurrenceModal from './OccurrenceModal';
+import OccurrenceMap from './OccurrenceMap';
+import { DISTRIBUTION_CENTERS, distributionCenterName, isDistributionCenterCode, type DistributionCenterCode } from '../lib/distributionCenters';
 import PillBarChart from './PillBarChart';
 
 interface OccurrencesViewProps {
@@ -101,6 +103,10 @@ function dateRangeForPreset(preset: DatePreset, customStart: string, customEnd: 
 }
 
 export default function OccurrencesView({ occurrences, organizationUnits, currentUser, agents, canManageAgents, onEditAgents }: OccurrencesViewProps) {
+  const [mapOpen, setMapOpen] = useState(false);
+  const [centerFilter, setCenterFilter] = useState<DistributionCenterCode | 'Todos' | 'missing'>('Todos');
+  const [savingCenter, setSavingCenter] = useState('');
+  const [centerMessage, setCenterMessage] = useState('');
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<'Todas' | OccurrenceStage>('Todas');
   const [datePreset, setDatePreset] = useState<DatePreset>('month');
@@ -136,7 +142,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
     return true;
   }), [occurrences, periodRange.end, periodRange.start]);
 
-  const filtered = useMemo(() => {
+  const matchingOccurrences = useMemo(() => {
     const query = search.trim().toLowerCase();
     return periodOccurrences.filter((occurrence) => {
       if (stageFilter !== 'Todas' && occurrence.stage !== stageFilter) return false;
@@ -151,13 +157,15 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
         occurrence.consultant,
         occurrenceProductsLabel(occurrence),
         occurrence.state,
+        distributionCenterName(occurrence.distributionCenter),
       ].some((value) => value?.toLowerCase().includes(query));
     });
   }, [periodOccurrences, search, stageFilter]);
+  const filtered = useMemo(() => matchingOccurrences.filter((item) => centerFilter === 'Todos' || (centerFilter === 'missing' ? !isDistributionCenterCode(item.distributionCenter) : item.distributionCenter === centerFilter)), [matchingOccurrences, centerFilter]);
 
   useEffect(() => {
     setVisibleByStage({ Recebida: 3, 'Em Análise': 3, 'Aguardando Retorno': 3, Finalizada: 3 });
-  }, [datePreset, customStart, customEnd, search, stageFilter]);
+  }, [datePreset, customStart, customEnd, search, stageFilter, centerFilter]);
 
   const insights = useMemo(() => ({
     carriers: rankBy(periodOccurrences.map((item) => item.carrier)),
@@ -240,6 +248,18 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
     }
   };
 
+  const changeDistributionCenter = async (occurrence: Occurrence, code: DistributionCenterCode | '') => {
+    setSavingCenter(occurrence.id);
+    setCenterMessage('');
+    try {
+      await updateData(currentUser, 'occurrences', occurrence.id, { ...occurrence, distributionCenter: code || null, updatedAt: Date.now() });
+    } catch (error) {
+      setCenterMessage(error instanceof Error ? error.message : 'Não foi possível salvar o CD. Tente novamente.');
+    } finally {
+      setSavingCenter('');
+    }
+  };
+
   const importSpreadsheet = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -308,18 +328,20 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
         </div>
       </section>
 
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+      <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-1.5 rounded-2xl border border-fotus-neutral/90 bg-fotus-neutral/60 p-1.5">
           {(['Todas', ...STAGES.map((item) => item.id)] as const).map((item) => (
             <button key={item} onClick={() => setStageFilter(item)} className={`rounded-xl px-3 py-2 text-xs font-bold transition-all ${stageFilter === item ? 'bg-fotus-yellow text-fotus-ink shadow-sm' : 'text-fotus-ink hover:bg-fotus-neutral'}`}>{item}</button>
           ))}
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <label className="relative min-w-0 flex-1 sm:w-72">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="relative min-w-0 basis-full sm:basis-64 sm:grow">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fotus-ink/80" />
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Empresa, pedido, SAC, transportadora..." className="w-full rounded-xl border border-fotus-blue/20 bg-fotus-neutral py-2.5 pl-9 pr-3 text-xs outline-none focus:border-fotus-blue" />
           </label>
+          <label className="flex items-center gap-2 rounded-full border border-fotus-blue/20 bg-fotus-neutral px-3 py-2 text-xs font-bold"><Truck className="h-4 w-4 text-fotus-blue" />CD<select aria-label="Filtrar CD de origem" value={centerFilter} onChange={(event) => setCenterFilter(event.target.value as typeof centerFilter)} className="max-w-48 bg-transparent text-xs outline-none"><option value="Todos">Todos os CDs</option><option value="missing">CD não informado</option>{DISTRIBUTION_CENTERS.map((center) => <option key={center.code} value={center.code}>{center.name}</option>)}</select></label>
+          <button type="button" onClick={() => setMapOpen(true)} className="fotus-action inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-extrabold"><MapPinned className="h-4 w-4" />Mapa</button>
           <button onClick={() => setShowInsights((current) => !current)} className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-extrabold transition-all ${showInsights ? 'border-fotus-yellow/45 bg-fotus-yellow/20 text-fotus-ink' : 'border-fotus-blue/20 bg-fotus-neutral text-fotus-blue hover:bg-fotus-blue/6'}`}>
             <Sparkles className="h-4 w-4" /> Insights Gerais
           </button>
@@ -335,6 +357,8 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
         </div>
       </div>
 
+      {centerMessage && <p role="alert" className="rounded-2xl border border-fotus-yellow/40 bg-fotus-yellow/20 p-3 text-xs font-bold">{centerMessage}</p>}
+      {centerFilter !== 'Todos' && <div className="flex flex-wrap items-center gap-2 text-xs"><span className="fotus-pill fotus-pill-yellow">{centerFilter === 'missing' ? 'CD não informado' : distributionCenterName(centerFilter)} · {filtered.length} card(s)</span><button type="button" onClick={() => setCenterFilter('Todos')} className="rounded-full px-3 py-1.5 font-bold text-fotus-blue hover:bg-fotus-yellow/20">Mostrar todos os CDs</button></div>}
       {importMessage && (
         <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-xs font-semibold ${importError ? 'border-fotus-yellow/25 bg-fotus-yellow/20 text-fotus-ink' : 'border-fotus-blue/25 bg-fotus-blue/7 text-fotus-blue'}`}>
           {isImporting ? <LoaderCircle className="h-4 w-4 shrink-0 animate-spin" /> : <FileUp className="h-4 w-4 shrink-0" />}
@@ -387,7 +411,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
           {STAGES.map((column) => {
             const columnOccurrences = filtered.filter((item) => item.stage === column.id);
             const visibleOccurrences = columnOccurrences.slice(0, visibleByStage[column.id]);
@@ -409,6 +433,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
                         <div className="rounded-xl bg-fotus-neutral/40 p-2.5"><span className="block text-[9px] font-extrabold uppercase text-fotus-ink/80">Pedido</span><strong className="mt-0.5 block truncate text-fotus-ink">{occurrence.orderNumber}</strong></div>
                         <div className="rounded-xl bg-fotus-neutral/40 p-2.5"><span className="block text-[9px] font-extrabold uppercase text-fotus-ink/80">Produtos</span><strong className="mt-0.5 block line-clamp-2 text-fotus-ink">{occurrenceProductsLabel(occurrence) || 'Não informado'}</strong></div>
                       </div>
+                      <label className="mt-3 block rounded-xl border border-fotus-yellow/30 bg-fotus-yellow/10 px-3 py-2"><span className="mb-1 flex items-center gap-1.5 text-[9px] font-extrabold uppercase text-fotus-blue"><Truck className="h-3.5 w-3.5" />CD de origem{savingCenter === occurrence.id && <LoaderCircle className="h-3 w-3 animate-spin" />}</span><select aria-label={`CD de origem do pedido ${occurrence.orderNumber}`} value={occurrence.distributionCenter || ''} disabled={Boolean(savingCenter)} onChange={(event) => void changeDistributionCenter(occurrence, event.target.value as DistributionCenterCode | '')} className="w-full min-w-0 bg-transparent text-xs font-bold text-fotus-ink outline-none disabled:opacity-50"><option value="">Não informado</option>{DISTRIBUTION_CENTERS.map((center) => <option key={center.code} value={center.code}>{center.name} ({center.code})</option>)}</select></label>
                       <div className="mt-3 space-y-2 text-[11px] text-fotus-ink">
                         <p className="flex items-center gap-2"><CircleDot className="h-3.5 w-3.5 text-fotus-ink/80" /><span className="truncate">{occurrence.occurrenceType}</span></p>
                         <p className="flex items-center gap-2"><Truck className="h-3.5 w-3.5 text-fotus-ink/80" /><span className="truncate">{occurrence.carrier}</span></p>
@@ -434,6 +459,7 @@ export default function OccurrencesView({ occurrences, organizationUnits, curren
         </div>
       )}
 
+      {mapOpen && <OccurrenceMap occurrences={matchingOccurrences} period={periodLabel} onClose={() => setMapOpen(false)} onFilter={(code) => { setCenterFilter(code); setMapOpen(false); }} />}
       <OccurrenceModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} occurrence={editingOccurrence} currentUser={currentUser} organizationUnits={organizationUnits} agents={agents} />
     </div>
   );

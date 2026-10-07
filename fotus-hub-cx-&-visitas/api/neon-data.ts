@@ -150,7 +150,7 @@ export async function loadBootstrap(email: string) {
     canView('ocorrencias') ? pool.query(`
       select legacy_firestore_id as id,occurrence_date::text as date,agent_name_snapshot as "agentName",company_name as "companyName",
         state,city,region,order_number as "orderNumber",unique_number as "uniqueNumber",sac_code as "sacCode",
-        occurrence_type as "occurrenceType",product,quantity,products,stage,approval_status as "approvalStatus",carrier,comments,consultant,
+        occurrence_type as "occurrenceType",distribution_center as "distributionCenter",product,quantity,products,stage,approval_status as "approvalStatus",carrier,comments,consultant,
         is_damage as "isDamage",damage_amount::float8 as "damageAmount",
         (select legacy_firestore_id from public.organization_units where id=occurrences.organization_unit_id) as "organizationUnitId",
         routed_to_name_snapshot as "routedToName",routed_to_email_snapshot::text as "routedToEmail",
@@ -258,6 +258,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     if (message === 'forbidden') return response.status(403).json({ error: request.body?.resource === 'organization_people' ? 'Seu perfil não permite esta ação na Estrutura. Peça ao administrador para liberá-la em Gerenciar usuários → Ações na Estrutura.' : 'Seu perfil não permite esta alteração.' });
     if (message === 'invalid-mutation') return response.status(400).json({ error: 'Alteração inválida.' });
     if (message === 'too-many-records') return response.status(400).json({ error: 'Importe no máximo 1.500 registros por vez.' });
+    if (databaseCode === '42703' && /distribution_center/.test(message)) return response.status(503).json({ error: 'Aplique a migração 020_occurrence_distribution_centers.sql no SQL Editor do Neon para ativar os CDs de origem.' });
     if (databaseCode === '42P01' && /service_tickets|voc_feedback/.test(message)) return response.status(503).json({ error: 'Aplique a migração 019_atendimentos_voc.sql no SQL Editor do Neon para ativar Atendimentos e VoC.' });
     console.error('Erro ao carregar dados do Neon:', error);
     return response.status(500).json({ error: 'Não foi possível carregar os dados do Neon.' });
