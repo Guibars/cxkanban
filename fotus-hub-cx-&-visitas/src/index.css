@@ -22,6 +22,8 @@
 
 /* A densidade acompanha a largura e a altura disponíveis, inclusive ao
    redimensionar a janela. Celulares e tablets mantêm o tamanho natural. */
+html.fotus-authenticated { --fotus-ui-scale: 1; }
+
 @media (min-width: 1024px) {
   html.fotus-authenticated { --fotus-ui-scale: 0.8; }
   html.fotus-authenticated body { zoom: var(--fotus-ui-scale, 0.8); }
@@ -31,12 +33,33 @@
   html.fotus-authenticated .fotus-dialog { max-height: calc(92dvh / var(--fotus-ui-scale, 0.8)); }
 }
 
-@media (min-width: 1600px) and (min-height: 850px) {
+@media (min-width: 1440px) and (min-height: 720px) {
   html.fotus-authenticated { --fotus-ui-scale: 0.9; }
 }
 
-@media (min-width: 1920px) and (min-height: 1000px) {
+@media (min-width: 1600px) and (min-height: 720px) {
   html.fotus-authenticated { --fotus-ui-scale: 1; }
+}
+
+/* Na aba de chat, o histórico ocupa o espaço restante da tela. */
+html.fotus-authenticated .fotus-app-shell.fotus-chat-active {
+  height: calc(100dvh / var(--fotus-ui-scale, 1));
+  min-height: 0;
+  overflow: hidden;
+}
+.fotus-chat-active > .fotus-app-content { min-height: 0; overflow: hidden; }
+.fotus-app-main.fotus-chat-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.fotus-chat-main > .fotus-chat-section:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .cd-map-pin:focus-visible { outline: none; }

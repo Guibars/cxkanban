@@ -214,7 +214,7 @@ export default function ServiceTicketsView({
     <div className="space-y-5 sm:space-y-6">
       <section
         aria-label="Resumo dos atendimentos Neppo"
-        className="fotus-glass overflow-hidden rounded-[30px] pb-5 sm:pb-6"
+        className="relative isolate overflow-hidden rounded-[30px]"
       >
         <div className="relative overflow-hidden bg-fotus-blue">
           <img
@@ -222,124 +222,128 @@ export default function ServiceTicketsView({
             alt="Fotus e Neppo — ao seu lado, em cada projeto"
             className="block h-24 w-full object-cover object-[60%_center] sm:h-auto"
           />
-          <span className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-fotus-blue/20 to-transparent" />
         </div>
-        <div className="fotus-glass relative z-10 mx-3 -mt-4 grid gap-5 rounded-[26px] p-5 sm:mx-6 sm:-mt-6 lg:grid-cols-[1.1fr_1fr] lg:p-6">
-          <div className="min-w-0">
-            <div className="flex items-center gap-3">
-              <img
-                src="/neppo-ia-icon.png"
-                alt=""
-                className="h-11 w-11 shrink-0 rounded-2xl object-cover shadow-sm"
-              />
+        <div className="relative z-10 -mt-3 px-3 pb-3 sm:-mt-4 sm:px-5 sm:pb-5">
+          <div className="overflow-hidden rounded-[26px] bg-fotus-neutral">
+            <div className="fotus-glass grid min-w-0 gap-5 rounded-[inherit] p-5 lg:grid-cols-[1.1fr_1fr] lg:p-6">
               <div className="min-w-0">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-fotus-blue">
-                  Neppo · Atendimentos da equipe
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/neppo-ia-icon.png"
+                    alt=""
+                    className="h-11 w-11 shrink-0 rounded-2xl object-cover shadow-sm"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-fotus-blue">
+                      Neppo · Atendimentos da equipe
+                    </p>
+                    <h2 className="text-xl font-extrabold text-fotus-ink">
+                      Cada solicitação, uma solução
+                    </h2>
+                  </div>
+                </div>
+                <p className="mt-3 max-w-2xl text-xs leading-relaxed text-fotus-ink/80">
+                  Centralize as tratativas e acompanhe a evolução dos
+                  atendimentos.
                 </p>
-                <h2 className="text-xl font-extrabold text-fotus-ink">
-                  Cada solicitação, uma solução
-                </h2>
+                <dl className="mt-4 grid grid-cols-1 gap-2 min-[360px]:grid-cols-3">
+                  {[
+                    {
+                      label: 'Atendimentos',
+                      value: available.length,
+                      detail: 'Total registrado',
+                    },
+                    {
+                      label: 'Em tratamento',
+                      value: inTreatment,
+                      detail: 'Abertos ou em andamento',
+                    },
+                    {
+                      label: 'Finalizados',
+                      value: finalized,
+                      detail: 'Tratativas encerradas',
+                    },
+                  ].map((metric) => (
+                    <div
+                      key={metric.label}
+                      className="fotus-glass-inset min-w-0 rounded-2xl p-3"
+                    >
+                      <dt className="break-words text-[9px] font-extrabold uppercase tracking-wide text-fotus-ink/80">
+                        {metric.label}
+                      </dt>
+                      <dd className="mt-1 text-2xl font-extrabold text-fotus-blue">
+                        {metric.value.toLocaleString('pt-BR')}
+                      </dd>
+                      <p className="mt-1 text-[10px] leading-relaxed text-fotus-ink/80">
+                        {metric.detail}
+                      </p>
+                    </div>
+                  ))}
+                </dl>
+                <p className="mt-3 text-[10px] font-bold text-fotus-blue">
+                  Visão geral · Todo o histórico de atendimentos
+                </p>
               </div>
-            </div>
-            <p className="mt-3 max-w-2xl text-xs leading-relaxed text-fotus-ink/80">
-              Centralize as tratativas e acompanhe a evolução dos atendimentos.
-            </p>
-            <dl className="mt-4 grid grid-cols-1 gap-2 min-[360px]:grid-cols-3">
-              {[
-                {
-                  label: 'Atendimentos',
-                  value: available.length,
-                  detail: 'Total registrado',
-                },
-                {
-                  label: 'Em tratamento',
-                  value: inTreatment,
-                  detail: 'Abertos ou em andamento',
-                },
-                {
-                  label: 'Finalizados',
-                  value: finalized,
-                  detail: 'Tratativas encerradas',
-                },
-              ].map((metric) => (
+              <div className="fotus-glass flex min-w-0 flex-col justify-center rounded-3xl p-4 sm:p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-fotus-yellow/25">
+                      <CheckCircle2 className="h-6 w-6 text-fotus-blue" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-fotus-ink/80">
+                        Taxa de finalização
+                      </p>
+                      <h3 className="mt-1 text-sm font-extrabold text-fotus-blue">
+                        Tratativas concluídas
+                      </h3>
+                    </div>
+                  </div>
+                  <strong className="shrink-0 text-2xl font-extrabold text-fotus-blue">
+                    {completionRate.toLocaleString('pt-BR', {
+                      maximumFractionDigits: 1,
+                    })}
+                    %
+                  </strong>
+                </div>
                 <div
-                  key={metric.label}
-                  className="fotus-glass-inset min-w-0 rounded-2xl p-3"
+                  role="progressbar"
+                  aria-label="Percentual de atendimentos finalizados"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={completionRate}
+                  className="mt-5 h-3 overflow-hidden rounded-full bg-fotus-yellow/40"
                 >
-                  <dt className="break-words text-[9px] font-extrabold uppercase tracking-wide text-fotus-ink/80">
-                    {metric.label}
-                  </dt>
-                  <dd className="mt-1 text-2xl font-extrabold text-fotus-blue">
-                    {metric.value.toLocaleString('pt-BR')}
-                  </dd>
-                  <p className="mt-1 text-[10px] leading-relaxed text-fotus-ink/80">
-                    {metric.detail}
-                  </p>
+                  <span
+                    className="block h-full rounded-full bg-fotus-blue transition-[width] duration-300"
+                    style={{ width: `${completionRate}%` }}
+                  />
                 </div>
-              ))}
-            </dl>
-            <p className="mt-3 text-[10px] font-bold text-fotus-blue">
-              Visão geral · Todo o histórico de atendimentos
-            </p>
-          </div>
-          <div className="fotus-glass flex min-w-0 flex-col justify-center rounded-3xl p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-fotus-yellow/25">
-                  <CheckCircle2 className="h-6 w-6 text-fotus-blue" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-extrabold uppercase tracking-wider text-fotus-ink/80">
-                    Taxa de finalização
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold text-fotus-ink/80">
+                  <span className="flex items-center gap-1.5">
+                    <Clock3 className="h-3.5 w-3.5 text-fotus-blue" />
+                    {opened} aberto(s) · {inProgress} em andamento
+                  </span>
+                  <span>
+                    {finalized} de {available.length} finalizados
+                  </span>
+                </div>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-fotus-blue/10 pt-3">
+                  <p className="text-[10px] text-fotus-ink/80">
+                    {available.length
+                      ? 'Acompanhe cada etapa da operação.'
+                      : 'Cadastre o primeiro atendimento.'}
                   </p>
-                  <h3 className="mt-1 text-sm font-extrabold text-fotus-blue">
-                    Tratativas concluídas
-                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => edit(null)}
+                    className="fotus-action inline-flex w-fit shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-xs font-extrabold"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Novo atendimento
+                  </button>
                 </div>
               </div>
-              <strong className="shrink-0 text-2xl font-extrabold text-fotus-blue">
-                {completionRate.toLocaleString('pt-BR', {
-                  maximumFractionDigits: 1,
-                })}
-                %
-              </strong>
-            </div>
-            <div
-              role="progressbar"
-              aria-label="Percentual de atendimentos finalizados"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={completionRate}
-              className="mt-5 h-3 overflow-hidden rounded-full bg-fotus-yellow/40"
-            >
-              <span
-                className="block h-full rounded-full bg-fotus-blue transition-[width] duration-300"
-                style={{ width: `${completionRate}%` }}
-              />
-            </div>
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold text-fotus-ink/80">
-              <span className="flex items-center gap-1.5">
-                <Clock3 className="h-3.5 w-3.5 text-fotus-blue" />
-                {opened} aberto(s) · {inProgress} em andamento
-              </span>
-              <span>
-                {finalized} de {available.length} finalizados
-              </span>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-fotus-blue/10 pt-3">
-              <p className="text-[10px] text-fotus-ink/80">
-                {available.length
-                  ? 'Acompanhe cada etapa da operação.'
-                  : 'Cadastre o primeiro atendimento.'}
-              </p>
-              <button
-                type="button"
-                onClick={() => edit(null)}
-                className="fotus-action inline-flex w-fit shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-xs font-extrabold"
-              >
-                <Plus className="h-4 w-4" />
-                Novo atendimento
-              </button>
             </div>
           </div>
         </div>

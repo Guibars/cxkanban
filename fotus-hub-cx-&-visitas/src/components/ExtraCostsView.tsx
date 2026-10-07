@@ -1,4 +1,4 @@
-import { ChangeEvent, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { CurrentUser } from '../lib/currentUser';
 import { BarChart3, Building2, CalendarDays, CircleDollarSign, FileSpreadsheet, FileText, FileUp, LoaderCircle, Pencil, Plus, Receipt, Search, Sparkles, Tag, Trash2, UserRound, X } from 'lucide-react';
 import { ExtraCost } from '../types';
@@ -249,7 +249,7 @@ export default function ExtraCostsView({ costs, currentUser, canDeleteCosts }: E
                 </div>
                 <div className="mt-4"><strong className="text-sm leading-relaxed text-fotus-ink">{cost.product}</strong>{cost.quantity > 0 && <span className="fotus-pill fotus-pill-neutral ml-2">×{cost.quantity}</span>}<div className="mt-3 flex flex-wrap gap-2"><span className="fotus-pill fotus-pill-blue"><Building2 className="h-3 w-3 shrink-0" />{cost.regional || 'Regional não informada'}</span>{cost.origin && <span className="fotus-pill fotus-pill-neutral">{cost.origin}</span>}</div></div>
                 <div className="mt-4 grid grid-cols-3 gap-2"><CostType label="Produto" value={cost.productCost} /><CostType label="Logística" value={cost.logisticsCost} /><CostType label="Impostos" value={cost.taxCost} /></div>
-                <div className="my-4">{cost.reasonCategory && <span className="fotus-pill fotus-pill-yellow"><Tag className="h-3 w-3 shrink-0" />{cost.reasonCategory}</span>}<p className="mt-3 text-xs leading-relaxed text-fotus-ink/80">{cost.detailedReason || 'Sem observações adicionais.'}</p></div>
+                <div className="my-4">{cost.reasonCategory && <span className="fotus-pill fotus-pill-yellow"><Tag className="h-3 w-3 shrink-0" />{cost.reasonCategory}</span>}<CostReasonPreview reason={cost.detailedReason} /></div>
                 <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-fotus-blue/10 pt-4">
                   {cost.totalCost > 1000 ? <span className="fotus-pill fotus-pill-yellow">Acima de R$ 1.000</span> : <span className="text-[10px] text-fotus-ink/80">Custo registrado</span>}
                   <div className="flex items-center gap-2">
@@ -275,6 +275,32 @@ function Metric({ label, value, icon: Icon, tone }: { label: string; value: stri
 
 function CostRanking({ title, icon: Icon, items, grandTotal }: { title: string; icon: typeof Tag; items: Array<{ label: string; total: number; count: number }>; grandTotal: number }) {
   return <div className="fotus-glass-card min-w-0 rounded-3xl p-4"><h3 className="flex items-center gap-2 text-xs font-extrabold text-fotus-ink"><Icon className="h-4 w-4 text-fotus-blue" />{title}</h3><div className="mt-4 space-y-3">{items.map((item, index) => <div key={item.label}><div className="mb-1 flex items-center justify-between gap-2 text-[11px]"><span className="truncate font-semibold text-fotus-ink">{index + 1}. {item.label} <small className="text-fotus-ink/80">({item.count})</small></span><strong className="shrink-0 text-fotus-ink">{currency(item.total)}</strong></div><div className="h-1.5 overflow-hidden rounded-full bg-fotus-neutral/70"><div className="h-full rounded-full bg-fotus-blue" style={{ width: `${Math.max(5, Math.round((item.total / grandTotal) * 100))}%` }} /></div></div>)}{!items.length && <p className="text-xs text-fotus-ink/80">Sem dados suficientes</p>}</div></div>;
+}
+
+function CostReasonPreview({ reason }: { reason: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [truncated, setTruncated] = useState(false);
+  const paragraphRef = useRef<HTMLParagraphElement>(null);
+  const paragraphId = useId();
+
+  useEffect(() => setExpanded(false), [reason]);
+  useEffect(() => {
+    const paragraph = paragraphRef.current;
+    if (!paragraph) return;
+    const measure = () => {
+      if (!expanded) setTruncated(paragraph.scrollHeight > paragraph.clientHeight + 1);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(paragraph);
+    return () => observer.disconnect();
+  }, [expanded, reason]);
+
+  return <div className="mt-3 min-w-0"><p ref={paragraphRef} id={paragraphId} className={`whitespace-pre-wrap break-words text-xs leading-relaxed text-fotus-ink/80 [overflow-wrap:anywhere] ${expanded ? '' : 'line-clamp-3'}`}>{reason || 'Sem observações adicionais.'}</p>{(truncated || expanded) && <button type="button" aria-expanded={expanded} aria-controls={paragraphId} onClick={() => setExpanded((current) => !current)} className="mt-2 rounded-full border border-fotus-blue/12 bg-white/35 px-3 py-1.5 text-[10px] font-bold text-fotus-blue hover:bg-fotus-yellow/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fotus-blue">{expanded ? 'Ver menos' : 'Ler mais'}</button>}</div>;
 }
 
 function CostType({ label, value }: { label: string; value: number }) {

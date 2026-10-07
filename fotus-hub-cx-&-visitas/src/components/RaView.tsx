@@ -85,21 +85,23 @@ export default function RaView({ cases, currentUser, onNew, onEdit }: RaViewProp
 
   return (
     <div className="space-y-6">
-      <section className="fotus-glass overflow-hidden rounded-[30px]">
+      <section className="relative isolate overflow-hidden rounded-[30px]">
         <div className="relative overflow-hidden bg-fotus-blue">
           <img src="/ra-banner.png" alt="Fotus — ao seu lado, em cada projeto" className="block h-24 w-full object-cover object-[35%_center] sm:h-auto" />
-          <span className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-fotus-blue/20 to-transparent" />
         </div>
-        <div className="fotus-glass relative z-10 mx-3 -mt-4 grid gap-5 rounded-[26px] p-5 sm:mx-6 sm:-mt-6 lg:grid-cols-[1.1fr_1fr] lg:p-6">
-          <div>
-            <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-fotus-blue text-fotus-neutral"><ArchiveRestore className="h-5 w-5" /></span><div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-fotus-blue">Reputação do período</p><h2 className="text-xl font-extrabold text-fotus-ink">Calculadora Reclame Aqui</h2></div></div>
-            <p className="mt-3 max-w-2xl text-xs leading-relaxed text-fotus-ink/80">Nota automática com os pesos oficiais. Entram no cálculo somente reclamações finalizadas e com avaliação completa.</p>
-            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4"><Metric label="Resposta" value={`${formatRaNumber(reputation.responseRate)}%`} /><Metric label="Solução" value={`${formatRaNumber(reputation.solutionRate)}%`} /><Metric label="Nota do cliente" value={reputation.customerScore === null ? '—' : formatRaNumber(reputation.customerScore)} /><Metric label="Voltaria" value={reputation.wouldDoBusinessRate === null ? '—' : `${formatRaNumber(reputation.wouldDoBusinessRate)}%`} /></div>
-            <p className="mt-3 text-[10px] font-bold text-fotus-blue">{reputation.evaluatedCases} caso(s) respondido(s) e avaliado(s) considerado(s) nesta nota.</p>
+        <div className="relative z-10 -mt-3 px-3 pb-3 sm:-mt-4 sm:px-5 sm:pb-5">
+          <div className="overflow-hidden rounded-[26px] bg-fotus-neutral">
+            <div className="fotus-glass grid min-w-0 gap-5 rounded-[inherit] p-5 lg:grid-cols-[1.1fr_1fr] lg:p-6">
+              <div className="min-w-0">
+                <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-fotus-blue text-fotus-neutral"><ArchiveRestore className="h-5 w-5" /></span><div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-fotus-blue">Reputação do período</p><h2 className="text-xl font-extrabold text-fotus-ink">Calculadora Reclame Aqui</h2></div></div>
+                <p className="mt-3 max-w-2xl text-xs leading-relaxed text-fotus-ink/80">Nota automática com os pesos oficiais. Entram no cálculo somente reclamações finalizadas e com avaliação completa.</p>
+                <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4"><Metric label="Resposta" value={`${formatRaNumber(reputation.responseRate)}%`} /><Metric label="Solução" value={`${formatRaNumber(reputation.solutionRate)}%`} /><Metric label="Nota do cliente" value={reputation.customerScore === null ? '—' : formatRaNumber(reputation.customerScore)} /><Metric label="Voltaria" value={reputation.wouldDoBusinessRate === null ? '—' : `${formatRaNumber(reputation.wouldDoBusinessRate)}%`} /></div>
+                <p className="mt-3 text-[10px] font-bold text-fotus-blue">{reputation.evaluatedCases} caso(s) respondido(s) e avaliado(s) considerado(s) nesta nota.</p>
+              </div>
+              <ReputationGauge score={score} classification={reputation.classification} />
+            </div>
           </div>
-          <ReputationGauge score={score} classification={reputation.classification} />
         </div>
-        <div className="h-4 sm:h-6" />
       </section>
 
       <section className="fotus-glass rounded-3xl p-3">

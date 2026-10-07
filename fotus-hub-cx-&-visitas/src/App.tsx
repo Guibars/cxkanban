@@ -56,6 +56,7 @@ const ALL_TABS: MainTab[] = ['visao-geral', 'ocorrencias', 'custos', 'ra', 'visi
 
 const FOTUS_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1787848825/ChatGPT_Image_27_de_ago._de_2026_13_40_18_tzgwxs.png';
 const RA_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1787843527/25-reclame_mnxv8n.png';
+const ISA_LOGO = 'https://res.cloudinary.com/dsctpzqvy/image/upload/v1776894141/I_matvg6.png';
 
 const TAB_COPY: Record<MainTab, { title: string; subtitle: string }> = {
   'visao-geral': { title: 'Visão Geral', subtitle: 'Resumo visual das informações que você tem permissão para acompanhar' },
@@ -334,7 +335,7 @@ export default function App() {
   const tabs = allNavigationTabs.filter((tab) => canView(tab.id));
 
   return (
-    <div className="fotus-app-shell flex min-h-screen font-sans text-fotus-ink">
+    <div className={cn('fotus-app-shell flex min-h-screen font-sans text-fotus-ink', activeTab === 'chat' && 'fotus-chat-active')}>
       <aside className="fotus-app-sidebar fotus-glass-frame sticky top-0 hidden h-screen w-[72px] shrink-0 flex-col border-r border-fotus-neutral/75 px-2 py-3 shadow-[4px_0_24px_rgb(13_81_142_/_0.035)] backdrop-blur-xl sm:flex">
         <div className="flex h-11 items-center justify-center"><img src={FOTUS_LOGO} alt="Fotus" className="h-auto w-10 object-contain" /></div>
         <nav className="mt-4 flex flex-col items-center gap-1.5" aria-label="Navegação principal">
@@ -347,15 +348,15 @@ export default function App() {
             </button>;
           })}
         </nav>
-        <button type="button" onClick={() => setIsIsaChatOpen(true)} title="Abrir ISA" aria-label="Abrir ISA" className="mt-auto flex h-11 w-full items-center justify-center rounded-xl transition-transform hover:-translate-y-0.5"><span className="flex flex-col items-center"><FotusNavIcon kind="isa" className="h-8 w-8" /><span className="text-[8px] font-extrabold tracking-wider text-fotus-blue">ISA</span></span></button>
+        <button type="button" onClick={() => setIsIsaChatOpen(true)} title="Abrir ISA" aria-label="Abrir ISA" className="mt-auto flex h-11 w-full items-center justify-center rounded-xl transition-transform hover:-translate-y-0.5"><img src={ISA_LOGO} alt="ISA" className="h-10 w-10 object-contain drop-shadow-sm" /></button>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="fotus-glass-frame sticky top-0 z-30 border-b border-fotus-neutral/80 px-4 py-3.5 shadow-sm backdrop-blur-xl sm:px-8">
+      <div className="fotus-app-content flex min-w-0 flex-1 flex-col">
+        <header className="fotus-app-header fotus-glass-frame sticky top-0 z-30 shrink-0 border-b border-fotus-neutral/80 px-4 py-3.5 shadow-sm backdrop-blur-xl sm:px-8">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3"><img src={FOTUS_LOGO} alt="Fotus" className="h-9 w-auto object-contain sm:hidden" /><div className="min-w-0"><h1 className="truncate text-base font-extrabold tracking-tight text-fotus-ink sm:text-lg">{TAB_COPY[activeTab].title}</h1><p className="hidden truncate text-xs text-fotus-ink/80 md:block">{TAB_COPY[activeTab].subtitle}</p></div></div>
             <div className="flex items-center gap-2 sm:gap-3">
-              <button type="button" onClick={() => setIsIsaChatOpen(true)} title="Falar com a ISA" className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform hover:scale-105"><span className="flex flex-col items-center"><FotusNavIcon kind="isa" className="h-8 w-8" /><span className="text-[8px] font-extrabold tracking-wider text-fotus-blue">ISA</span></span></button>
+              <button type="button" onClick={() => setIsIsaChatOpen(true)} title="Falar com a ISA" aria-label="Falar com a ISA" className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform hover:scale-105"><img src={ISA_LOGO} alt="ISA" className="h-11 w-11 object-contain drop-shadow-sm" /></button>
               <button type="button" onClick={() => { setChatTarget({ conversationId: chatOverview.unread[0]?.conversationId || 'general', nonce: Date.now() }); setActiveTab('chat'); }} title={chatUnreadTotal ? `${chatUnreadTotal} ${chatUnreadTotal === 1 ? 'mensagem nova' : 'mensagens novas'}` : 'Abrir chat'} aria-label={chatUnreadTotal ? `Abrir ${chatUnreadTotal} ${chatUnreadTotal === 1 ? 'mensagem nova' : 'mensagens novas'} no chat` : 'Abrir chat'} className="relative flex h-10 w-10 items-center justify-center rounded-xl text-fotus-blue hover:bg-fotus-blue/6"><FotusNavIcon kind="notificacoes" className="h-8 w-8" active={chatUnreadTotal > 0} />{chatUnreadTotal > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-fotus-yellow px-1 text-[9px] font-extrabold text-fotus-ink">{chatUnreadTotal > 9 ? '9+' : chatUnreadTotal}</span>}</button>
               <div className="relative border-l border-fotus-blue/20 pl-2 sm:pl-3">
                 <button type="button" onClick={() => setIsProfileMenuOpen((current) => !current)} className="flex items-center gap-2 rounded-xl p-1.5 text-left transition-colors hover:bg-fotus-neutral/40" aria-expanded={isProfileMenuOpen}>
@@ -378,7 +379,7 @@ export default function App() {
           </nav>
         </header>
 
-        <main className="fotus-app-main mx-auto w-full max-w-[1560px] flex-1 px-4 py-5 sm:px-8 sm:py-6">
+        <main className={cn('fotus-app-main mx-auto w-full max-w-[1560px] flex-1 px-4 py-5 sm:px-8 sm:py-6', activeTab === 'chat' && 'fotus-chat-main')}>
           {dataError && <div className="mb-5 rounded-2xl border border-fotus-yellow/25 bg-fotus-yellow/20 p-4 text-xs font-semibold text-fotus-ink">{dataError}</div>}
 
           {canView('visao-geral') && <section hidden={activeTab !== 'visao-geral'}><OverviewView occurrences={visibleOccurrences} costs={visibleCosts} raCases={visibleRaCases} visits={visits} scopeLabel={scopeLabel} canViewOccurrences={canView('ocorrencias')} canViewCosts={canView('custos')} canViewRa={canView('ra')} canViewVisits={canView('visitas')} onNavigate={setActiveTab} /></section>}
@@ -393,7 +394,7 @@ export default function App() {
           {canView('estrutura') && <section hidden={activeTab !== 'estrutura'}><OrganizationView units={organizationUnits} people={organizationPeople} currentUser={user} canManage={access.structurePermissions.canEdit} canCreate={access.structurePermissions.canCreate} canDelete={access.structurePermissions.canDelete} canDeleteLegacy={access.isDeveloper} /></section>}
           {canView('atendimentos') && <section hidden={activeTab !== 'atendimentos'}><ServiceTicketsView tickets={serviceTickets} currentUser={user} agents={occurrenceAgents} /></section>}
           {canView('voc') && <section hidden={activeTab !== 'voc'}><VocView feedback={vocFeedback} currentUser={user} agents={occurrenceAgents} canDelete={access.canDeleteVoc} /></section>}
-          <section hidden={activeTab !== 'chat'}><ChatView currentUser={user} active={activeTab === 'chat'} onlineUserIds={chatOverview.onlineUserIds} unread={chatOverview.unread} target={chatTarget} onRead={(conversationId) => setChatOverview((current) => ({ ...current, unread: current.unread.filter((item) => item.conversationId !== conversationId) }))} /></section>
+          <section className="fotus-chat-section" hidden={activeTab !== 'chat'}><ChatView currentUser={user} active={activeTab === 'chat'} onlineUserIds={chatOverview.onlineUserIds} unread={chatOverview.unread} target={chatTarget} onRead={(conversationId) => setChatOverview((current) => ({ ...current, unread: current.unread.filter((item) => item.conversationId !== conversationId) }))} /></section>
         </main>
 
         <RaModal isOpen={isRaModalOpen} onClose={() => setIsRaModalOpen(false)} caseToEdit={raCaseToEdit} currentUser={user} />
